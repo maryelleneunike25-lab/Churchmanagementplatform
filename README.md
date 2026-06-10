@@ -1,1 +1,11 @@
-# repo-template
+
+  # Church Management Platform
+
+  This is a code bundle for Church Management Platform. The original project is available at https://www.figma.com/design/wXfJnXET1MKOXCZIPGxY82/Church-Management-Platform.
+
+  ## Running the code
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+  
