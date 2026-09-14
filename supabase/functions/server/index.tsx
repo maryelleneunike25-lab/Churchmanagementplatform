@@ -1,5 +1,4 @@
 import { Hono } from "npm:hono";
-import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.tsx";
 import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
@@ -20,17 +19,20 @@ const getSupabaseAnonClient = () => createClient(
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS for all routes and methods
-app.use(
-  "/*",
-  cors({
-    origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
-    maxAge: 600,
-  }),
-);
+// Manual CORS middleware — replaces hono/cors which has a bug with origin:"*" in Deno edge runtime
+app.use("/*", async (c, next) => {
+  const origin = c.req.header("Origin") ?? "*";
+  c.res.headers.set("Access-Control-Allow-Origin", origin);
+  c.res.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  c.res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey, x-client-info");
+  c.res.headers.set("Access-Control-Max-Age", "600");
+  c.res.headers.set("Vary", "Origin");
+  // Handle preflight immediately
+  if (c.req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: c.res.headers });
+  }
+  await next();
+});
 
 // Middleware to verify auth token
 const requireAuth = async (c: any, next: any) => {
@@ -294,6 +296,7 @@ app.post("/make-server-561004a0/auth/signin", async (c) => {
     return c.json({
       success: true,
       accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
       user: userProfile
     });
 
@@ -1436,6 +1439,362 @@ app.delete("/make-server-561004a0/announcements/:id", requireAuth, async (c) => 
   } catch (error) {
     console.log("Delete announcement error:", error);
     return c.json({ error: "Failed to delete announcement: " + error.message }, 500);
+  }
+});
+
+// ===== GALLERY ENDPOINTS =====
+
+const GALLERY_BUCKET = "make-561004a0-gallery";
+
+const ensureGalleryBucket = async () => {
+  const supabase = getSupabaseClient();
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const exists = buckets?.some((b: any) => b.name === GALLERY_BUCKET);
+  if (!exists) {
+    await supabase.storage.createBucket(GALLERY_BUCKET, { public: false });
+  }
+};
+
+// GET all albums with photo counts (public)
+app.get("/make-server-561004a0/gallery/albums", async (c) => {
+  try {
+    const supabase = getSupabaseClient();
+    const albums = await kv.getByPrefix("gallery:album:");
+    const sorted = albums
+      .filter((a: any) => a && a.id)
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+
+    const withCounts = await Promise.all(sorted.map(async (album: any) => {
+      const photos = await kv.getByPrefix(`gallery:photo:${album.id}:`);
+      const validPhotos = photos.filter((p: any) => p && p.id);
+      let coverUrl = null;
+      if (validPhotos.length > 0) {
+        const cover = validPhotos.find((p: any) => p.id === album.coverPhotoId) || validPhotos[0];
+        if (cover?.imagePath) {
+          const { data } = await supabase.storage.from(GALLERY_BUCKET).createSignedUrl(cover.imagePath, 3600);
+          coverUrl = data?.signedUrl || null;
+        }
+      }
+      return { ...album, photoCount: validPhotos.length, coverUrl };
+    }));
+
+    return c.json({ success: true, albums: withCounts });
+  } catch (error) {
+    return c.json({ error: "Failed to get albums: " + error.message }, 500);
+  }
+});
+
+// POST create album (auth)
+app.post("/make-server-561004a0/gallery/albums", requireAuth, async (c) => {
+  try {
+    const { name, description } = await c.req.json();
+    if (!name) return c.json({ error: "Name is required" }, 400);
+    const id = `alb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const albums = await kv.getByPrefix("gallery:album:");
+    const album = {
+      id, name, description: description || "",
+      coverPhotoId: null, order: albums.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await kv.set(`gallery:album:${id}`, album);
+    return c.json({ success: true, album });
+  } catch (error) {
+    return c.json({ error: "Failed to create album: " + error.message }, 500);
+  }
+});
+
+// PUT update album (auth)
+app.put("/make-server-561004a0/gallery/albums/:albumId", requireAuth, async (c) => {
+  try {
+    const albumId = c.req.param("albumId");
+    const updates = await c.req.json();
+    const album = await kv.get(`gallery:album:${albumId}`);
+    if (!album) return c.json({ error: "Album not found" }, 404);
+    const updated = { ...album, ...updates, id: albumId, updatedAt: new Date().toISOString() };
+    await kv.set(`gallery:album:${albumId}`, updated);
+    return c.json({ success: true, album: updated });
+  } catch (error) {
+    return c.json({ error: "Failed to update album: " + error.message }, 500);
+  }
+});
+
+// DELETE album + all its photos (auth)
+app.delete("/make-server-561004a0/gallery/albums/:albumId", requireAuth, async (c) => {
+  try {
+    const albumId = c.req.param("albumId");
+    const supabase = getSupabaseClient();
+    const photos = await kv.getByPrefix(`gallery:photo:${albumId}:`);
+    const paths = photos.filter((p: any) => p?.imagePath).map((p: any) => p.imagePath);
+    if (paths.length > 0) {
+      await supabase.storage.from(GALLERY_BUCKET).remove(paths);
+    }
+    for (const p of photos) {
+      if (p?.id) await kv.del(`gallery:photo:${albumId}:${p.id}`);
+    }
+    await kv.del(`gallery:album:${albumId}`);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: "Failed to delete album: " + error.message }, 500);
+  }
+});
+
+// GET photos in album (public)
+app.get("/make-server-561004a0/gallery/albums/:albumId/photos", async (c) => {
+  try {
+    const albumId = c.req.param("albumId");
+    const supabase = getSupabaseClient();
+    const photos = await kv.getByPrefix(`gallery:photo:${albumId}:`);
+    const sorted = photos
+      .filter((p: any) => p && p.id)
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const withUrls = await Promise.all(sorted.map(async (photo: any) => {
+      if (photo.imagePath) {
+        const { data } = await supabase.storage.from(GALLERY_BUCKET).createSignedUrl(photo.imagePath, 3600);
+        return { ...photo, imageUrl: data?.signedUrl || null };
+      }
+      return photo;
+    }));
+    return c.json({ success: true, photos: withUrls });
+  } catch (error) {
+    return c.json({ error: "Failed to get photos: " + error.message }, 500);
+  }
+});
+
+// POST upload photo to album (auth)
+app.post("/make-server-561004a0/gallery/albums/:albumId/photos", requireAuth, async (c) => {
+  try {
+    await ensureGalleryBucket();
+    const albumId = c.req.param("albumId");
+    const album = await kv.get(`gallery:album:${albumId}`);
+    if (!album) return c.json({ error: "Album not found" }, 404);
+
+    const { imageBase64, imageMimeType, caption } = await c.req.json();
+    if (!imageBase64 || !imageMimeType) return c.json({ error: "Image is required" }, 400);
+
+    const supabase = getSupabaseClient();
+    const photoId = `ph_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const ext = imageMimeType.split("/")[1] || "jpg";
+    const imagePath = `${albumId}/${photoId}.${ext}`;
+    const bytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+    const { error: uploadError } = await supabase.storage
+      .from(GALLERY_BUCKET)
+      .upload(imagePath, bytes, { contentType: imageMimeType, upsert: true });
+    if (uploadError) return c.json({ error: "Upload failed: " + uploadError.message }, 500);
+
+    const photo = {
+      id: photoId, albumId, imagePath, caption: caption || "",
+      createdAt: new Date().toISOString(),
+    };
+    await kv.set(`gallery:photo:${albumId}:${photoId}`, photo);
+
+    // Set as cover if album has no cover yet
+    if (!album.coverPhotoId) {
+      await kv.set(`gallery:album:${albumId}`, { ...album, coverPhotoId: photoId, updatedAt: new Date().toISOString() });
+    }
+
+    return c.json({ success: true, photo });
+  } catch (error) {
+    return c.json({ error: "Failed to upload photo: " + error.message }, 500);
+  }
+});
+
+// ===== TEAM ENDPOINTS =====
+const TEAM_BUCKET = "make-561004a0-gallery";
+
+// GET all team members (public)
+app.get("/make-server-561004a0/team", async (c) => {
+  try {
+    const all = await kv.getByPrefix("team:member:");
+    const members = all.filter((m: any) => m?.id).sort((a: any, b: any) => {
+      const tierOrder: Record<string, number> = {
+        gembala_sidang: 0, penerus_gembala: 1, wakil_gembala: 2, pastoral: 3, koordinator: 4
+      };
+      const tDiff = (tierOrder[a.tier] ?? 99) - (tierOrder[b.tier] ?? 99);
+      return tDiff !== 0 ? tDiff : (a.order ?? 0) - (b.order ?? 0);
+    });
+    const supabase = getSupabaseClient();
+    // Generate signed URLs (3 years) so they work regardless of bucket public setting
+    const withUrls = await Promise.all(members.map(async (m: any) => {
+      let photoUrl = m.photoUrl ?? null;
+      const path = m.photoPath ?? null;
+      if (path) {
+        // Try signed URL first (always works, bypasses RLS)
+        const { data: signed } = await supabase.storage.from(TEAM_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
+        if (signed?.signedUrl) photoUrl = signed.signedUrl;
+        else {
+          const { data: pub } = supabase.storage.from(TEAM_BUCKET).getPublicUrl(path);
+          photoUrl = pub?.publicUrl ?? photoUrl;
+        }
+      }
+      return { ...m, photoUrl };
+    }));
+    return c.json({ success: true, members: withUrls });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// POST create team member (auth)
+app.post("/make-server-561004a0/team", requireAuth, async (c) => {
+  try {
+    const supabase = getSupabaseClient();
+    const body = await c.req.json();
+    const { name, role, tier, spouseName, spouseRole, order, photoUrl: directPhotoUrl, photoBase64, photoMimeType } = body;
+    if (!name || !tier) return c.json({ error: "Name and tier are required" }, 400);
+    const id = body.id || crypto.randomUUID();
+    let photoUrl = directPhotoUrl || null;
+    let photoPath: string | null = null;
+    // Server-side upload from base64 (fallback when direct browser upload failed)
+    if (photoBase64 && photoMimeType) {
+      const ext = photoMimeType.split("/")[1] || "jpg";
+      photoPath = `team/${id}/photo.${ext}`;
+      const bytes = Uint8Array.from(atob(photoBase64), c => c.charCodeAt(0));
+      const { error } = await supabase.storage.from(TEAM_BUCKET).upload(photoPath, bytes, { contentType: photoMimeType, upsert: true });
+      if (!error) {
+        const { data: signed } = await supabase.storage.from(TEAM_BUCKET).createSignedUrl(photoPath, 60 * 60 * 24 * 365 * 3);
+        photoUrl = signed?.signedUrl ?? null;
+      } else {
+        photoPath = null;
+      }
+    }
+    const member = { id, name, role: role || "", tier, spouseName: spouseName || "", spouseRole: spouseRole || "", order: order ?? 0, photoUrl, photoPath, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    await kv.set(`team:member:${id}`, member);
+    return c.json({ success: true, member });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// PUT update team member (auth)
+app.put("/make-server-561004a0/team/:id", requireAuth, async (c) => {
+  try {
+    const supabase = getSupabaseClient();
+    const id = c.req.param("id");
+    const existing = await kv.get(`team:member:${id}`);
+    if (!existing) return c.json({ error: "Member not found" }, 404);
+    const body = await c.req.json();
+    const { name, role, tier, spouseName, spouseRole, order, photoUrl: directPhotoUrl, photoBase64, photoMimeType } = body;
+    let photoUrl = directPhotoUrl !== undefined ? directPhotoUrl : (existing.photoUrl ?? null);
+    // Server-side upload from base64 (fallback)
+    let newPhotoPath = existing.photoPath ?? null;
+    if (photoBase64 && photoMimeType) {
+      const ext = photoMimeType.split("/")[1] || "jpg";
+      newPhotoPath = `team/${id}/photo.${ext}`;
+      const bytes = Uint8Array.from(atob(photoBase64), c => c.charCodeAt(0));
+      const { error } = await supabase.storage.from(TEAM_BUCKET).upload(newPhotoPath, bytes, { contentType: photoMimeType, upsert: true });
+      if (!error) {
+        const { data: signed } = await supabase.storage.from(TEAM_BUCKET).createSignedUrl(newPhotoPath, 60 * 60 * 24 * 365 * 3);
+        photoUrl = signed?.signedUrl ?? null;
+      } else {
+        newPhotoPath = existing.photoPath ?? null;
+      }
+    }
+    const updated = { ...existing, name: name ?? existing.name, role: role ?? existing.role, tier: tier ?? existing.tier, spouseName: spouseName ?? existing.spouseName, spouseRole: spouseRole ?? existing.spouseRole, order: order ?? existing.order, photoUrl, photoPath: newPhotoPath, updatedAt: new Date().toISOString() };
+    await kv.set(`team:member:${id}`, updated);
+    return c.json({ success: true, member: updated });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE team member (auth)
+app.delete("/make-server-561004a0/team/:id", requireAuth, async (c) => {
+  try {
+    const supabase = getSupabaseClient();
+    const id = c.req.param("id");
+    const member = await kv.get(`team:member:${id}`);
+    if (!member) return c.json({ error: "Member not found" }, 404);
+    const paths = [member.photoPath, member.spousePhotoPath].filter(Boolean);
+    if (paths.length) await supabase.storage.from(TEAM_BUCKET).remove(paths);
+    await kv.del(`team:member:${id}`);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// DELETE photo from album (auth)
+app.delete("/make-server-561004a0/gallery/albums/:albumId/photos/:photoId", requireAuth, async (c) => {
+  try {
+    const albumId = c.req.param("albumId");
+    const photoId = c.req.param("photoId");
+    const supabase = getSupabaseClient();
+    const photo = await kv.get(`gallery:photo:${albumId}:${photoId}`);
+    if (!photo) return c.json({ error: "Photo not found" }, 404);
+    if (photo.imagePath) {
+      await supabase.storage.from(GALLERY_BUCKET).remove([photo.imagePath]);
+    }
+    await kv.del(`gallery:photo:${albumId}:${photoId}`);
+
+    // If deleted photo was the cover, reassign to first remaining photo
+    const album = await kv.get(`gallery:album:${albumId}`);
+    if (album?.coverPhotoId === photoId) {
+      const remaining = await kv.getByPrefix(`gallery:photo:${albumId}:`);
+      const next = remaining.find((p: any) => p?.id && p.id !== photoId);
+      await kv.set(`gallery:album:${albumId}`, { ...album, coverPhotoId: next?.id || null, updatedAt: new Date().toISOString() });
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: "Failed to delete photo: " + error.message }, 500);
+  }
+});
+
+// ===== REGISTRATION ENDPOINTS =====
+
+// Public: submit a registration form
+app.post("/make-server-561004a0/registrations", async (c) => {
+  try {
+    const { type, title, data } = await c.req.json();
+    if (!type || !data) return c.json({ error: "Missing fields" }, 400);
+    const id = crypto.randomUUID();
+    const record = { id, type, title, data, submittedAt: new Date().toISOString(), status: "baru" };
+    await kv.set(`registration:${type}:${id}`, record);
+    return c.json({ success: true, id });
+  } catch (error) {
+    return c.json({ error: "Failed to save: " + error.message }, 500);
+  }
+});
+
+// Auth: list all registrations (optionally filter by type)
+app.get("/make-server-561004a0/registrations", requireAuth, async (c) => {
+  try {
+    const type = c.req.query("type");
+    const prefix = type ? `registration:${type}:` : "registration:";
+    const all = await kv.getByPrefix(prefix);
+    const sorted = all.filter(Boolean).sort((a: any, b: any) =>
+      new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
+    return c.json({ success: true, registrations: sorted });
+  } catch (error) {
+    return c.json({ error: "Failed to fetch: " + error.message }, 500);
+  }
+});
+
+// Auth: update status
+app.put("/make-server-561004a0/registrations/:id", requireAuth, async (c) => {
+  try {
+    const { id } = c.req.param();
+    const { status, type } = await c.req.json();
+    const record = await kv.get(`registration:${type}:${id}`);
+    if (!record) return c.json({ error: "Not found" }, 404);
+    await kv.set(`registration:${type}:${id}`, { ...record, status });
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: "Failed to update: " + error.message }, 500);
+  }
+});
+
+// Auth: delete a registration
+app.delete("/make-server-561004a0/registrations/:id", requireAuth, async (c) => {
+  try {
+    const { id } = c.req.param();
+    const type = c.req.query("type");
+    await kv.del(`registration:${type}:${id}`);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: "Failed to delete: " + error.message }, 500);
   }
 });
 

@@ -46,9 +46,6 @@ export default function AnnouncementManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useAutoRefresh(fetchAll, 30_000);
-
   const headers = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${accessToken || publicAnonKey}`,
@@ -70,6 +67,7 @@ export default function AnnouncementManagement() {
     }
   };
 
+  useAutoRefresh(fetchAll, 30_000);
   useEffect(() => { fetchAll(); }, []);
 
   const toBase64 = (file: File): Promise<string> =>

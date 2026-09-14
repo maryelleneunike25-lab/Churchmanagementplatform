@@ -246,32 +246,3 @@ Semua perubahan tercatat di audit log:
 }
 ```
 
-## ⚠️ Troubleshooting
-
-### **Menu tidak muncul untuk admin**
-**Penyebab:** Permissions belum diset
-**Solusi:** Super Admin update permissions untuk user tersebut
-
-### **User tidak bisa login setelah approved**
-**Penyebab:** Status mungkin suspended
-**Solusi:** Super Admin cek status user, activate jika suspended
-
-### **Error "Access denied: Super Admin only"**
-**Penyebab:** User bukan Super Admin mencoba akses restricted menu
-**Solusi:** Login dengan Super Admin atau minta Super Admin berikan permissions
-
-## 🚀 Deployment
-
-**WAJIB: Deploy ulang Edge Function setelah update!**
-
-1. Klik Settings (⚙️)
-2. Scroll ke "Supabase"
-3. Klik "Redeploy"
-4. Tunggu "deployed successfully"
-5. Refresh aplikasi
-
----
-
-**SISTEM PERMISSIONS SUDAH SIAP DIGUNAKAN!** 🎉
-
-Super Admin sekarang memiliki kontrol penuh untuk mengelola akses semua admin dengan granular permissions.

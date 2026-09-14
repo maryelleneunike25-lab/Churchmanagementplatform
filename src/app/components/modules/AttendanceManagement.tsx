@@ -1,16 +1,21 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { useAuth } from '../../contexts/AuthContext';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
   Save, Download, Calendar, Users, TrendingDown, ChevronLeft, ChevronRight,
   BarChart3, ClipboardList, AlertTriangle, Loader2
 } from 'lucide-react';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const KV = 'kv_store_561004a0';
 
 const SERVICE_TYPES = ['Ibadah Minggu', 'Ibadah Pemuda', 'Persekutuan Doa', 'Sekolah Minggu'];
+
+function toMember(r: { key: string; value: unknown }): Member | null {
+  const m = r.value as any;
+  if (!m?.name) return null;
+  return { id: m.id || r.key, name: m.name, address: m.address, phone: m.phone, status: m.status };
+}
 
 interface Member {
   id: string;
@@ -70,11 +75,10 @@ function Avatar({ name, present }: { name: string; present: boolean }) {
 }
 
 // ─── Daily Input Tab ─────────────────────────────────────────────────────────
-function DailyInput({ members, sessions, onSessionSaved, authHeader }: {
+function DailyInput({ members, sessions, onSessionSaved }: {
   members: Member[];
   sessions: Session[];
   onSessionSaved: () => void;
-  authHeader: Record<string, string>;
 }) {
   const today = fmt(new Date());
   const [date, setDate] = useState(today);
@@ -115,11 +119,20 @@ function DailyInput({ members, sessions, onSessionSaved, authHeader }: {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API_URL}/attendance/sessions`, {
-        method: 'POST',
-        headers: { ...authHeader, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, serviceType, presentIds: [...present] }),
-      });
+      const session: Session = {
+        id: sessionId,
+        date,
+        serviceType,
+        presentIds: [...present],
+        savedAt: new Date().toISOString(),
+      };
+      const key = `attendance_session:${sessionId}`;
+      const { data: existing } = await supabaseAdmin.from(KV).select('key').eq('key', key).maybeSingle();
+      if (existing) {
+        await supabaseAdmin.from(KV).update({ value: session }).eq('key', key);
+      } else {
+        await supabaseAdmin.from(KV).insert({ key, value: session });
+      }
       setSaved(true);
       onSessionSaved();
     } finally {
@@ -460,26 +473,33 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function AttendanceManagement() {
-  const { accessToken } = useAuth();
   const [tab, setTab] = useState<'input' | 'report'>('input');
   const [members, setMembers] = useState<Member[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const authHeader = { Authorization: `Bearer ${accessToken || publicAnonKey}` };
-
   const loadData = async () => {
     try {
       setLoading(true);
-      const [mRes, sRes] = await Promise.all([
-        fetch(`${API_URL}/congregation/members`, { headers: authHeader }),
-        fetch(`${API_URL}/attendance/sessions`, { headers: authHeader }),
+      const [{ data: d1 }, { data: d2 }, { data: sessData }] = await Promise.all([
+        supabaseAdmin.from(KV).select('key,value').like('key', 'congregation:member:%'),
+        supabaseAdmin.from(KV).select('key,value').like('key', 'member:%'),
+        supabaseAdmin.from(KV).select('key,value').like('key', 'attendance_session:%'),
       ]);
-      const mData = await mRes.json();
-      const sData = await sRes.json();
-      if (mData.members) setMembers(mData.members.filter((m: any) => m?.name));
-      if (sData.sessions) setSessions(sData.sessions);
+      const seen = new Set<string>();
+      const memberList: Member[] = [];
+      for (const r of [...(d1 || []), ...(d2 || [])]) {
+        const m = toMember(r);
+        if (m && !seen.has(m.id)) { seen.add(m.id); memberList.push(m); }
+      }
+      memberList.sort((a, b) => a.name.localeCompare(b.name, 'id'));
+      setMembers(memberList);
+
+      const sessionList: Session[] = (sessData || [])
+        .map((r: any) => r.value as Session)
+        .filter((s: any) => s?.id);
+      setSessions(sessionList);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -529,7 +549,7 @@ export default function AttendanceManagement() {
       )}
 
       {tab === 'input' ? (
-        <DailyInput members={members} sessions={sessions} onSessionSaved={loadData} authHeader={authHeader} />
+        <DailyInput members={members} sessions={sessions} onSessionSaved={loadData} />
       ) : (
         <ReportSummary members={members} sessions={sessions} />
       )}

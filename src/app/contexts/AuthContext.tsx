@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '../../lib/supabaseClient';
 
 interface User {
   id: string;
@@ -22,8 +22,15 @@ interface User {
     editKeuangan?: boolean;
     viewInventaris?: boolean;
     editInventaris?: boolean;
-    viewReports?: boolean;
+    viewPelayan?: boolean;
+    editPelayan?: boolean;
     viewPengumuman?: boolean;
+    editPengumuman?: boolean;
+    viewGaleri?: boolean;
+    editGaleri?: boolean;
+    viewPendaftaran?: boolean;
+    viewReports?: boolean;
+    komisiLeaderOf?: string[];
   };
   createdAt: string;
   updatedAt: string;
@@ -42,20 +49,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey,
-  {
-    auth: {
-      persistSession: true,       // store session in localStorage
-      autoRefreshToken: true,     // auto-refresh before expiry
-      detectSessionInUrl: false,
-    }
-  }
-);
-
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
-
 const SESSION_KEY = 'gjt_cms_session';
 
 function saveLocalSession(token: string, user: User) {
@@ -67,15 +61,22 @@ function saveLocalSession(token: string, user: User) {
 function loadLocalSession(): { token: string; user: User } | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
+    if (!raw || typeof raw !== 'string' || raw.trim()[0] !== '{') {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
     const parsed = JSON.parse(raw);
-    // expire local cache after 7 days
-    if (Date.now() - parsed.savedAt > 7 * 24 * 60 * 60 * 1000) {
+    if (!parsed?.token || !parsed?.user) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    if (Date.now() - (parsed.savedAt || 0) > 30 * 24 * 60 * 60 * 1000) {
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
     return parsed;
   } catch {
+    localStorage.removeItem(SESSION_KEY);
     return null;
   }
 }
@@ -84,47 +85,84 @@ function clearLocalSession() {
   try { localStorage.removeItem(SESSION_KEY); } catch {}
 }
 
+// Load user profile from kv_store using the authenticated Supabase client.
+// Works as long as "auth_read_user_profiles" RLS policy exists (SQL migration).
+async function loadUserProfile(userId: string): Promise<User | null> {
+  try {
+    const { data, error } = await supabase
+      .from('kv_store_561004a0')
+      .select('value')
+      .eq('key', `user:${userId}`)
+      .single();
+    if (error || !data?.value) return null;
+    return data.value as User;
+  } catch {
+    return null;
+  }
+}
+
+// Fallback: try the edge function GET /auth/session (works since GET is not blocked)
+async function loadUserViaEdgeFunction(token: string): Promise<User | null> {
+  try {
+    const res = await fetch(`${API_URL}/auth/session`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const text = await res.text();
+    if (!text?.trim().startsWith('{')) return null;
+    const result = JSON.parse(text);
+    return result.success && result.user ? result.user : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [serverStatus, setServerStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
 
-  // ── Validate token & fetch user profile from API ─────────────────────────
+  // Validate token and load user profile — tries kv_store first, falls back to edge function GET
   const hydrateUser = useCallback(async (token: string): Promise<boolean> => {
     try {
-      const res = await fetch(`${API_URL}/auth/session`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json();
-      if (result.success && result.user) {
-        setUser(result.user);
+      // First try direct kv_store read (requires auth_read_user_profiles RLS policy)
+      const { data: { user: authUser } } = await supabase.auth.getUser(token);
+      if (authUser) {
+        const profile = await loadUserProfile(authUser.id);
+        if (profile) {
+          setUser(profile);
+          setAccessToken(token);
+          saveLocalSession(token, profile);
+          return true;
+        }
+      }
+
+      // Fallback: edge function GET (always works for GET requests)
+      const profile = await loadUserViaEdgeFunction(token);
+      if (profile) {
+        setUser(profile);
         setAccessToken(token);
-        saveLocalSession(token, result.user);
+        saveLocalSession(token, profile);
         return true;
       }
     } catch {}
     return false;
   }, []);
 
-  // ── Initial session check ─────────────────────────────────────────────────
   const checkSession = useCallback(async () => {
     try {
-      // 1. Try Supabase browser session first (survives reload)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         const ok = await hydrateUser(session.access_token);
         if (ok) return;
       }
 
-      // 2. Fall back to our localStorage cache
       const local = loadLocalSession();
       if (local?.token) {
         const ok = await hydrateUser(local.token);
         if (ok) return;
       }
 
-      // Nothing worked – user must log in
       setUser(null);
       setAccessToken(null);
       clearLocalSession();
@@ -137,10 +175,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [hydrateUser]);
 
   useEffect(() => {
+    try {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('gjt_') && k !== SESSION_KEY) localStorage.removeItem(k);
+        if (k.includes('supabase') || k.includes('sb-')) {
+          try { JSON.parse(localStorage.getItem(k) || '{}'); } catch { localStorage.removeItem(k); }
+        }
+      });
+    } catch {}
+
     checkServerHealth();
     checkSession();
 
-    // Listen for Supabase auth state changes (token refresh, sign-out from another tab)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' && session?.access_token) {
         await hydrateUser(session.access_token);
@@ -166,69 +212,106 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ── Sign in ───────────────────────────────────────────────────────────────
+  // ── Sign in: direct Supabase auth (bypasses broken edge function POST) ────────
   const signIn = async (email: string, password: string) => {
     try {
-      // Call custom API (handles approval checks, role loading, etc.)
-      const res = await fetch(`${API_URL}/auth/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        return { success: false, error: result.error || 'Sign in failed', status: result.status };
+      if (error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('invalid') || msg.includes('credentials') || msg.includes('password')) {
+          return { success: false, error: 'Email atau password salah.' };
+        }
+        return { success: false, error: error.message };
       }
 
-      // Also sign in via Supabase client so browser session is stored
-      const { data: sbData } = await supabase.auth.signInWithPassword({ email, password });
-      const token = sbData?.session?.access_token || result.accessToken;
-
-      if (token) {
-        setAccessToken(token);
-        setUser(result.user);
-        saveLocalSession(token, result.user);
+      if (!data.session) {
+        return { success: false, error: 'Login gagal, coba lagi.' };
       }
+
+      const token = data.session.access_token;
+      const refreshToken = data.session.refresh_token;
+
+      // Load user profile from kv_store (needs auth_read_user_profiles RLS policy)
+      // or fall back to edge function GET
+      let profile: User | null = await loadUserProfile(data.user.id);
+      if (!profile) {
+        profile = await loadUserViaEdgeFunction(token);
+      }
+
+      if (!profile) {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Profil pengguna tidak ditemukan. Hubungi Super Admin.' };
+      }
+
+      if (profile.status === 'pending') {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Akun kamu masih menunggu persetujuan Super Admin.', status: 'pending' };
+      }
+      if (profile.status === 'rejected') {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Akun kamu ditolak oleh Super Admin.', status: 'rejected' };
+      }
+      if (profile.status === 'suspended') {
+        await supabase.auth.signOut();
+        return { success: false, error: 'Akun kamu disuspend. Hubungi Super Admin.', status: 'suspended' };
+      }
+
+      await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
+      setAccessToken(token);
+      setUser(profile);
+      saveLocalSession(token, profile);
 
       return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Terjadi kesalahan. Coba lagi.' };
     }
   };
 
-  // ── Sign up ───────────────────────────────────────────────────────────────
+  // ── Sign up: direct Supabase auth + SECURITY DEFINER RPC for profile ─────────
   const signUp = async (data: { email: string; password: string; name: string; role?: string; churchBranchId?: string }) => {
     try {
-      const res = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify(data),
+      // Create Supabase auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: { data: { name: data.name } },
       });
 
-      let result;
-      try { result = await res.json(); } catch {
-        return { success: false, error: 'Server response error. Pastikan Supabase Edge Function sudah di-deploy!' };
+      if (authError) {
+        if (authError.message.toLowerCase().includes('already registered')) {
+          return { success: false, error: 'Email sudah terdaftar. Coba login atau gunakan email lain.' };
+        }
+        return { success: false, error: authError.message };
       }
 
-      if (!res.ok) {
-        return { success: false, error: result?.error || result?.message || `HTTP ${res.status}` };
+      if (!authData.user) {
+        return { success: false, error: 'Pendaftaran gagal. Coba lagi.' };
       }
 
-      return { success: true, message: result.message };
-    } catch (error: any) {
-      return { success: false, error: `Network error: ${error.message}` };
+      // Create pending profile via SECURITY DEFINER function (bypasses RLS)
+      const { error: rpcError } = await supabase.rpc('create_user_profile', {
+        p_id: authData.user.id,
+        p_email: data.email,
+        p_name: data.name,
+        p_role: data.role || 'admin',
+        p_church_branch_id: data.churchBranchId || '',
+      });
+
+      if (rpcError) {
+        console.error('Profile creation error:', rpcError);
+        // Don't block the user — profile might be created later
+      }
+
+      return {
+        success: true,
+        message: 'Pendaftaran berhasil! Akun kamu menunggu persetujuan Super Admin.',
+      };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Terjadi kesalahan. Coba lagi.' };
     }
   };
 
-  // ── Sign out ──────────────────────────────────────────────────────────────
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);

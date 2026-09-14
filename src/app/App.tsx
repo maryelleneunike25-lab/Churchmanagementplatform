@@ -1,13 +1,27 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LoginPage from './components/auth/LoginPage';
-import SignupPage from './components/auth/SignupPage';
-import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
-import JemaatPage from './pages/JemaatPage';
+import { useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import LoginPage from "./components/auth/LoginPage";
+import SignupPage from "./components/auth/SignupPage";
+import SuperAdminDashboard from "./components/dashboard/SuperAdminDashboard";
+import JemaatPage from "./pages/JemaatPage";
+import TentangPage from "./pages/TentangPage";
+import GaleriPage from "./pages/GaleriPage";
+import LokasiPage from "./pages/LokasiPage";
+import ServicePage from "./pages/ServicePage";
 
 // Protected Route Component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -50,8 +64,12 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Route - Jemaat Info Page */}
+          {/* Public Routes */}
           <Route path="/jemaat" element={<JemaatPage />} />
+          <Route path="/tentang" element={<TentangPage />} />
+          <Route path="/service" element={<ServicePage />} />
+          <Route path="/galeri" element={<GaleriPage />} />
+          <Route path="/lokasi" element={<LokasiPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminRoute />} />
@@ -68,10 +86,16 @@ export default function App() {
           />
 
           {/* Default Route - Redirect to Jemaat Page */}
-          <Route path="/" element={<Navigate to="/jemaat" replace />} />
+          <Route
+            path="/"
+            element={<Navigate to="/jemaat" replace />}
+          />
 
           {/* 404 - Redirect to Jemaat */}
-          <Route path="*" element={<Navigate to="/jemaat" replace />} />
+          <Route
+            path="*"
+            element={<Navigate to="/jemaat" replace />}
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
