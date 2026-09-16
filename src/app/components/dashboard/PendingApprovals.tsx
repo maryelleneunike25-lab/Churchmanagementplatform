@@ -10,7 +10,7 @@ type PendingUser = {
   created_at: string;
 };
 
-export function PendingApprovals() {
+export default function PendingApprovals() {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
