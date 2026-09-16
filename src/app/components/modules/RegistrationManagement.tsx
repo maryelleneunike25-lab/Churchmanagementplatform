@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabase } from '../../../lib/supabaseClient';
 import { Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -46,7 +46,7 @@ export default function RegistrationManagement() {
     setLoading(true);
     setLoadError('');
     try {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('kv_store_561004a0')
         .select('key, value')
         .like('key', 'registration:%')
@@ -65,7 +65,7 @@ export default function RegistrationManagement() {
 
   const updateStatus = async (reg: Registration, status: string) => {
     const updated = { ...reg, status };
-    await supabaseAdmin
+    await supabase
       .from('kv_store_561004a0')
       .update({ value: updated })
       .eq('key', `registration:${reg.type}:${reg.id}`);
@@ -74,7 +74,7 @@ export default function RegistrationManagement() {
 
   const deleteReg = async (reg: Registration) => {
     if (!confirm('Hapus pendaftaran ini?')) return;
-    await supabaseAdmin
+    await supabase
       .from('kv_store_561004a0')
       .delete()
       .eq('key', `registration:${reg.type}:${reg.id}`);

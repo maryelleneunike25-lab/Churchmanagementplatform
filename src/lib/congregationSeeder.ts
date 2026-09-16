@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabaseAdmin';
+import { supabase } from './supabase';
 
 const KV = 'kv_store_561004a0';
 
@@ -2225,8 +2225,8 @@ export async function importCongregationData(
 ): Promise<{ inserted: number; skipped: number; errors: number }> {
   // 1. Load all existing member names
   const [{ data: d1 }, { data: d2 }] = await Promise.all([
-    supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
-    supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
+    supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
+    supabase.from(KV).select('key, value').like('key', 'member:%'),
   ]);
 
   const existingNames = new Set<string>();
@@ -2290,7 +2290,7 @@ export async function importCongregationData(
       };
 
       const primaryKey = `congregation:member:${id}`;
-      const { error } = await supabaseAdmin.from(KV).insert({ key: primaryKey, value: record });
+      const { error } = await supabase.from(KV).insert({ key: primaryKey, value: record });
       if (error) { console.error('Insert error', s.name, error); errors++; }
       else { existingNames.add(nameLower); inserted++; }
     } catch (e) {

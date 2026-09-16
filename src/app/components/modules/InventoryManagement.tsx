@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   Plus, Pencil, Trash2, Package, X, Check, Loader2, AlertCircle,
   Tag, ChevronDown, ArrowUpDown, Search, FolderOpen, Settings2,
@@ -56,9 +56,9 @@ const emptyForm = () => ({
 async function uploadInventoryPhoto(file: File, itemId: string, idx: number): Promise<string | null> {
   const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
   const path = `inventory/${itemId}/photo_${idx}_${Date.now()}.${ext}`;
-  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type });
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type });
   if (error) { console.error('Upload error:', error.message); return null; }
-  const { data: signed } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
+  const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
   return signed?.signedUrl ?? null;
 }
 
@@ -238,7 +238,7 @@ export default function InventoryManagement() {
   const loadItems = async () => {
     try {
       setLoading(true);
-      const { data, error: err } = await supabaseAdmin
+      const { data, error: err } = await supabase
         .from(KV).select('key, value').like('key', 'inventory:%').order('key', { ascending: false });
       if (err) throw err;
       const list: InventoryItem[] = (data ?? []).map((r: any) => r.value as InventoryItem).filter(Boolean);
@@ -305,10 +305,10 @@ export default function InventoryManagement() {
         updatedAt: now,
       };
       if (editId) {
-        const { error: err } = await supabaseAdmin.from(KV).update({ value: item }).eq('key', `inventory:${editId}`);
+        const { error: err } = await supabase.from(KV).update({ value: item }).eq('key', `inventory:${editId}`);
         if (err) throw err;
       } else {
-        const { error: err } = await supabaseAdmin.from(KV).insert({ key: `inventory:${itemId}`, value: item });
+        const { error: err } = await supabase.from(KV).insert({ key: `inventory:${itemId}`, value: item });
         if (err) throw err;
       }
       setShowForm(false);
@@ -319,7 +319,7 @@ export default function InventoryManagement() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error: err } = await supabaseAdmin.from(KV).delete().eq('key', `inventory:${id}`);
+      const { error: err } = await supabase.from(KV).delete().eq('key', `inventory:${id}`);
       if (err) throw err;
       setDeleteConfirm(null);
       await loadItems();

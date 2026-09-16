@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   Plus, Trash2, Edit2, X, FolderOpen, Image, Upload,
   ChevronLeft, Check, AlertTriangle, ImageOff,
@@ -28,7 +28,7 @@ interface Photo {
 }
 
 async function getSignedUrl(path: string): Promise<string> {
-  const { data } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
   return data?.signedUrl ?? '';
 }
 
@@ -63,7 +63,7 @@ export default function GalleryManagement() {
   // ── Load albums from kv_store ────────────────────────────────────────────
   const loadAlbums = async () => {
     try {
-      const { data, error: err } = await supabaseAdmin
+      const { data, error: err } = await supabase
         .from(KV)
         .select('key, value')
         .like('key', 'gallery:album:%')
@@ -79,7 +79,7 @@ export default function GalleryManagement() {
   const loadPhotos = async (album: Album) => {
     setPhotosLoading(true);
     try {
-      const { data, error: err } = await supabaseAdmin
+      const { data, error: err } = await supabase
         .from(KV)
         .select('key, value')
         .like('key', `gallery:photo:${album.id}:%`)
@@ -109,11 +109,11 @@ export default function GalleryManagement() {
     try {
       if (editingAlbum) {
         const updated = { ...editingAlbum, ...albumForm };
-        await supabaseAdmin.from(KV).update({ value: updated }).eq('key', `gallery:album:${editingAlbum.id}`);
+        await supabase.from(KV).update({ value: updated }).eq('key', `gallery:album:${editingAlbum.id}`);
       } else {
         const id = crypto.randomUUID();
         const album: Album = { id, ...albumForm, coverUrl: null, photoCount: 0, createdAt: new Date().toISOString() };
-        await supabaseAdmin.from(KV).insert({ key: `gallery:album:${id}`, value: album });
+        await supabase.from(KV).insert({ key: `gallery:album:${id}`, value: album });
       }
       setShowAlbumModal(false);
       loadAlbums();
@@ -126,20 +126,20 @@ export default function GalleryManagement() {
     setDeletingAlbum(true);
     try {
       // delete all photos in storage
-      const { data: files } = await supabaseAdmin.storage.from(BUCKET).list(`gallery/${deleteAlbum.id}`);
+      const { data: files } = await supabase.storage.from(BUCKET).list(`gallery/${deleteAlbum.id}`);
       if (files && files.length > 0) {
         const paths = files.map((f: any) => `gallery/${deleteAlbum.id}/${f.name}`);
-        await supabaseAdmin.storage.from(BUCKET).remove(paths);
+        await supabase.storage.from(BUCKET).remove(paths);
       }
       // delete photo metadata from kv
-      const { data: photoRows } = await supabaseAdmin.from(KV).select('key').like('key', `gallery:photo:${deleteAlbum.id}:%`);
+      const { data: photoRows } = await supabase.from(KV).select('key').like('key', `gallery:photo:${deleteAlbum.id}:%`);
       if (photoRows && photoRows.length > 0) {
         for (const row of photoRows) {
-          await supabaseAdmin.from(KV).delete().eq('key', row.key);
+          await supabase.from(KV).delete().eq('key', row.key);
         }
       }
       // delete album
-      await supabaseAdmin.from(KV).delete().eq('key', `gallery:album:${deleteAlbum.id}`);
+      await supabase.from(KV).delete().eq('key', `gallery:album:${deleteAlbum.id}`);
       setDeleteAlbum(null);
       loadAlbums();
     } catch (e: any) { setError(e.message); }
@@ -165,18 +165,18 @@ export default function GalleryManagement() {
       const photoId = crypto.randomUUID();
       const path = `gallery/${openAlbum.id}/${photoId}.${ext}`;
 
-      const { error: upErr } = await supabaseAdmin.storage.from(BUCKET).upload(path, uploadFile, { upsert: true, contentType: uploadFile.type });
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, uploadFile, { upsert: true, contentType: uploadFile.type });
       if (upErr) throw upErr;
 
       const imageUrl = await getSignedUrl(path);
 
       const photo: Photo = { id: photoId, albumId: openAlbum.id, path, imageUrl, caption: uploadCaption, createdAt: new Date().toISOString() };
-      await supabaseAdmin.from(KV).insert({ key: `gallery:photo:${openAlbum.id}:${photoId}`, value: photo });
+      await supabase.from(KV).insert({ key: `gallery:photo:${openAlbum.id}:${photoId}`, value: photo });
 
       // update album photoCount + coverUrl
       const newCount = openAlbum.photoCount + 1;
       const updatedAlbum = { ...openAlbum, photoCount: newCount, coverUrl: openAlbum.coverUrl ?? imageUrl };
-      await supabaseAdmin.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
+      await supabase.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
       setOpenAlbum(updatedAlbum);
 
       setUploadFile(null); setUploadPreview(null); setUploadCaption('');
@@ -190,14 +190,14 @@ export default function GalleryManagement() {
     if (!deletePhoto || !openAlbum) return;
     setDeletingPhoto(true);
     try {
-      await supabaseAdmin.storage.from(BUCKET).remove([deletePhoto.path]);
-      await supabaseAdmin.from(KV).delete().eq('key', `gallery:photo:${openAlbum.id}:${deletePhoto.id}`);
+      await supabase.storage.from(BUCKET).remove([deletePhoto.path]);
+      await supabase.from(KV).delete().eq('key', `gallery:photo:${openAlbum.id}:${deletePhoto.id}`);
       const newCount = Math.max(0, openAlbum.photoCount - 1);
       const isCover = openAlbum.coverUrl === deletePhoto.imageUrl;
       const remaining = photos.filter(p => p.id !== deletePhoto.id);
       const newCover = isCover ? (remaining[0]?.imageUrl ?? null) : openAlbum.coverUrl;
       const updatedAlbum = { ...openAlbum, photoCount: newCount, coverUrl: newCover };
-      await supabaseAdmin.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
+      await supabase.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
       setOpenAlbum(updatedAlbum);
       setDeletePhoto(null);
       loadPhotos(openAlbum);

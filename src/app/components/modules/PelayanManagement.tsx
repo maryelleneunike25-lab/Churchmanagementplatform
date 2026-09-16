@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabase } from '../../../lib/supabaseClient';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { Search, Phone, User } from 'lucide-react';
 
@@ -79,8 +79,8 @@ export default function PelayanManagement() {
       };
 
       const [{ data: d1 }, { data: d2 }] = await Promise.all([
-        supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
-        supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
+        supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
+        supabase.from(KV).select('key, value').like('key', 'member:%'),
       ]);
 
       const seen = new Set<string>();

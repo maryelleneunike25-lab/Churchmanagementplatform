@@ -1,0 +1,2106 @@
+diff --git a/src/app/components/auth/LoginPage.tsx b/src/app/components/auth/LoginPage.tsx
+index 93498bc..a7a310c 100644
+--- a/src/app/components/auth/LoginPage.tsx
++++ b/src/app/components/auth/LoginPage.tsx
+@@ -5,13 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+ import DeploymentAlert from '../DeploymentAlert';
+ 
+ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup: () => void }) {
+-  const { signIn, serverStatus } = useAuth();
++  const { signIn, signInWithGoogle, serverStatus } = useAuth();
+   const [email, setEmail] = useState('');
+   const [password, setPassword] = useState('');
+   const [error, setError] = useState('');
+   const [loading, setLoading] = useState(false);
+   const [showDeploymentAlert, setShowDeploymentAlert] = useState(false);
+ 
++  const handleGoogleAuth = async () => {
++    setLoading(true);
++    const result = await signInWithGoogle();
++    if (!result.success) {
++      setError(result.error || 'Login Google gagal');
++      setLoading(false);
++    }
++  };
++
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+     setError('');
+@@ -99,6 +108,23 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup: () =
+             >
+               {loading ? 'Memproses...' : 'Masuk'}
+             </Button>
++            <div className="flex items-center my-4">
++              <div className="flex-grow border-t border-gray-300"></div>
++              <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">atau</span>
++              <div className="flex-grow border-t border-gray-300"></div>
++            </div>
++            
++            <Button
++              fullWidth
++              variant="outlined"
++              size="large"
++              onClick={handleGoogleAuth}
++              disabled={loading}
++              sx={ mb: 2 }
++            >
++              Masuk dengan Google
++            </Button>
++
+ 
+             <div className="text-center mt-4">
+               <button
+diff --git a/src/app/components/auth/SignupPage.tsx b/src/app/components/auth/SignupPage.tsx
+index 845fa3a..a5dbbac 100644
+--- a/src/app/components/auth/SignupPage.tsx
++++ b/src/app/components/auth/SignupPage.tsx
+@@ -6,7 +6,7 @@ import DeploymentAlert from '../DeploymentAlert';
+ import gbiLogo from '../../../imports/pngegg__1_-1.png';
+ 
+ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
+-  const { signUp, serverStatus } = useAuth();
++  const { signUp, signInWithGoogle, serverStatus } = useAuth();
+   const [formData, setFormData] = useState({
+     email: '',
+     password: '',
+@@ -19,6 +19,15 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin: () =>
+   const [loading, setLoading] = useState(false);
+   const [showDeploymentAlert, setShowDeploymentAlert] = useState(false);
+ 
++  const handleGoogleAuth = async () => {
++    setLoading(true);
++    const result = await signInWithGoogle();
++    if (!result.success) {
++      setError(result.error || 'Login Google gagal');
++      setLoading(false);
++    }
++  };
++
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+     setError('');
+diff --git a/src/app/components/modules/AttendanceManagement.tsx b/src/app/components/modules/AttendanceManagement.tsx
+index 995615e..5caec42 100644
+--- a/src/app/components/modules/AttendanceManagement.tsx
++++ b/src/app/components/modules/AttendanceManagement.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect, useMemo, useCallback } from 'react';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
+ import {
+   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
+   Save, Download, Calendar, Users, TrendingDown, ChevronLeft, ChevronRight,
+diff --git a/src/app/components/modules/CongregationManagement.tsx b/src/app/components/modules/CongregationManagement.tsx
+index 0bcd389..158e99c 100644
+--- a/src/app/components/modules/CongregationManagement.tsx
++++ b/src/app/components/modules/CongregationManagement.tsx
+@@ -1,10 +1,12 @@
+-import { useState, useEffect, useMemo } from 'react';
++import React, { useState, useEffect, useMemo } from 'react';
+ import * as XLSX from 'xlsx';
+ import { useAuth } from '../../contexts/AuthContext';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
+ import { Plus, Edit, Trash2, Users, Search, SortAsc, SortDesc, Download, ChevronDown, ChevronRight, X, Check, AlertTriangle, Upload } from 'lucide-react';
+-import { importCongregationData } from '../../../lib/congregationSeeder';
++import { parseExcelFile, executeImport, ParsedMember, ImportPreview } from '../../../lib/congregationImport';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
++import { useKomsels } from '../../../lib/komsel';
++import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES } from '../../../lib/age';
+ import { projectId } from '/utils/supabase/info';
+ import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
+ 
+@@ -34,7 +36,6 @@ function getAge(birthDate: string): number {
+   return age;
+ }
+ 
+-type AgeGroup = 'Children' | 'Teens' | 'Youth' | 'Adults' | 'Seniors' | '-';
+ 
+ function getAgeGroup(birthDate: string): AgeGroup {
+   const age = getAge(birthDate);
+@@ -52,23 +53,8 @@ function formatDate(iso: string) {
+   catch { return iso; }
+ }
+ 
+-const AGE_GROUP_STYLES: Record<string, string> = {
+-  Children: 'bg-pink-100 text-pink-700',
+-  Teens:    'bg-purple-100 text-purple-700',
+-  Youth:    'bg-blue-100 text-blue-700',
+-  Adults:   'bg-emerald-100 text-emerald-700',
+-  Seniors:  'bg-amber-100 text-amber-700',
+-  '-':      'bg-gray-100 text-gray-400',
+-};
+ 
+ const AGE_GROUPS: AgeGroup[] = ['Children', 'Teens', 'Youth', 'Adults', 'Seniors'];
+-const AGE_GROUP_LABELS: Record<string, string> = {
+-  Children: 'Children (0–12)',
+-  Teens:    'Teens (13–17)',
+-  Youth:    'Youth (18–30)',
+-  Adults:   'Adults (31–59)',
+-  Seniors:  'Seniors (60+)',
+-};
+ 
+ // Divisions that link directly to Jadwal Pelayanan (matching ScheduleManagement)
+ // These get a dot indicator in the form — only these keys sync to the schedule dropdowns
+@@ -115,8 +101,12 @@ interface Member {
+   baptismDate?: string;
+   status: 'active' | 'inactive' | 'new';
+   pelayan?: string[];
+-  komselJoined?: boolean;
+-  pksName?: string;
++    familyId?: string;
++    spouseName?: string;
++    children?: {name: string, birthDate?: string}[];
++    parentId?: string;
++    parentName?: string;
++  komselId?: string;
+   ibadah?: string[];
+   baptismStatus?: 'sudah' | 'belum';
+   birthPlace?: string;
+@@ -137,7 +127,7 @@ const BLANK_FORM = {
+   baptismDate: '',
+   baptismStatus: 'belum' as 'sudah' | 'belum',
+   status: 'new' as 'active' | 'inactive' | 'new',
+-  pelayan: [] as string[], komselJoined: false, pksName: '',
++  pelayan: [] as string[], komselId: '',
+   additionalPhones: [] as string[],
+   ibadah: [] as string[],
+   spouseName: '',
+@@ -154,127 +144,60 @@ interface FamilyGroup {
+ }
+ 
+ function buildFamilyGroups(members: Member[]): FamilyGroup[] {
++  const groups = new Map<string, FamilyGroup>();
+   const byName = new Map<string, Member>();
+   for (const m of members) byName.set(m.name.toLowerCase().trim(), m);
+ 
+-  // Build reverse spouse map: who lists this member as their spouse
+-  const spouseOf = new Map<string, Member>(); // key = member name → value = their spouse
++  // Group by familyId first
+   for (const m of members) {
+-    if (m.spouseName?.trim()) {
+-      spouseOf.set(m.spouseName.toLowerCase().trim(), m);
++    if (m.familyId) {
++      if (!groups.has(m.familyId)) {
++        groups.set(m.familyId, { key: m.familyId, parent: m, dbChildren: [], nameOnlyChildren: [] });
++      } else {
++        const g = groups.get(m.familyId)!;
++        // Assign roles (spouse, child) based on age or marital status if known, otherwise just collect them
++        // For simplicity, if they are married/widowed they are parents, else children
++        if (m.maritalStatus !== 'single' && !g.coParent) {
++          g.coParent = m;
++        } else {
++          g.dbChildren.push(m);
++        }
++      }
+     }
+   }
+ 
++  // Fallback for members without familyId but with children defined
+   const processedCoParents = new Set<string>();
+-  const groups: FamilyGroup[] = [];
+-
+   for (const parent of members) {
+-    if ((parent.children || []).length === 0) continue; // only actual parents
+-    if (processedCoParents.has(parent.id)) continue;    // already grouped as co-parent
++    if (parent.familyId) continue;
++    if ((parent.children || []).length === 0) continue; 
++    if (processedCoParents.has(parent.id)) continue;    
+ 
+     let coParent: Member | undefined;
+-    // Forward lookup: parent's spouseName field
+-    if (parent.spouseName?.trim()) {
+-      const sp = byName.get(parent.spouseName.toLowerCase().trim());
+-      if (sp && !processedCoParents.has(sp.id)) coParent = sp;
++    if (parent.spouseName) {
++      coParent = byName.get(parent.spouseName.toLowerCase().trim());
++      if (coParent) processedCoParents.add(coParent.id);
+     }
+-    // Reverse lookup: someone who lists this parent as their spouse
+-    if (!coParent) {
+-      const rev = spouseOf.get(parent.name.toLowerCase().trim());
+-      if (rev && rev.id !== parent.id && !processedCoParents.has(rev.id)) coParent = rev;
+-    }
+-    if (coParent && (coParent.children || []).length > 0) processedCoParents.add(coParent.id);
+-
+-    // Union children from both parents
+-    const allChildNames = new Set<string>();
+-    for (const c of parent.children || []) if (c.name.trim()) allChildNames.add(c.name.trim());
+-    for (const c of coParent?.children || []) if (c.name.trim()) allChildNames.add(c.name.trim());
+ 
+     const dbChildren: Member[] = [];
+     const nameOnlyChildren: { name: string; birthDate?: string }[] = [];
+-    for (const childName of allChildNames) {
+-      const child = byName.get(childName.toLowerCase());
+-      if (child) {
+-        dbChildren.push(child);
+-      } else {
+-        const c1 = (parent.children || []).find(c => c.name.trim() === childName);
+-        const c2 = (coParent?.children || []).find(c => c.name.trim() === childName);
+-        nameOnlyChildren.push({ name: childName, birthDate: (c1 || c2)?.birthDate });
+-      }
++
++    for (const c of parent.children || []) {
++      const dbMatch = byName.get(c.name.toLowerCase().trim());
++      if (dbMatch) dbChildren.push(dbMatch);
++      else nameOnlyChildren.push(c);
+     }
+ 
+-    groups.push({ key: parent.id, parent, coParent, dbChildren, nameOnlyChildren });
++    groups.set(parent.id, {
++      key: parent.id,
++      parent,
++      coParent,
++      dbChildren,
++      nameOnlyChildren
++    });
+   }
+ 
+-  return groups.sort((a, b) => a.parent.name.localeCompare(b.parent.name, 'id'));
+-}
+-
+-function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) => void; onDelete?: (id: string) => void }) {
+-  const age = getAge(m.birthDate);
+-  const ageGroup = getAgeGroup(m.birthDate);
+-  const allPhones = m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : [];
+-  return (
+-    <div className="flex items-start gap-2.5">
+-      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+-        {m.name.charAt(0)}
+-      </div>
+-      <div className="flex-1 min-w-0">
+-        <div className="flex items-center gap-1.5 flex-wrap">
+-          <p className="font-semibold text-sm text-gray-900">{m.name}</p>
+-          {m.nickname && <span className="text-xs text-gray-400">({m.nickname})</span>}
+-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${AGE_GROUP_STYLES[ageGroup]}`}>{ageGroup}</span>
+-          {age >= 0 && <span className="text-xs text-gray-400">{age} thn</span>}
+-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : m.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+-            {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Non-aktif'}
+-          </span>
+-        </div>
+-        {m.pksName && <p className="text-xs text-purple-600 font-medium mt-0.5">PKS {m.pksName}</p>}
+-        {allPhones.length > 0 && (
+-          <div className="flex flex-wrap gap-2 mt-0.5">
+-            {allPhones.map((ph, i) => (
+-              <a key={i} href={`https://wa.me/${ph.replace(/\D/g, '').replace(/^0/, '62')}`} target="_blank" rel="noopener noreferrer"
+-                className="text-xs text-emerald-600 hover:underline">{ph}</a>
+-            ))}
+-          </div>
+-        )}
+-        {m.ibadah && m.ibadah.length > 0 && (
+-          <div className="flex flex-wrap gap-1 mt-0.5">
+-            {m.ibadah.map(code => (
+-              <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">
+-                {IBADAH_LABEL[code] || code}
+-              </span>
+-            ))}
+-          </div>
+-        )}
+-        {m.pelayan && m.pelayan.length > 0 && (
+-          <div className="flex flex-wrap gap-1 mt-0.5">
+-            {m.pelayan.slice(0, 3).map((p, i) => {
+-              const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
+-              return div
+-                ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
+-                : <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">{p}</span>;
+-            })}
+-            {m.pelayan.length > 3 && <span className="text-[10px] text-gray-400">+{m.pelayan.length - 3}</span>}
+-          </div>
+-        )}
+-      </div>
+-      {(onEdit || onDelete) && (
+-        <div className="flex gap-1 flex-shrink-0">
+-          {onEdit && <button onClick={() => onEdit(m)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={12} /></button>}
+-          {onDelete && <button onClick={() => onDelete(m.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={12} /></button>}
+-        </div>
+-      )}
+-    </div>
+-  );
+-}
+-
+-interface FamilyViewProps {
+-  members: Member[];
+-  expandedFamilies: Set<string>;
+-  onToggle: (id: string) => void;
+-  onEdit?: (m: Member) => void;
+-  onDelete?: (id: string) => void;
+-  onCreateChild?: (name: string, birthDate?: string) => void;
++  return Array.from(groups.values());
+ }
+ 
+ function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onCreateChild }: FamilyViewProps) {
+@@ -368,7 +291,7 @@ function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onC
+ export default function CongregationManagement() {
+   const { accessToken, user } = useAuth();
+   const [members, setMembers] = useState<Member[]>([]);
+-  const [pksNames, setPksNames] = useState<string[]>([]);
++  const { komsels } = useKomsels();
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState('');
+ 
+@@ -395,6 +318,7 @@ export default function CongregationManagement() {
+   const [ibadahFilter, setIbadahFilter] = useState<string>('All');
+   const [exportDropdown, setExportDropdown] = useState(false);
+   const [importing, setImporting] = useState(false);
++  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+   const [importProgress, setImportProgress] = useState<{ done: number; total: number; label: string } | null>(null);
+   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; errors: number } | null>(null);
+   const [syncing, setSyncing] = useState(false);
+@@ -519,15 +443,33 @@ export default function CongregationManagement() {
+   };
+ 
+   // ── Open dialog ───────────────────────────────────────────────────────────
+-  const handleImport = async () => {
++  const fileInputRef = React.useRef<HTMLInputElement>(null);
++
++  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
++    const file = e.target.files?.[0];
++    if (!file) return;
+     setImporting(true);
+-    setImportResult(null);
+-    setImportProgress({ done: 0, total: 0, label: 'Memulai...' });
+     try {
+-      const result = await importCongregationData((done, total, label) => {
+-        setImportProgress({ done, total, label });
++      const preview = await parseExcelFile(file);
++      setImportPreview(preview);
++    } catch (e: any) {
++      alert('Error parsing Excel: ' + e.message);
++    } finally {
++      setImporting(false);
++      if (fileInputRef.current) fileInputRef.current.value = '';
++    }
++  };
++
++  const handleConfirmImport = async () => {
++    if (!importPreview) return;
++    setImporting(true);
++    setImportProgress({ done: 0, total: importPreview.valid.length, label: 'Menyimpan ke database...' });
++    try {
++      await executeImport(importPreview.valid, (done, total) => {
++        setImportProgress({ done, total, label: `Menyimpan ${done}/${total}...` });
+       });
+-      setImportResult(result);
++      setImportResult({ inserted: importPreview.valid.length, skipped: 0, errors: 0 });
++      setImportPreview(null);
+       await loadMembers();
+     } catch (e: any) {
+       setImportResult({ inserted: 0, skipped: 0, errors: 1 });
+@@ -549,8 +491,7 @@ export default function CongregationManagement() {
+         baptismDate: member.baptismDate || '',
+         baptismStatus: member.baptismStatus || 'belum',
+         status: member.status,
+-        pelayan: member.pelayan || [], komselJoined: member.komselJoined || false,
+-        pksName: member.pksName || '',
++        pelayan: member.pelayan || [], komselId: member.komselId || '',
+         additionalPhones: (member.phones || []).slice(1),
+         ibadah: member.ibadah || [],
+         spouseName: member.spouseName || '',
+@@ -590,8 +531,7 @@ export default function CongregationManagement() {
+         baptismDate: formData.baptismDate || undefined,
+         status: formData.status,
+         pelayan: formData.pelayan,
+-        komselJoined: formData.komselJoined,
+-        pksName: formData.pksName,
++        komselId: formData.komselId || undefined,
+         birthPlace: formData.birthPlace.trim() || undefined,
+         baptismStatus: formData.baptismStatus,
+         ibadah: formData.ibadah.length > 0 ? formData.ibadah : undefined,
+@@ -685,9 +625,14 @@ export default function CongregationManagement() {
+         }
+       }
+       // Add new memberships
+-      for (const komisiId of targetKomisiIds) {
+-        if (!existingKomisiIds.includes(komisiId)) {
+-          const joinId = crypto.randomUUID();
++        const age = getAge(record.birthDate || '');
++        for (const komisiId of targetKomisiIds) {
++          if (!existingKomisiIds.includes(komisiId)) {
++            // Apply hardcoded age rules for specific komisi only
++            if (komisiId === 'sekolah-minggu' && age >= 0 && age > 12) continue;
++            if (komisiId === 'teens' && age >= 0 && (age < 13 || age > 17)) continue;
++
++            const joinId = crypto.randomUUID();
+           await supabaseAdmin.from(KV).insert({
+             key: `komisi:${komisiId}:member:${joinId}`,
+             value: { id: joinId, jemaatId: id, komisiId, name: record.name, phone: record.phone || (record.phones || [])[0] || '', address: record.address || '', birthDate: record.birthDate || '', joinedAt: now },
+@@ -849,8 +794,7 @@ export default function CongregationManagement() {
+       'Alamat Domisili': m.address || '',
+       'Status': m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif',
+       'Pelayan': (m.pelayan || []).join(', '),
+-      'Komsel': m.komselJoined ? 'Ya' : 'Tidak',
+-      'PKS': m.pksName || '',
++      'Komsel/PKS': komsels.find(k => k.id === m.komselId)?.name || '',
+       'Ibadah': (m.ibadah || []).join(', '),
+       'Pasangan': m.spouseName || '',
+       'Anak': (m.children || []).map(c => c.name).join(', '),
+@@ -901,12 +845,11 @@ export default function CongregationManagement() {
+           </div>
+           {canEdit && (
+             <>
+-              <button onClick={handleImport} disabled={importing || syncing}
+-                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-3 py-2 rounded-xl text-sm font-medium shadow-sm transition-colors">
+-                {importing
+-                  ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+-                  : <Upload size={14} />}
+-                Import Data
++              <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
++              <button onClick={() => fileInputRef.current?.click()} disabled={importing || syncing}
++                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-3 py-2 rounded-xl text-sm font-medium shadow-sm transition-colors">
++                  {importing ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
++                  Import Data
+               </button>
+               <button onClick={handleBulkSync} disabled={syncing || importing || members.length === 0}
+                 title="Sync semua data ibadah → Komisi (jalankan sekali setelah import)"
+@@ -932,6 +875,52 @@ export default function CongregationManagement() {
+         </div>
+       )}
+ 
++      
++      {/* Import Preview Dialog */}
++      {importPreview && (
++        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
++          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 max-h-[90vh] flex flex-col">
++            <h2 className="text-xl font-bold mb-4">Preview Import Data</h2>
++            <div className="flex-1 overflow-auto border border-gray-200 rounded-xl mb-4">
++              <table className="w-full text-left text-sm">
++                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
++                  <tr>
++                    <th className="px-4 py-2 font-semibold">Baris</th>
++                    <th className="px-4 py-2 font-semibold">Nama</th>
++                    <th className="px-4 py-2 font-semibold">Keluarga</th>
++                    <th className="px-4 py-2 font-semibold">Telepon</th>
++                  </tr>
++                </thead>
++                <tbody className="divide-y divide-gray-100">
++                  {importPreview.errors.map((err, i) => (
++                    <tr key={`err-${i}`} className="bg-red-50">
++                      <td className="px-4 py-2 text-red-600 font-medium">{err.row}</td>
++                      <td className="px-4 py-2 text-red-600" colSpan={3}>Error: {err.error}</td>
++                    </tr>
++                  ))}
++                  {importPreview.valid.map((v, i) => (
++                    <tr key={`v-${i}`}>
++                      <td className="px-4 py-2 text-gray-500">{v._rowNumber}</td>
++                      <td className="px-4 py-2 font-medium">{v.name} {v.nickname && <span className="text-gray-400">({v.nickname})</span>}</td>
++                      <td className="px-4 py-2">
++                        {v.familyId ? <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Family Linked</span> : '-'}
++                      </td>
++                      <td className="px-4 py-2">{v.phone || '-'}</td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++            <div className="flex justify-end gap-3 mt-auto">
++              <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-xl font-medium border border-gray-200">Batal</button>
++              <button onClick={handleConfirmImport} disabled={importing} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-sm hover:bg-blue-700 disabled:bg-gray-300">
++                {importing ? 'Menyimpan...' : `Konfirmasi Import (${importPreview.valid.length} data)`}
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++
+       {importProgress && (
+         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
+           <div className="flex items-center justify-between mb-1.5">
+@@ -1454,26 +1443,19 @@ export default function CongregationManagement() {
+                 </div>
+ 
+                 {/* Komsel */}
+-                <div className="flex items-center gap-3 pt-2">
+-                  <label className="flex items-center gap-2 cursor-pointer">
+-                    <div className={`relative w-10 h-5 rounded-full transition-colors ${formData.komselJoined ? 'bg-blue-500' : 'bg-gray-200'}`}
+-                      onClick={() => setFormData(p => ({ ...p, komselJoined: !p.komselJoined }))}>
+-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${formData.komselJoined ? 'translate-x-5' : 'translate-x-0.5'}`} />
+-                    </div>
+-                    <span className="text-sm font-medium text-gray-700">Sudah Join Komsel</span>
+-                  </label>
+-                </div>
+-                {/* PKS */}
+-                {formData.komselJoined && (
+                   <div className="col-span-2">
+-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama PKS</label>
+-                    <select value={formData.pksName} onChange={e => setFormData(p => ({ ...p, pksName: e.target.value }))}
+-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+-                      <option value="">-- Pilih PKS --</option>
+-                      {pksNames.map(n => <option key={n} value={n}>{n}</option>)}
++                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Komsel/PKS</label>
++                    <select 
++                      value={formData.komselId || ''} 
++                      onChange={e => setFormData(p => ({ ...p, komselId: e.target.value }))}
++                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
++                    >
++                      <option value="">-- Pilih Komsel --</option>
++                      {komsels.map(k => (
++                        <option key={k.id} value={k.id}>{k.pksName || k.name}</option>
++                      ))}
+                     </select>
+                   </div>
+-                )}
+ 
+                 {/* Pelayan Section */}
+                 <div className="col-span-2">
+diff --git a/src/app/components/modules/GalleryManagement.tsx b/src/app/components/modules/GalleryManagement.tsx
+index f9a8162..ed62e0f 100644
+--- a/src/app/components/modules/GalleryManagement.tsx
++++ b/src/app/components/modules/GalleryManagement.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect, useRef } from 'react';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { supabase } from '../../../lib/supabaseClient';
+ import {
+   Plus, Trash2, Edit2, X, FolderOpen, Image, Upload,
+   ChevronLeft, Check, AlertTriangle, ImageOff,
+@@ -28,7 +28,7 @@ interface Photo {
+ }
+ 
+ async function getSignedUrl(path: string): Promise<string> {
+-  const { data } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
++  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
+   return data?.signedUrl ?? '';
+ }
+ 
+@@ -63,7 +63,7 @@ export default function GalleryManagement() {
+   // ── Load albums from kv_store ────────────────────────────────────────────
+   const loadAlbums = async () => {
+     try {
+-      const { data, error: err } = await supabaseAdmin
++      const { data, error: err } = await supabase
+         .from(KV)
+         .select('key, value')
+         .like('key', 'gallery:album:%')
+@@ -79,7 +79,7 @@ export default function GalleryManagement() {
+   const loadPhotos = async (album: Album) => {
+     setPhotosLoading(true);
+     try {
+-      const { data, error: err } = await supabaseAdmin
++      const { data, error: err } = await supabase
+         .from(KV)
+         .select('key, value')
+         .like('key', `gallery:photo:${album.id}:%`)
+@@ -109,11 +109,11 @@ export default function GalleryManagement() {
+     try {
+       if (editingAlbum) {
+         const updated = { ...editingAlbum, ...albumForm };
+-        await supabaseAdmin.from(KV).update({ value: updated }).eq('key', `gallery:album:${editingAlbum.id}`);
++        await supabase.from(KV).update({ value: updated }).eq('key', `gallery:album:${editingAlbum.id}`);
+       } else {
+         const id = crypto.randomUUID();
+         const album: Album = { id, ...albumForm, coverUrl: null, photoCount: 0, createdAt: new Date().toISOString() };
+-        await supabaseAdmin.from(KV).insert({ key: `gallery:album:${id}`, value: album });
++        await supabase.from(KV).insert({ key: `gallery:album:${id}`, value: album });
+       }
+       setShowAlbumModal(false);
+       loadAlbums();
+@@ -126,20 +126,20 @@ export default function GalleryManagement() {
+     setDeletingAlbum(true);
+     try {
+       // delete all photos in storage
+-      const { data: files } = await supabaseAdmin.storage.from(BUCKET).list(`gallery/${deleteAlbum.id}`);
++      const { data: files } = await supabase.storage.from(BUCKET).list(`gallery/${deleteAlbum.id}`);
+       if (files && files.length > 0) {
+         const paths = files.map((f: any) => `gallery/${deleteAlbum.id}/${f.name}`);
+-        await supabaseAdmin.storage.from(BUCKET).remove(paths);
++        await supabase.storage.from(BUCKET).remove(paths);
+       }
+       // delete photo metadata from kv
+-      const { data: photoRows } = await supabaseAdmin.from(KV).select('key').like('key', `gallery:photo:${deleteAlbum.id}:%`);
++      const { data: photoRows } = await supabase.from(KV).select('key').like('key', `gallery:photo:${deleteAlbum.id}:%`);
+       if (photoRows && photoRows.length > 0) {
+         for (const row of photoRows) {
+-          await supabaseAdmin.from(KV).delete().eq('key', row.key);
++          await supabase.from(KV).delete().eq('key', row.key);
+         }
+       }
+       // delete album
+-      await supabaseAdmin.from(KV).delete().eq('key', `gallery:album:${deleteAlbum.id}`);
++      await supabase.from(KV).delete().eq('key', `gallery:album:${deleteAlbum.id}`);
+       setDeleteAlbum(null);
+       loadAlbums();
+     } catch (e: any) { setError(e.message); }
+@@ -165,18 +165,18 @@ export default function GalleryManagement() {
+       const photoId = crypto.randomUUID();
+       const path = `gallery/${openAlbum.id}/${photoId}.${ext}`;
+ 
+-      const { error: upErr } = await supabaseAdmin.storage.from(BUCKET).upload(path, uploadFile, { upsert: true, contentType: uploadFile.type });
++      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, uploadFile, { upsert: true, contentType: uploadFile.type });
+       if (upErr) throw upErr;
+ 
+       const imageUrl = await getSignedUrl(path);
+ 
+       const photo: Photo = { id: photoId, albumId: openAlbum.id, path, imageUrl, caption: uploadCaption, createdAt: new Date().toISOString() };
+-      await supabaseAdmin.from(KV).insert({ key: `gallery:photo:${openAlbum.id}:${photoId}`, value: photo });
++      await supabase.from(KV).insert({ key: `gallery:photo:${openAlbum.id}:${photoId}`, value: photo });
+ 
+       // update album photoCount + coverUrl
+       const newCount = openAlbum.photoCount + 1;
+       const updatedAlbum = { ...openAlbum, photoCount: newCount, coverUrl: openAlbum.coverUrl ?? imageUrl };
+-      await supabaseAdmin.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
++      await supabase.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
+       setOpenAlbum(updatedAlbum);
+ 
+       setUploadFile(null); setUploadPreview(null); setUploadCaption('');
+@@ -190,14 +190,14 @@ export default function GalleryManagement() {
+     if (!deletePhoto || !openAlbum) return;
+     setDeletingPhoto(true);
+     try {
+-      await supabaseAdmin.storage.from(BUCKET).remove([deletePhoto.path]);
+-      await supabaseAdmin.from(KV).delete().eq('key', `gallery:photo:${openAlbum.id}:${deletePhoto.id}`);
++      await supabase.storage.from(BUCKET).remove([deletePhoto.path]);
++      await supabase.from(KV).delete().eq('key', `gallery:photo:${openAlbum.id}:${deletePhoto.id}`);
+       const newCount = Math.max(0, openAlbum.photoCount - 1);
+       const isCover = openAlbum.coverUrl === deletePhoto.imageUrl;
+       const remaining = photos.filter(p => p.id !== deletePhoto.id);
+       const newCover = isCover ? (remaining[0]?.imageUrl ?? null) : openAlbum.coverUrl;
+       const updatedAlbum = { ...openAlbum, photoCount: newCount, coverUrl: newCover };
+-      await supabaseAdmin.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
++      await supabase.from(KV).update({ value: updatedAlbum }).eq('key', `gallery:album:${openAlbum.id}`);
+       setOpenAlbum(updatedAlbum);
+       setDeletePhoto(null);
+       loadPhotos(openAlbum);
+diff --git a/src/app/components/modules/InventoryManagement.tsx b/src/app/components/modules/InventoryManagement.tsx
+index 1960164..13dacdf 100644
+--- a/src/app/components/modules/InventoryManagement.tsx
++++ b/src/app/components/modules/InventoryManagement.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect, useRef } from 'react';
+ import { useAuth } from '../../contexts/AuthContext';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { supabase } from '../../../lib/supabaseClient';
+ import {
+   Plus, Pencil, Trash2, Package, X, Check, Loader2, AlertCircle,
+   Tag, ChevronDown, ArrowUpDown, Search, FolderOpen, Settings2,
+@@ -56,9 +56,9 @@ const emptyForm = () => ({
+ async function uploadInventoryPhoto(file: File, itemId: string, idx: number): Promise<string | null> {
+   const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+   const path = `inventory/${itemId}/photo_${idx}_${Date.now()}.${ext}`;
+-  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type });
++  const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type });
+   if (error) { console.error('Upload error:', error.message); return null; }
+-  const { data: signed } = await supabaseAdmin.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
++  const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 3);
+   return signed?.signedUrl ?? null;
+ }
+ 
+@@ -238,7 +238,7 @@ export default function InventoryManagement() {
+   const loadItems = async () => {
+     try {
+       setLoading(true);
+-      const { data, error: err } = await supabaseAdmin
++      const { data, error: err } = await supabase
+         .from(KV).select('key, value').like('key', 'inventory:%').order('key', { ascending: false });
+       if (err) throw err;
+       const list: InventoryItem[] = (data ?? []).map((r: any) => r.value as InventoryItem).filter(Boolean);
+@@ -305,10 +305,10 @@ export default function InventoryManagement() {
+         updatedAt: now,
+       };
+       if (editId) {
+-        const { error: err } = await supabaseAdmin.from(KV).update({ value: item }).eq('key', `inventory:${editId}`);
++        const { error: err } = await supabase.from(KV).update({ value: item }).eq('key', `inventory:${editId}`);
+         if (err) throw err;
+       } else {
+-        const { error: err } = await supabaseAdmin.from(KV).insert({ key: `inventory:${itemId}`, value: item });
++        const { error: err } = await supabase.from(KV).insert({ key: `inventory:${itemId}`, value: item });
+         if (err) throw err;
+       }
+       setShowForm(false);
+@@ -319,7 +319,7 @@ export default function InventoryManagement() {
+ 
+   const handleDelete = async (id: string) => {
+     try {
+-      const { error: err } = await supabaseAdmin.from(KV).delete().eq('key', `inventory:${id}`);
++      const { error: err } = await supabase.from(KV).delete().eq('key', `inventory:${id}`);
+       if (err) throw err;
+       setDeleteConfirm(null);
+       await loadItems();
+diff --git a/src/app/components/modules/KomisiManagement.tsx b/src/app/components/modules/KomisiManagement.tsx
+index e32b8ff..cc2ab44 100644
+--- a/src/app/components/modules/KomisiManagement.tsx
++++ b/src/app/components/modules/KomisiManagement.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect, useMemo, useCallback } from 'react';
+ import * as XLSX from 'xlsx';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
+ import { useAuth } from '../../contexts/AuthContext';
+ import { projectId } from '/utils/supabase/info';
+ import {
+@@ -31,6 +31,7 @@ export interface KomisiMember {
+   phone: string;
+   address?: string;
+   birthDate?: string;
++  role?: 'anggota' | 'pengurus' | 'guru';
+   joinedAt: string;
+   jemaatId?: string;
+   komisiId: KomisiId;
+@@ -52,6 +53,7 @@ interface JemaatMember {
+   phone?: string;
+   address?: string;
+   birthDate?: string;
++  role?: 'anggota' | 'pengurus' | 'guru';
+ }
+ 
+ interface MatchResult {
+@@ -146,7 +148,7 @@ export default function KomisiManagement() {
+   // Member form
+   const [showMemberForm, setShowMemberForm] = useState(false);
+   const [editMember, setEditMember] = useState<KomisiMember | null>(null);
+-  const [memberForm, setMemberForm] = useState({ name: '', phone: '', address: '', birthDate: '' });
++  const [memberForm, setMemberForm] = useState({ name: '', phone: '', address: '', birthDate: '', role: 'anggota' as 'anggota' | 'pengurus' | 'guru' });
+   const [savingMember, setSavingMember] = useState(false);
+   const [selectedJemaatId, setSelectedJemaatId] = useState('');
+   const [linkSearch, setLinkSearch] = useState('');
+@@ -280,14 +282,14 @@ export default function KomisiManagement() {
+ 
+   const openAddMember = () => {
+     setEditMember(null);
+-    setMemberForm({ name: '', phone: '', address: '', birthDate: '' });
++    setMemberForm({ name: '', phone: '', address: '', birthDate: '', role: 'anggota' });
+     setSelectedJemaatId(''); setLinkSearch('');
+     setShowMemberForm(true);
+   };
+ 
+   const openEditMember = (m: KomisiMember) => {
+     setEditMember(m);
+-    setMemberForm({ name: m.name, phone: m.phone, address: m.address || '', birthDate: m.birthDate || '' });
++    setMemberForm({ name: m.name, phone: m.phone, address: m.address || '', birthDate: m.birthDate || '', role: m.role || 'anggota' });
+     setSelectedJemaatId(m.jemaatId || ''); setLinkSearch('');
+     setShowMemberForm(true);
+   };
+@@ -301,8 +303,9 @@ export default function KomisiManagement() {
+         id, komisiId: activeKomisi,
+         name: memberForm.name.trim(),
+         phone: memberForm.phone.trim(),
+-        address: memberForm.address.trim(),
+-        birthDate: memberForm.birthDate,
++          address: memberForm.address.trim(),
++          birthDate: memberForm.birthDate,
++          role: memberForm.role,
+         joinedAt: editMember?.joinedAt || new Date().toISOString(),
+         ...(selectedJemaatId ? { jemaatId: selectedJemaatId } : {}),
+       };
+@@ -381,6 +384,7 @@ export default function KomisiManagement() {
+       'No. Telepon': m.phone,
+       'Alamat Domisili': m.address || '',
+       'Tanggal Lahir': m.birthDate || '',
++      'Peran': m.role === 'pengurus' ? 'Pengurus' : m.role === 'guru' ? 'Guru' : 'Anggota',
+       'Bergabung': formatDate(m.joinedAt),
+       'Status Jemaat Umum': m.jemaatId && jemaatMap[m.jemaatId] ? 'Terdaftar' : 'Belum di database umum',
+       'Komisi': komisiInfo.label,
+@@ -661,7 +665,7 @@ export default function KomisiManagement() {
+               {/* Auto-suggestion banner */}
+               {!selectedJemaatId && autoSuggestion && (
+                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-start gap-3">
+-                  <Zap size={16} className="text-indigo-600 flex-shrink-0 mt-0.5" />
++                  <Activity size={16} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+                   <div className="flex-1 min-w-0">
+                     <p className="text-xs font-semibold text-indigo-800">Ditemukan di database jemaat umum</p>
+                     <p className="text-xs text-indigo-700 mt-0.5">
+@@ -684,11 +688,20 @@ export default function KomisiManagement() {
+                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+               </div>
+               <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal Lahir</label>
+-                <input type="date" value={memberForm.birthDate} onChange={e => setMemberForm(p => ({ ...p, birthDate: e.target.value }))}
+-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-                <p className="text-xs text-gray-400 mt-1">Isi untuk membantu pencocokan otomatis</p>
+-              </div>
++                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal Lahir</label>
++                  <input type="date" value={memberForm.birthDate} onChange={e => setMemberForm(p => ({ ...p, birthDate: e.target.value }))}
++                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
++                  <p className="text-xs text-gray-400 mt-1">Isi untuk membantu pencocokan otomatis</p>
++                </div>
++                <div>
++                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Peran</label>
++                  <select value={memberForm.role} onChange={e => setMemberForm(p => ({ ...p, role: e.target.value as any }))}
++                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
++                    <option value="anggota">Anggota</option>
++                    <option value="pengurus">Pengurus / PIC</option>
++                    <option value="guru">Guru (Khusus Sekolah Minggu)</option>
++                  </select>
++                </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1.5">No. Telepon / WA</label>
+                 <input type="tel" value={memberForm.phone} onChange={e => setMemberForm(p => ({ ...p, phone: e.target.value }))}
+diff --git a/src/app/components/modules/KomselManagement.tsx b/src/app/components/modules/KomselManagement.tsx
+index fbafe7f..b0054d5 100644
+--- a/src/app/components/modules/KomselManagement.tsx
++++ b/src/app/components/modules/KomselManagement.tsx
+@@ -1,146 +1,40 @@
+-import { useState, useEffect, useMemo } from 'react';
++import { useState, useMemo } from 'react';
+ import { useAuth } from '../../contexts/AuthContext';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+-import { Plus, Edit, Trash2, Users, ChevronDown, ChevronRight, X, Check, Phone, MapPin, Calendar } from 'lucide-react';
+-import { projectId } from '/utils/supabase/info';
+-import { IBADAH_LABEL } from '../../../lib/ibadahOptions';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
++import { Users, Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, User as UserIcon } from 'lucide-react';
++import { Dialog, DialogContent, DialogTitle, TextField, Select, MenuItem, FormControl, InputLabel, Button } from '@mui/material';
++import { projectId } from '/utils/supabase/info';
++import { useKomsels, Komsel } from '../../../lib/komsel';
+ 
+-const KV = 'kv_store_561004a0';
+ const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+ 
+-interface Komsel {
+-  id: string;
+-  pksName: string;
+-  name: string;
+-  day: string;
+-  time: string;
+-  location: string;
+-  memberCount: number;
+-  status: 'active' | 'inactive';
+-  createdAt: string;
+-}
+-
+-interface CongMember {
+-  id: string;
+-  name: string;
+-  nickname?: string;
+-  phone?: string;
+-  gender: 'male' | 'female';
+-  birthDate: string;
+-  maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
+-  spouseName?: string;
+-  children?: { name: string; birthDate?: string }[];
+-  ibadah?: string[];
+-  pelayan?: string[];
+-  baptismStatus?: 'sudah' | 'belum';
+-  pksName?: string;
+-  status: 'active' | 'inactive' | 'new';
+-}
+-
+ const BLANK_FORM = {
+-  pksName: '', name: '', day: '', time: '', location: '', status: 'active' as 'active' | 'inactive',
++  pksName: '', name: '', status: 'active' as 'active' | 'inactive',
+ };
+ 
+-function getAge(birthDate: string) {
+-  if (!birthDate) return -1;
+-  const d = new Date(birthDate);
+-  if (isNaN(d.getTime())) return -1;
+-  return Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
+-}
+-
+ export default function KomselManagement() {
+-  const { accessToken, user } = useAuth();
++  const { user, accessToken } = useAuth();
+   const isSuperAdmin = user?.role === 'super_admin';
+   const canEdit = isSuperAdmin || (user?.permissions as any)?.editKomsel || false;
+ 
+-  const [komsels, setKomsels] = useState<Komsel[]>([]);
+-  const [congMembers, setCongMembers] = useState<CongMember[]>([]);
+-  const [loading, setLoading] = useState(true);
++  const { komsels, loading, refetch: loadKomsels } = useKomsels();
+   const [error, setError] = useState('');
+   const [openDialog, setOpenDialog] = useState(false);
+   const [editingKomsel, setEditingKomsel] = useState<Komsel | null>(null);
+-  const [formData, setFormData] = useState({ ...BLANK_FORM });
+   const [saving, setSaving] = useState(false);
+   const [expandedPks, setExpandedPks] = useState<Set<string>>(new Set());
++  const [formData, setFormData] = useState({ ...BLANK_FORM });
+ 
+-  // ── Load komsel schedule data from API ────────────────────────────────────
+-  const loadKomsels = async () => {
+-    try {
+-      const res = await fetch(`${API_URL}/komsel/list`, {
+-        headers: { 'Authorization': `Bearer ${accessToken}` },
+-      });
+-      const result = await res.json();
+-      if (result.success) setKomsels(result.komsels || []);
+-      else setError(result.error || 'Gagal memuat data komsel');
+-    } catch (e: any) {
+-      setError(e.message);
+-    }
+-  };
+-
+-  // ── Load congregation members directly from kv_store ─────────────────────
+-  const loadCongMembers = async () => {
+-    const [{ data: d1 }, { data: d2 }] = await Promise.all([
+-      supabaseAdmin.from(KV).select('key,value').like('key', 'congregation:member:%'),
+-      supabaseAdmin.from(KV).select('key,value').like('key', 'member:%'),
+-    ]);
+-    const seen = new Set<string>();
+-    const members: CongMember[] = [];
+-    for (const r of [...(d1 || []), ...(d2 || [])]) {
+-      const m = r.value as any;
+-      if (!m?.id || seen.has(m.id)) continue;
+-      seen.add(m.id);
+-      members.push(m as CongMember);
+-    }
+-    setCongMembers(members);
+-  };
+-
+-  useEffect(() => {
+-    Promise.all([loadKomsels(), loadCongMembers()]).finally(() => setLoading(false));
+-  }, []);
+-
+-  useAutoRefresh(() => { loadKomsels(); loadCongMembers(); }, 30_000);
+-
+-  // ── Group congregation members by pksName ─────────────────────────────────
+-  const membersByPks = useMemo(() => {
+-    const map: Record<string, CongMember[]> = {};
+-    for (const m of congMembers) {
+-      const pks = m.pksName?.trim();
+-      if (!pks) continue;
+-      if (!map[pks]) map[pks] = [];
+-      map[pks].push(m);
+-    }
+-    // Sort members within each PKS by name
+-    for (const pks of Object.keys(map)) {
+-      map[pks].sort((a, b) => a.name.localeCompare(b.name));
+-    }
+-    return map;
+-  }, [congMembers]);
+-
+-  // All unique PKS names from both komsel data and congregation members
+-  const allPksNames = useMemo(() => {
+-    const s = new Set<string>();
+-    komsels.forEach(k => { if (k.pksName) s.add(k.pksName); });
+-    Object.keys(membersByPks).forEach(p => s.add(p));
+-    return Array.from(s).sort();
+-  }, [komsels, membersByPks]);
+-
+-  const toggleExpand = (pks: string) => {
+-    setExpandedPks(prev => {
+-      const next = new Set(prev);
+-      if (next.has(pks)) next.delete(pks); else next.add(pks);
+-      return next;
+-    });
+-  };
+-
+-  const expandAll = () => setExpandedPks(new Set(allPksNames));
++  const expandAll = () => setExpandedPks(new Set(komsels.map(k => k.id)));
+   const collapseAll = () => setExpandedPks(new Set());
+ 
+-  // ── CRUD ─────────────────────────────────────────────────────────────────
++  useAutoRefresh(() => { loadKomsels(); }, 30_000);
++
++  // CRUD
+   const handleOpenDialog = (komsel?: Komsel) => {
+     if (komsel) {
+       setEditingKomsel(komsel);
+-      setFormData({ pksName: komsel.pksName || '', name: komsel.name, day: komsel.day, time: komsel.time, location: komsel.location, status: komsel.status });
++      setFormData({ pksName: komsel.pksName || '', name: komsel.name, status: (komsel.status as any) || 'active' });
+     } else {
+       setEditingKomsel(null);
+       setFormData({ ...BLANK_FORM });
+@@ -149,7 +43,7 @@ export default function KomselManagement() {
+   };
+ 
+   const handleSubmit = async () => {
+-    if (!formData.pksName.trim() || !formData.name.trim()) return;
++    if (!formData.name.trim()) return;
+     setSaving(true);
+     try {
+       const url = editingKomsel ? `${API_URL}/komsel/${editingKomsel.id}` : `${API_URL}/komsel/create`;
+@@ -169,7 +63,7 @@ export default function KomselManagement() {
+   };
+ 
+   const handleDelete = async (id: string) => {
+-    if (!confirm('Hapus jadwal komsel ini?')) return;
++    if (!confirm('Hapus komsel ini?')) return;
+     try {
+       const res = await fetch(`${API_URL}/komsel/${id}`, {
+         method: 'DELETE',
+@@ -191,7 +85,7 @@ export default function KomselManagement() {
+ 
+   return (
+     <div className="space-y-5">
+-      {/* ── Header ─────────────────────────────────────────────────────────── */}
++      {/* Header */}
+       <div className="flex justify-between items-center flex-wrap gap-3">
+         <h2 className="text-xl font-semibold flex items-center gap-2">
+           <Users size={22} />Manajemen Komsel & PKS
+@@ -212,19 +106,19 @@ export default function KomselManagement() {
+         </div>
+       </div>
+ 
+-      {/* ── Summary ────────────────────────────────────────────────────────── */}
++      {/* Summary */}
+       <div className="grid grid-cols-3 gap-3">
+         <div className="bg-purple-50 border border-purple-100 rounded-xl p-3 text-center">
+-          <p className="text-2xl font-bold text-purple-700">{allPksNames.length}</p>
+-          <p className="text-xs text-purple-600 mt-0.5">PKS Aktif</p>
++          <p className="text-2xl font-bold text-purple-700">{komsels.length}</p>
++          <p className="text-xs text-purple-600 mt-0.5">Komsel/PKS</p>
+         </div>
+         <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+-          <p className="text-2xl font-bold text-blue-700">{congMembers.filter(m => m.pksName).length}</p>
+-          <p className="text-xs text-blue-600 mt-0.5">Jemaat di PKS</p>
++          <p className="text-2xl font-bold text-blue-700">{komsels.reduce((sum, k) => sum + (k.memberCount || 0), 0)}</p>
++          <p className="text-xs text-blue-600 mt-0.5">Total Anggota</p>
+         </div>
+         <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+           <p className="text-2xl font-bold text-green-700">{komsels.filter(k => k.status === 'active').length}</p>
+-          <p className="text-xs text-green-600 mt-0.5">Jadwal Aktif</p>
++          <p className="text-xs text-green-600 mt-0.5">Komsel Aktif</p>
+         </div>
+       </div>
+ 
+@@ -235,155 +129,71 @@ export default function KomselManagement() {
+         </div>
+       )}
+ 
+-      {/* ── PKS Cards ──────────────────────────────────────────────────────── */}
++      {/* Cards */}
+       <div className="space-y-3">
+-        {allPksNames.length === 0 ? (
++        {komsels.length === 0 ? (
+           <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-gray-100">
+-            Belum ada data PKS/Komsel
++            Belum ada data Komsel/PKS
+           </div>
+         ) : (
+-          allPksNames.map(pksName => {
+-            const komsel = komsels.find(k => k.pksName === pksName);
+-            const members = membersByPks[pksName] || [];
+-            const expanded = expandedPks.has(pksName);
++          komsels.map(komsel => {
++            const members = komsel.memberDetails || [];
++            const expanded = expandedPks.has(komsel.id);
++            const pksName = komsel.pksName || komsel.name;
+ 
+             return (
+-              <div key={pksName} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+-                {/* PKS Header Row */}
+-                <div
+-                  onClick={() => toggleExpand(pksName)}
+-                  className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50/80 transition-colors cursor-pointer select-none">
+-                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+-                    <Users size={18} className="text-purple-600" />
++              <div key={komsel.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300">
++                <div onClick={() => setExpandedPks(prev => {
++                  const n = new Set(prev);
++                  if (n.has(komsel.id)) n.delete(komsel.id);
++                  else n.add(komsel.id);
++                  return n;
++                })}
++                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50/80 transition-colors">
++                  <div className="p-1.5 rounded-lg bg-gray-100 text-gray-500">
++                    {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                   </div>
+-                  <div className="flex-1 min-w-0">
+-                    <div className="flex items-center gap-2 flex-wrap">
+-                      <h3 className="font-bold text-gray-900">PKS {pksName}</h3>
+-                      {komsel ? (
+-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${komsel.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+-                          {komsel.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
+-                        </span>
+-                      ) : (
+-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-600">
+-                          Belum ada jadwal
+-                        </span>
+-                      )}
+-                    </div>
+-                    <div className="flex items-center gap-3 mt-0.5 flex-wrap text-xs text-gray-500">
+-                      {komsel && komsel.day && (
+-                        <span className="flex items-center gap-1">
+-                          <Calendar size={11} />{komsel.day}{komsel.time ? `, ${komsel.time}` : ''}
+-                        </span>
+-                      )}
+-                      {komsel && komsel.location && (
+-                        <span className="flex items-center gap-1">
+-                          <MapPin size={11} />{komsel.location}
+-                        </span>
+-                      )}
+-                      <span className="font-medium text-purple-600">{members.length} jemaat</span>
+-                    </div>
++                  <div className="flex-1">
++                    <h3 className="font-semibold text-gray-900">{pksName} {komsel.status !== 'active' && <span className="text-xs text-red-500 font-normal ml-2">(Nonaktif)</span>}</h3>
++                    <p className="text-xs text-gray-500">{komsel.name}</p>
+                   </div>
+-                  <div className="flex items-center gap-1.5 flex-shrink-0">
+-                    {canEdit && (
+-                      <button
+-                        onClick={e => { e.stopPropagation(); handleOpenDialog(komsel || { pksName } as Komsel); }}
+-                        title={komsel ? 'Edit jadwal' : 'Tambah jadwal'}
+-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+-                        {komsel ? <Edit size={14} /> : <Plus size={14} />}
+-                      </button>
+-                    )}
+-                    {canEdit && komsel && (
+-                      <button
+-                        onClick={e => { e.stopPropagation(); handleDelete(komsel.id); }}
+-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+-                        <Trash2 size={14} />
+-                      </button>
+-                    )}
+-                    {expanded
+-                      ? <ChevronDown size={18} className="text-gray-400" />
+-                      : <ChevronRight size={18} className="text-gray-400" />}
++                  <div className="flex items-center gap-3">
++                    <div className="text-right">
++                      <p className="text-sm font-semibold text-blue-700">{members.length} Orang</p>
++                    </div>
+                   </div>
+                 </div>
+ 
+-                {/* Expanded: congregation members list */}
+                 {expanded && (
+-                  <div className="border-t border-gray-100">
+-                    {members.length === 0 ? (
+-                      <div className="px-5 py-4 text-sm text-gray-400 italic">
+-                        Tidak ada jemaat terdaftar di PKS ini
+-                      </div>
+-                    ) : (
+-                      <div className="divide-y divide-gray-50">
+-                        {members.map(m => {
+-                          const age = getAge(m.birthDate);
+-                          return (
+-                            <div key={m.id} className="px-5 py-3 flex items-start gap-3">
+-                              {/* Avatar */}
+-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+-                                {m.name.charAt(0).toUpperCase()}
+-                              </div>
+-                              <div className="flex-1 min-w-0">
+-                                {/* Name row */}
+-                                <div className="flex items-center gap-2 flex-wrap">
+-                                  <p className="font-semibold text-sm text-gray-900">{m.name}</p>
+-                                  {m.nickname && <span className="text-xs text-gray-400">({m.nickname})</span>}
+-                                  {age >= 0 && <span className="text-xs text-gray-400">{age} thn</span>}
+-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : m.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+-                                    {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Non-aktif'}
+-                                  </span>
+-                                  {m.baptismStatus === 'sudah' && (
+-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-50 text-cyan-600 border border-cyan-100">Baptis ✓</span>
+-                                  )}
+-                                </div>
+-                                {/* Phone */}
+-                                {m.phone && (
+-                                  <a href={`https://wa.me/${m.phone.replace(/\D/g,'').replace(/^0/,'62')}`}
+-                                    target="_blank" rel="noopener noreferrer"
+-                                    className="text-xs text-emerald-600 hover:underline flex items-center gap-1 mt-0.5">
+-                                    <Phone size={10} />{m.phone}
+-                                  </a>
+-                                )}
+-                                {/* Ibadah badges */}
+-                                {m.ibadah && m.ibadah.length > 0 && (
+-                                  <div className="flex flex-wrap gap-1 mt-1">
+-                                    {m.ibadah.map(code => (
+-                                      <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">
+-                                        {IBADAH_LABEL[code] || code}
+-                                      </span>
+-                                    ))}
+-                                  </div>
+-                                )}
+-                                {/* Pelayan badges */}
+-                                {m.pelayan && m.pelayan.length > 0 && (
+-                                  <div className="flex flex-wrap gap-1 mt-1">
+-                                    {m.pelayan.map((p, i) => (
+-                                      <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-orange-50 text-orange-600 border border-orange-100">{p}</span>
+-                                    ))}
+-                                  </div>
+-                                )}
+-                                {/* Family info */}
+-                                {(m.spouseName || (m.children && m.children.length > 0)) && (
+-                                  <div className="mt-1.5 text-xs text-gray-500 space-y-0.5">
+-                                    {m.spouseName && (
+-                                      <div>♥ Pasangan: <span className="font-medium text-gray-700">{m.spouseName}</span></div>
+-                                    )}
+-                                    {m.children && m.children.length > 0 && (
+-                                      <div>
+-                                        Anak: {m.children.map((c, i) => (
+-                                          <span key={i} className="font-medium text-gray-700">
+-                                            {c.name}{c.birthDate ? ` (${c.birthDate.slice(0, 4)})` : ''}{i < (m.children?.length ?? 0) - 1 ? ', ' : ''}
+-                                          </span>
+-                                        ))}
+-                                      </div>
+-                                    )}
+-                                  </div>
+-                                )}
+-                              </div>
+-                            </div>
+-                          );
+-                        })}
++                  <div className="p-4 border-t border-gray-100 bg-gray-50/30">
++                    {canEdit && (
++                      <div className="flex justify-end gap-2 mb-4">
++                        <button onClick={() => handleOpenDialog(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
++                          <Edit2 size={13} /> Edit
++                        </button>
++                        <button onClick={() => handleDelete(komsel.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
++                          <Trash2 size={13} /> Hapus
++                        </button>
+                       </div>
+                     )}
++
++                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
++                      {members.map(m => (
++                        <div key={m.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
++                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
++                            <UserIcon size={16} className="text-blue-600" />
++                          </div>
++                          <div className="min-w-0">
++                            <p className="font-medium text-sm text-gray-900 truncate">{m.name}</p>
++                            {m.phone && <p className="text-xs text-gray-500 truncate">{m.phone}</p>}
++                            {m.address && <p className="text-[10px] text-gray-400 truncate">{m.address}</p>}
++                          </div>
++                        </div>
++                      ))}
++                      {members.length === 0 && (
++                        <p className="text-xs text-gray-400 col-span-full py-4 text-center">Belum ada jemaat di PKS ini</p>
++                      )}
++                    </div>
+                   </div>
+                 )}
+               </div>
+@@ -392,77 +202,24 @@ export default function KomselManagement() {
+         )}
+       </div>
+ 
+-      {/* ── Add/Edit Dialog ────────────────────────────────────────────────── */}
+-      {openDialog && (
+-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+-              <h2 className="font-bold text-gray-900 text-lg">
+-                {editingKomsel ? 'Edit Komsel' : 'Tambah Komsel Baru'}
+-              </h2>
+-              <button onClick={() => setOpenDialog(false)} className="text-gray-400 hover:text-gray-600">
+-                <X size={18} />
+-              </button>
+-            </div>
+-            <div className="px-6 py-5 space-y-4">
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama PKS *</label>
+-                <input type="text" placeholder="e.g. Budi, Sari, Sandy" value={formData.pksName}
+-                  onChange={e => setFormData(p => ({ ...p, pksName: e.target.value }))}
+-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-              </div>
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Komsel *</label>
+-                <input type="text" placeholder="Komsel Rabu Malam, dll" value={formData.name}
+-                  onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-              </div>
+-              <div className="grid grid-cols-2 gap-3">
+-                <div>
+-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Hari</label>
+-                  <input type="text" placeholder="Rabu" value={formData.day}
+-                    onChange={e => setFormData(p => ({ ...p, day: e.target.value }))}
+-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-                </div>
+-                <div>
+-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Waktu</label>
+-                  <input type="time" value={formData.time}
+-                    onChange={e => setFormData(p => ({ ...p, time: e.target.value }))}
+-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-                </div>
+-              </div>
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Lokasi</label>
+-                <input type="text" placeholder="Alamat lengkap komsel" value={formData.location}
+-                  onChange={e => setFormData(p => ({ ...p, location: e.target.value }))}
+-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+-              </div>
+-              <div>
+-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
+-                <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value as any }))}
+-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+-                  <option value="active">Aktif</option>
+-                  <option value="inactive">Tidak Aktif</option>
+-                </select>
+-              </div>
+-            </div>
+-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+-              <button onClick={() => setOpenDialog(false)}
+-                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">
+-                Batal
+-              </button>
+-              <button onClick={handleSubmit}
+-                disabled={!formData.pksName.trim() || !formData.name.trim() || saving}
+-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+-                {saving
+-                  ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+-                  : <Check size={14} />}
+-                {editingKomsel ? 'Simpan Perubahan' : 'Tambah Komsel'}
+-              </button>
+-            </div>
+-          </div>
++      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
++        <DialogTitle>{editingKomsel ? 'Edit Komsel' : 'Tambah Komsel Baru'}</DialogTitle>
++        <DialogContent className="space-y-4 pt-2">
++          <TextField label="Nama PKS (Opsional)" value={formData.pksName} onChange={e => setFormData({ ...formData, pksName: e.target.value })} fullWidth size="small" sx={{ mt: 1 }} />
++          <TextField label="Nama Komsel" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} fullWidth size="small" required />
++          <FormControl fullWidth size="small">
++            <InputLabel>Status</InputLabel>
++            <Select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} label="Status">
++              <MenuItem value="active">Aktif</MenuItem>
++              <MenuItem value="inactive">Nonaktif</MenuItem>
++            </Select>
++          </FormControl>
++        </DialogContent>
++        <div className="p-4 flex justify-end gap-2 border-t">
++          <Button onClick={() => setOpenDialog(false)} disabled={saving}>Batal</Button>
++          <Button variant="contained" onClick={handleSubmit} disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</Button>
+         </div>
+-      )}
++      </Dialog>
+     </div>
+   );
+ }
+diff --git a/src/app/components/modules/PelayanManagement.tsx b/src/app/components/modules/PelayanManagement.tsx
+index 728b76e..ae0b760 100644
+--- a/src/app/components/modules/PelayanManagement.tsx
++++ b/src/app/components/modules/PelayanManagement.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useMemo } from 'react';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { supabase } from '../../../lib/supabaseClient';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+ import { Search, Phone, User } from 'lucide-react';
+ 
+@@ -79,8 +79,8 @@ export default function PelayanManagement() {
+       };
+ 
+       const [{ data: d1 }, { data: d2 }] = await Promise.all([
+-        supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
+-        supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
++        supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
++        supabase.from(KV).select('key, value').like('key', 'member:%'),
+       ]);
+ 
+       const seen = new Set<string>();
+diff --git a/src/app/components/modules/RegistrationManagement.tsx b/src/app/components/modules/RegistrationManagement.tsx
+index 0814cdf..1a8a3da 100644
+--- a/src/app/components/modules/RegistrationManagement.tsx
++++ b/src/app/components/modules/RegistrationManagement.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect } from 'react';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { supabase } from '../../../lib/supabaseClient';
+ import { Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+ 
+ const TYPE_LABELS: Record<string, string> = {
+@@ -46,7 +46,7 @@ export default function RegistrationManagement() {
+     setLoading(true);
+     setLoadError('');
+     try {
+-      const { data, error } = await supabaseAdmin
++      const { data, error } = await supabase
+         .from('kv_store_561004a0')
+         .select('key, value')
+         .like('key', 'registration:%')
+@@ -65,7 +65,7 @@ export default function RegistrationManagement() {
+ 
+   const updateStatus = async (reg: Registration, status: string) => {
+     const updated = { ...reg, status };
+-    await supabaseAdmin
++    await supabase
+       .from('kv_store_561004a0')
+       .update({ value: updated })
+       .eq('key', `registration:${reg.type}:${reg.id}`);
+@@ -74,7 +74,7 @@ export default function RegistrationManagement() {
+ 
+   const deleteReg = async (reg: Registration) => {
+     if (!confirm('Hapus pendaftaran ini?')) return;
+-    await supabaseAdmin
++    await supabase
+       .from('kv_store_561004a0')
+       .delete()
+       .eq('key', `registration:${reg.type}:${reg.id}`);
+diff --git a/src/app/components/modules/ScheduleManagement.tsx b/src/app/components/modules/ScheduleManagement.tsx
+index ad21fbe..9900796 100644
+--- a/src/app/components/modules/ScheduleManagement.tsx
++++ b/src/app/components/modules/ScheduleManagement.tsx
+@@ -1,5 +1,5 @@
+ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
++import { supabase } from '../../../lib/supabaseClient';
+ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+ import { useAuth } from '../../contexts/AuthContext';
+ import {
+@@ -287,8 +287,8 @@ export default function ScheduleManagement() {
+ 
+       // Union both formats — congregation:member: (new) + member: (old), deduped by id
+       const [{ data: d1 }, { data: d2 }] = await Promise.all([
+-        supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
+-        supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
++        supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
++        supabase.from(KV).select('key, value').like('key', 'member:%'),
+       ]);
+ 
+       const seen = new Set<string>();
+@@ -309,7 +309,7 @@ export default function ScheduleManagement() {
+       // Load all weeks in this month (+ buffer)
+       const from = isoDate(sundays[0] || new Date(year, month, 1));
+       const to   = isoDate(sundays[sundays.length - 1] || new Date(year, month, 28));
+-      const { data } = await supabaseAdmin
++      const { data } = await supabase
+         .from(KV).select('key, value')
+         .like('key', 'schedule:week:%');
+       const map: Record<string, WeekSchedule> = {};
+@@ -330,7 +330,7 @@ export default function ScheduleManagement() {
+   // ── Load Google Sheets config from settings ─────────────────────────────────
+   const loadGsheetsUrl = useCallback(async () => {
+     try {
+-      const { data } = await supabaseAdmin.from(KV).select('value').eq('key', 'schedule:config:gsheets_url').single();
++      const { data } = await supabase.from(KV).select('value').eq('key', 'schedule:config:gsheets_url').single();
+       const cfg = data?.value as any;
+       const url = cfg?.url || '';
+       const script = cfg?.scriptUrl || '';
+@@ -350,11 +350,11 @@ export default function ScheduleManagement() {
+     setSaving(true);
+     try {
+       const key = `schedule:week:${weekData.date}`;
+-      const { data: existing } = await supabaseAdmin.from(KV).select('key').eq('key', key).single();
++      const { data: existing } = await supabase.from(KV).select('key').eq('key', key).single();
+       if (existing) {
+-        await supabaseAdmin.from(KV).update({ value: weekData }).eq('key', key);
++        await supabase.from(KV).update({ value: weekData }).eq('key', key);
+       } else {
+-        await supabaseAdmin.from(KV).insert({ key, value: weekData });
++        await supabase.from(KV).insert({ key, value: weekData });
+       }
+       setScheduleData(prev => ({ ...prev, [weekData.date]: weekData }));
+     } catch (e: any) { setError(e.message); }
+@@ -412,9 +412,9 @@ export default function ScheduleManagement() {
+     setSavingUrl(true);
+     const key = 'schedule:config:gsheets_url';
+     const val = { url: gsheetsInput.trim(), scriptUrl: scriptInput.trim() };
+-    const { data: ex } = await supabaseAdmin.from(KV).select('key').eq('key', key).single();
+-    if (ex) await supabaseAdmin.from(KV).update({ value: val }).eq('key', key);
+-    else await supabaseAdmin.from(KV).insert({ key, value: val });
++    const { data: ex } = await supabase.from(KV).select('key').eq('key', key).single();
++    if (ex) await supabase.from(KV).update({ value: val }).eq('key', key);
++    else await supabase.from(KV).insert({ key, value: val });
+     setGsheetsUrl(gsheetsInput.trim());
+     setScriptUrl(scriptInput.trim());
+     setShowSettings(false);
+diff --git a/src/app/components/modules/UserManagement.tsx b/src/app/components/modules/UserManagement.tsx
+index 2fbc7fc..2f4a56b 100644
+--- a/src/app/components/modules/UserManagement.tsx
++++ b/src/app/components/modules/UserManagement.tsx
+@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
+ import { Edit, UserX, UserCheck, Shield, Key, Trash2, AlertTriangle } from 'lucide-react';
+ import { KOMISI_LIST } from './KomisiManagement';
+ import { projectId } from '/utils/supabase/info';
++import { supabase } from '../../lib/supabaseClient';
+ 
+ const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+ 
+@@ -88,6 +89,42 @@ export default function UserManagement() {
+     loadUsers();
+   }, []);
+ 
++
++  // Allowlist State
++  const [allowlist, setAllowlist] = useState<string>('');
++  const [allowlistSaving, setAllowlistSaving] = useState(false);
++  const [allowlistMsg, setAllowlistMsg] = useState('');
++
++  useEffect(() => {
++    if (currentUser?.role === 'super_admin') {
++      loadAllowlist();
++    }
++  }, [currentUser]);
++
++  const loadAllowlist = async () => {
++    try {
++      const { data, error } = await supabase.from('kv_store_561004a0').select('value').eq('key', 'config:auth-allowlist').maybeSingle();
++      if (!error && data && data.value && Array.isArray(data.value)) {
++        setAllowlist(data.value.join('\n'));
++      }
++    } catch {}
++  };
++
++  const saveAllowlist = async () => {
++    setAllowlistSaving(true);
++    try {
++      const emails = allowlist.split('\n').map(e => e.trim().toLowerCase()).filter(e => e.includes('@'));
++      const { error } = await supabase.from('kv_store_561004a0').upsert({ key: 'config:auth-allowlist', value: emails });
++      if (error) throw error;
++      setAllowlistMsg('Disimpan!');
++      setTimeout(() => setAllowlistMsg(''), 2000);
++    } catch {
++      setAllowlistMsg('Gagal');
++    } finally {
++      setAllowlistSaving(false);
++    }
++  };
++
+   const loadUsers = async () => {
+     try {
+       const response = await fetch(`${API_URL}/admin/users`, {
+diff --git a/src/app/contexts/AuthContext.tsx b/src/app/contexts/AuthContext.tsx
+index 751aca8..5159888 100644
+--- a/src/app/contexts/AuthContext.tsx
++++ b/src/app/contexts/AuthContext.tsx
+@@ -42,6 +42,7 @@ interface AuthContextType {
+   loading: boolean;
+   serverStatus: 'unknown' | 'online' | 'offline';
+   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; status?: string }>;
++  signInWithGoogle: (redirectTo?: string) => Promise<{ success: boolean; error?: string }>;
+   signUp: (data: { email: string; password: string; name: string; role?: string; churchBranchId?: string }) => Promise<{ success: boolean; error?: string; message?: string }>;
+   signOut: () => void;
+   refreshSession: () => Promise<void>;
+@@ -188,6 +189,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+     checkSession();
+ 
+     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
++      if (event === 'SIGNED_IN' && session?.access_token && session.user) {
++        // Handle OAuth callback logic
++        let profile = await loadUserProfile(session.user.id);
++        if (!profile) profile = await loadUserViaEdgeFunction(session.access_token);
++        
++        if (!profile) {
++          // New Google User - Check allowlist and create profile
++          const { error } = await supabase.rpc('create_user_profile_allowlisted', {
++            p_id: session.user.id,
++            p_email: session.user.email,
++            p_name: session.user.user_metadata?.full_name || session.user.email,
++            p_role: 'admin',
++            p_church_branch_id: ''
++          });
++          
++          profile = await loadUserProfile(session.user.id);
++          if (!profile) profile = await loadUserViaEdgeFunction(session.access_token);
++        }
++
++        const gate = gateProfile(profile);
++        if (!gate.success) {
++          await supabase.auth.signOut();
++          // Optionally, redirect to a waiting page or show an alert, handled by UI normally
++        } else {
++          await hydrateUser(session.access_token);
++        }
++      }
+       if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+         await hydrateUser(session.access_token);
+       }
+@@ -201,6 +229,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+     return () => subscription.unsubscribe();
+   }, []);
+ 
++  
++  const gateProfile = (profile: User | null) => {
++    if (!profile) return { success: false, error: 'Profil pengguna tidak ditemukan. Hubungi Super Admin.' };
++    if (profile.status === 'pending') return { success: false, error: 'Akun kamu masih menunggu persetujuan Super Admin.', status: 'pending' };
++    if (profile.status === 'rejected') return { success: false, error: 'Akun kamu ditolak oleh Super Admin.', status: 'rejected' };
++    if (profile.status === 'suspended') return { success: false, error: 'Akun kamu disuspend. Hubungi Super Admin.', status: 'suspended' };
++    return { success: true };
++  };
++
++  const signInWithGoogle = async (redirectTo?: string) => {
++    try {
++      const { error } = await supabase.auth.signInWithOAuth({
++        provider: 'google',
++        options: { redirectTo: redirectTo || window.location.origin }
++      });
++      if (error) return { success: false, error: error.message };
++      return { success: true };
++    } catch (err: any) {
++      return { success: false, error: err.message || 'Terjadi kesalahan. Coba lagi.' };
++    }
++  };
++
+   const checkServerHealth = async () => {
+     try {
+       const res = await fetch(`${API_URL}/health`, {
+@@ -239,24 +289,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+         profile = await loadUserViaEdgeFunction(token);
+       }
+ 
+-      if (!profile) {
++      const gate = gateProfile(profile);
++      if (!gate.success) {
+         await supabase.auth.signOut();
+-        return { success: false, error: 'Profil pengguna tidak ditemukan. Hubungi Super Admin.' };
+-      }
+-
+-      if (profile.status === 'pending') {
+-        await supabase.auth.signOut();
+-        return { success: false, error: 'Akun kamu masih menunggu persetujuan Super Admin.', status: 'pending' };
+-      }
+-      if (profile.status === 'rejected') {
+-        await supabase.auth.signOut();
+-        return { success: false, error: 'Akun kamu ditolak oleh Super Admin.', status: 'rejected' };
+-      }
+-      if (profile.status === 'suspended') {
+-        await supabase.auth.signOut();
+-        return { success: false, error: 'Akun kamu disuspend. Hubungi Super Admin.', status: 'suspended' };
++        return gate;
+       }
+ 
++      await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
+       await supabase.auth.setSession({ access_token: token, refresh_token: refreshToken });
+       setAccessToken(token);
+       setUser(profile);
+@@ -322,7 +361,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
+   const refreshSession = async () => { await checkSession(); };
+ 
+   return (
+-    <AuthContext.Provider value={{ user, accessToken, loading, serverStatus, signIn, signUp, signOut, refreshSession }}>
++    <AuthContext.Provider value={{ user, accessToken, loading, serverStatus, signIn, signInWithGoogle, signUp, signOut, refreshSession }}>
+       {children}
+     </AuthContext.Provider>
+   );
+diff --git a/src/app/pages/ServicePage.tsx b/src/app/pages/ServicePage.tsx
+index 04a9ffa..c5aabb5 100644
+--- a/src/app/pages/ServicePage.tsx
++++ b/src/app/pages/ServicePage.tsx
+@@ -4,7 +4,6 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
+ import { Clock, MapPin, ChevronRight, X, CheckCircle, Loader2 } from 'lucide-react';
+ import PublicNavbar from '../components/public/PublicNavbar';
+ import { supabase } from '../../lib/supabaseClient';
+-import { supabaseAdmin } from '../../lib/supabaseAdmin';
+ 
+ /* ─────────── TYPES ─────────── */
+ interface Ministry {
+@@ -315,7 +314,7 @@ function RegistrationModal({ formType, title, onClose }: { formType: string; tit
+         submittedAt: new Date().toISOString(),
+         status: 'baru',
+       };
+-      const { error: insertErr } = await supabaseAdmin
++      const { error: insertErr } = await supabase
+         .from('kv_store_561004a0')
+         .insert({ key: `registration:${formType}:${id}`, value: record });
+       if (insertErr) {
+diff --git a/src/lib/congregationSeeder.ts b/src/lib/congregationSeeder.ts
+index 0349a91..29a1d20 100644
+--- a/src/lib/congregationSeeder.ts
++++ b/src/lib/congregationSeeder.ts
+@@ -1,4 +1,4 @@
+-import { supabaseAdmin } from './supabaseAdmin';
++import { supabase } from './supabase';
+ 
+ const KV = 'kv_store_561004a0';
+ 
+@@ -2225,8 +2225,8 @@ export async function importCongregationData(
+ ): Promise<{ inserted: number; skipped: number; errors: number }> {
+   // 1. Load all existing member names
+   const [{ data: d1 }, { data: d2 }] = await Promise.all([
+-    supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
+-    supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
++    supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
++    supabase.from(KV).select('key, value').like('key', 'member:%'),
+   ]);
+ 
+   const existingNames = new Set<string>();
+@@ -2290,7 +2290,7 @@ export async function importCongregationData(
+       };
+ 
+       const primaryKey = `congregation:member:${id}`;
+-      const { error } = await supabaseAdmin.from(KV).insert({ key: primaryKey, value: record });
++      const { error } = await supabase.from(KV).insert({ key: primaryKey, value: record });
+       if (error) { console.error('Insert error', s.name, error); errors++; }
+       else { existingNames.add(nameLower); inserted++; }
+     } catch (e) {
+diff --git a/src/lib/supabaseAdmin.ts b/src/lib/supabaseAdmin.ts
+deleted file mode 100644
+index 2469174..0000000
+--- a/src/lib/supabaseAdmin.ts
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import { createClient } from '@supabase/supabase-js';
+-import { projectId } from '/utils/supabase/info';
+-
+-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uenF2aGtocmVlc2djamFsbG9mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk3MDQwNSwiZXhwIjoyMDk2NTQ2NDA1fQ.taWeno9y9_UFy2fGWo3VKP-arLxpvciYU6Ds0AYyTpE';
+-
+-export const supabaseAdmin = createClient(
+-  `https://${projectId}.supabase.co`,
+-  SERVICE_KEY,
+-  { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'supabase-admin-561004a0' } }
+-);
+diff --git a/src/lib/supabaseClient.ts b/src/lib/supabaseClient.ts
+index ae4fd6b..9346be6 100644
+--- a/src/lib/supabaseClient.ts
++++ b/src/lib/supabaseClient.ts
+@@ -8,7 +8,7 @@ export const supabase = createClient(
+     auth: {
+       persistSession: true,
+       autoRefreshToken: true,
+-      detectSessionInUrl: false,
++      detectSessionInUrl: true,
+     },
+   }
+ );
+diff --git a/supabase/functions/server/index.tsx b/supabase/functions/server/index.tsx
+index 694a384..513cd03 100644
+--- a/supabase/functions/server/index.tsx
++++ b/supabase/functions/server/index.tsx
+@@ -58,7 +58,56 @@ const requireAuth = async (c: any, next: any) => {
+   }
+ };
+ 
++
++// ===== GENERIC KV PROXY (For UI Migrations) =====
++
++app.post("/make-server-561004a0/kv/read", requireAuth, async (c) => {
++  try {
++    const { key, prefix, exact } = await c.req.json();
++    const supabase = getSupabaseClient();
++    if (prefix) {
++      const { data, error } = await supabase.from("kv_store_561004a0").select("key, value").like("key", prefix + "%");
++      if (error) throw error;
++      return c.json({ success: true, data: data || [] });
++    } else if (key) {
++      const { data, error } = await supabase.from("kv_store_561004a0").select("key, value").eq("key", key).maybeSingle();
++      if (error) throw error;
++      return c.json({ success: true, data });
++    }
++    return c.json({ error: "Missing key or prefix" }, 400);
++  } catch (error) {
++    return c.json({ error: error.message }, 500);
++  }
++});
++
++app.post("/make-server-561004a0/kv/write", requireAuth, async (c) => {
++  try {
++    const { key, value } = await c.req.json();
++    if (!key || value === undefined) return c.json({ error: "Missing key or value" }, 400);
++    const supabase = getSupabaseClient();
++    const { error } = await supabase.from("kv_store_561004a0").upsert({ key, value });
++    if (error) throw error;
++    return c.json({ success: true });
++  } catch (error) {
++    return c.json({ error: error.message }, 500);
++  }
++});
++
++app.post("/make-server-561004a0/kv/delete", requireAuth, async (c) => {
++  try {
++    const { key } = await c.req.json();
++    if (!key) return c.json({ error: "Missing key" }, 400);
++    const supabase = getSupabaseClient();
++    const { error } = await supabase.from("kv_store_561004a0").delete().eq("key", key);
++    if (error) throw error;
++    return c.json({ success: true });
++  } catch (error) {
++    return c.json({ error: error.message }, 500);
++  }
++});
++
+ // Health check endpoint (no auth required)
++
+ app.get("/make-server-561004a0/health", (c) => {
+   return c.json({
+     status: "ok",
+@@ -607,12 +656,21 @@ app.put("/make-server-561004a0/admin/users/:targetUserId", requireAuth, async (c
+ // ===== DASHBOARD STATS =====
+ app.get("/make-server-561004a0/stats/dashboard", requireAuth, async (c) => {
+   try {
+-    const members = await kv.getByPrefix("member:");
+-    const komsels = await kv.getByPrefix("komsel:");
++    const newMembers = await kv.getByPrefix("congregation:member:") || [];
++    const legacyMembers = await kv.getByPrefix("member:") || [];
++    const membersMap = new Map();
++    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
++    const members = Array.from(membersMap.values());
++    const allKomsels = await kv.getByPrefix("komsel:");
++    const komsels = (allKomsels || []).filter(item => item && item.id && item.id.startsWith("komsel_"));
+     const pendingApprovals = await kv.getByPrefix("pending_approval:");
+ 
+     const today = new Date().toISOString().split('T')[0];
+-    const todayAttendance = await kv.get(`attendance:date:${today}`) || [];
++    const todaySessions = await kv.getByPrefix(`attendance_session:sess_${today}`);
++    let todayAttendance = [];
++    if (todaySessions && todaySessions.length > 0) {
++      todayAttendance = todaySessions.flatMap(s => s.presentIds || []);
++    }
+ 
+     return c.json({
+       success: true,
+@@ -634,7 +692,11 @@ app.get("/make-server-561004a0/stats/dashboard", requireAuth, async (c) => {
+ // Get all members
+ app.get("/make-server-561004a0/congregation/members", requireAuth, async (c) => {
+   try {
+-    const members = await kv.getByPrefix("member:");
++    const newMembers = await kv.getByPrefix("congregation:member:") || [];
++    const legacyMembers = await kv.getByPrefix("member:") || [];
++    const membersMap = new Map();
++    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
++    const members = Array.from(membersMap.values());
+     return c.json({ success: true, members: members || [] });
+   } catch (error) {
+     console.log("Get members error:", error);
+@@ -648,37 +710,17 @@ app.post("/make-server-561004a0/congregation/members", requireAuth, async (c) =>
+     const userId = c.get("userId");
+     const data = await c.req.json();
+ 
+-    const memberId = `member_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
++    const memberId = data.id || `member_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+     const member = {
+-      id: memberId,
+       ...data,
+-      joinDate: new Date().toISOString(),
+-      createdAt: new Date().toISOString(),
++      id: memberId,
++      joinDate: data.joinDate || new Date().toISOString(),
++      createdAt: data.createdAt || new Date().toISOString(),
+       updatedAt: new Date().toISOString(),
+       createdBy: userId
+     };
+ 
+-    await kv.set(`member:${memberId}`, member);
+-
+-    // If member joined komsel, add to komsel members
+-    if (data.komselJoined && data.pksName) {
+-      const komselId = await kv.get(`komsel:pks:${data.pksName}`);
+-      if (komselId) {
+-        const komsel = await kv.get(`komsel:${komselId}`);
+-        if (komsel) {
+-          const members = komsel.members || [];
+-          if (!members.includes(memberId)) {
+-            members.push(memberId);
+-            await kv.set(`komsel:${komselId}`, {
+-              ...komsel,
+-              members,
+-              memberCount: members.length,
+-              updatedAt: new Date().toISOString()
+-            });
+-          }
+-        }
+-      }
+-    }
++    await kv.set(`congregation:member:${memberId}`, member);
+ 
+     // Audit log
+     await kv.set(`audit:${Date.now()}:member_create`, {
+@@ -687,7 +729,6 @@ app.post("/make-server-561004a0/congregation/members", requireAuth, async (c) =>
+       userId,
+       timestamp: new Date().toISOString()
+     });
+-
+     return c.json({ success: true, member });
+   } catch (error) {
+     console.log("Create member error:", error);
+@@ -702,7 +743,9 @@ app.put("/make-server-561004a0/congregation/members/:id", requireAuth, async (c)
+     const memberId = c.req.param("id");
+     const data = await c.req.json();
+ 
+-    const existingMember = await kv.get(`member:${memberId}`);
++    let existingMember = await kv.get(`congregation:member:${memberId}`);
++    if (!existingMember) existingMember = await kv.get(`member:${memberId}`);
++    
+     if (!existingMember) {
+       return c.json({ error: "Member not found" }, 404);
+     }
+@@ -714,6 +757,25 @@ app.put("/make-server-561004a0/congregation/members/:id", requireAuth, async (c)
+       updatedBy: userId
+     };
+ 
++    await kv.set(`congregation:member:${memberId}`, updatedMember);
++
++    // Audit log
++    await kv.set(`audit:${Date.now()}:member_update`, {
++      action: "member_updated",
++      memberId,
++      userId,
++      timestamp: new Date().toISOString()
++    });
++    return c.json({ error: "Member not found" }, 404);
++    }
++
++    const updatedMember = {
++      ...existingMember,
++      ...data,
++      updatedAt: new Date().toISOString(),
++      updatedBy: userId
++    };
++
+     await kv.set(`member:${memberId}`, updatedMember);
+ 
+     // Handle komsel membership changes
+@@ -780,6 +842,7 @@ app.delete("/make-server-561004a0/congregation/members/:id", requireAuth, async
+     const userId = c.get("userId");
+     const memberId = c.req.param("id");
+ 
++    await kv.del(`congregation:member:${memberId}`);
+     await kv.del(`member:${memberId}`);
+ 
+     // Audit log
+@@ -789,7 +852,6 @@ app.delete("/make-server-561004a0/congregation/members/:id", requireAuth, async
+       userId,
+       timestamp: new Date().toISOString()
+     });
+-
+     return c.json({ success: true });
+   } catch (error) {
+     console.log("Delete member error:", error);
+@@ -849,7 +911,11 @@ app.post("/make-server-561004a0/attendance/scan", requireAuth, async (c) => {
+ 
+     // Add to event attendance list
+     const today = new Date().toISOString().split('T')[0];
+-    const todayAttendance = await kv.get(`attendance:date:${today}`) || [];
++    const todaySessions = await kv.getByPrefix(`attendance_session:sess_${today}`);
++    let todayAttendance = [];
++    if (todaySessions && todaySessions.length > 0) {
++      todayAttendance = todaySessions.flatMap(s => s.presentIds || []);
++    }
+     todayAttendance.push(attendance);
+     await kv.set(`attendance:date:${today}`, todayAttendance);
+ 
+@@ -880,28 +946,28 @@ app.get("/make-server-561004a0/attendance/event/:eventId", requireAuth, async (c
+ app.get("/make-server-561004a0/komsel/list", requireAuth, async (c) => {
+   try {
+     const allKomsels = await kv.getByPrefix("komsel:");
+-    // Filter out pks mapping keys, only get actual komsel objects
+     const komsels = allKomsels.filter((item: any) => item.id && item.id.startsWith('komsel_'));
+ 
+-    // Populate member details for each komsel
++    // Get all members to compute membership dynamically
++    const newMembers = await kv.getByPrefix("congregation:member:") || [];
++    const legacyMembers = await kv.getByPrefix("member:") || [];
++    const membersMap = new Map();
++    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
++    const allMembers = Array.from(membersMap.values());
++
+     for (const komsel of komsels) {
+-      if (komsel.members && komsel.members.length > 0) {
+-        const memberDetails = [];
+-        for (const memberId of komsel.members) {
+-          const member = await kv.get(`member:${memberId}`);
+-          if (member) {
+-            memberDetails.push({
+-              id: member.id,
+-              name: member.name,
+-              email: member.email,
+-              phone: member.phone
+-            });
+-          }
+-        }
+-        komsel.memberDetails = memberDetails;
+-      }
++      const komselMembers = allMembers.filter(m => m.komselId === komsel.id);
++      komsel.memberCount = komselMembers.length;
++      
++      const memberDetails = komselMembers.map(m => ({
++        id: m.id,
++        name: m.name,
++        phone: m.phone,
++        address: m.address
++      }));
++      
++      komsel.memberDetails = memberDetails;
+     }
+-
+     return c.json({ success: true, komsels: komsels || [] });
+   } catch (error) {
+     console.log("Get komsels error:", error);
+@@ -932,23 +998,24 @@ app.post("/make-server-561004a0/komsel/create", requireAuth, async (c) => {
+     const userId = c.get("userId");
+     const data = await c.req.json();
+ 
++    if (!data.name || !data.pksName) {
++      return c.json({ error: "Name and pksName are required" }, 400);
++    }
++
+     const komselId = `komsel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+     const komsel = {
+       id: komselId,
+-      ...data,
+-      members: [],
+-      memberCount: 0,
++      name: data.name,
++      pksName: data.pksName, // Normalizer should run on frontend before saving
++      status: data.status || "active",
+       createdAt: new Date().toISOString(),
+-      createdBy: userId
++      updatedAt: new Date().toISOString(),
++      createdBy: userId,
++      leaderId: data.leaderId || null
+     };
+ 
+     await kv.set(`komsel:${komselId}`, komsel);
+ 
+-    // Also store by pksName for easy lookup
+-    if (data.pksName) {
+-      await kv.set(`komsel:pks:${data.pksName}`, komselId);
+-    }
+-
+     // Audit log
+     await kv.set(`audit:${Date.now()}:komsel_create`, {
+       action: "komsel_created",
+@@ -956,7 +1023,6 @@ app.post("/make-server-561004a0/komsel/create", requireAuth, async (c) => {
+       userId,
+       timestamp: new Date().toISOString()
+     });
+-
+     return c.json({ success: true, komsel });
+   } catch (error) {
+     console.log("Create komsel error:", error);
+@@ -983,6 +1049,26 @@ app.put("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
+       updatedBy: userId
+     };
+ 
++    // Note: Do not override dynamically computed memberCount or memberDetails
++    await kv.set(`komsel:${komselId}`, updatedKomsel);
++
++    // Audit log
++    await kv.set(`audit:${Date.now()}:komsel_update`, {
++      action: "komsel_updated",
++      komselId,
++      userId,
++      timestamp: new Date().toISOString()
++    });
++    return c.json({ error: "Komsel not found" }, 404);
++    }
++
++    const updatedKomsel = {
++      ...existingKomsel,
++      ...data,
++      updatedAt: new Date().toISOString(),
++      updatedBy: userId
++    };
++
+     await kv.set(`komsel:${komselId}`, updatedKomsel);
+ 
+     // Update pksName lookup if changed
+@@ -1005,9 +1091,18 @@ app.put("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
+ // Delete komsel
+ app.delete("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
+   try {
++    const userId = c.get("userId");
+     const komselId = c.req.param("id");
++
+     await kv.del(`komsel:${komselId}`);
+ 
++    // Audit log
++    await kv.set(`audit:${Date.now()}:komsel_delete`, {
++      action: "komsel_deleted",
++      komselId,
++      userId,
++      timestamp: new Date().toISOString()
++    });
+     return c.json({ success: true });
+   } catch (error) {
+     console.log("Delete komsel error:", error);
+diff --git a/supabase/migrations/20260722_bypass_edge_function.sql b/supabase/migrations/20260722_bypass_edge_function.sql
+index bfcd21a..ff2c1f7 100644
+--- a/supabase/migrations/20260722_bypass_edge_function.sql
++++ b/supabase/migrations/20260722_bypass_edge_function.sql
+@@ -45,3 +45,26 @@ BEGIN
+ END; $$;
+ 
+ GRANT EXECUTE ON FUNCTION public.create_user_profile TO anon, authenticated;
++
++-- 5. RLS policies for authenticated users to cover the anon-client path
++-- This replaces supabaseAdmin for non-sensitive/misc modules
++DO $$ BEGIN
++  CREATE POLICY "auth_all_kv_except_sensitive" ON kv_store_561004a0
++    FOR ALL TO authenticated
++    USING (
++      key NOT LIKE 'congregation:%' AND
++      key NOT LIKE 'member:%' AND
++      key NOT LIKE 'komisi:%' AND
++      key NOT LIKE 'attendance:%' AND
++      key NOT LIKE 'user:%' AND
++      key NOT LIKE 'pending_approval:%'
++    )
++    WITH CHECK (
++      key NOT LIKE 'congregation:%' AND
++      key NOT LIKE 'member:%' AND
++      key NOT LIKE 'komisi:%' AND
++      key NOT LIKE 'attendance:%' AND
++      key NOT LIKE 'user:%' AND
++      key NOT LIKE 'pending_approval:%'
++    );
++EXCEPTION WHEN duplicate_object THEN NULL; END $$;

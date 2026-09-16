@@ -4,7 +4,6 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Clock, MapPin, ChevronRight, X, CheckCircle, Loader2 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { supabase } from '../../lib/supabaseClient';
-import { supabaseAdmin } from '../../lib/supabaseAdmin';
 
 /* ─────────── TYPES ─────────── */
 interface Ministry {
@@ -315,7 +314,7 @@ function RegistrationModal({ formType, title, onClose }: { formType: string; tit
         submittedAt: new Date().toISOString(),
         status: 'baru',
       };
-      const { error: insertErr } = await supabaseAdmin
+      const { error: insertErr } = await supabase
         .from('kv_store_561004a0')
         .insert({ key: `registration:${formType}:${id}`, value: record });
       if (insertErr) {

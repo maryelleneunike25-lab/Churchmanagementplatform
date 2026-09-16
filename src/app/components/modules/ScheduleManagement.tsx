@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { supabase } from '../../../lib/supabaseClient';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -287,8 +287,8 @@ export default function ScheduleManagement() {
 
       // Union both formats — congregation:member: (new) + member: (old), deduped by id
       const [{ data: d1 }, { data: d2 }] = await Promise.all([
-        supabaseAdmin.from(KV).select('key, value').like('key', 'congregation:member:%'),
-        supabaseAdmin.from(KV).select('key, value').like('key', 'member:%'),
+        supabase.from(KV).select('key, value').like('key', 'congregation:member:%'),
+        supabase.from(KV).select('key, value').like('key', 'member:%'),
       ]);
 
       const seen = new Set<string>();
@@ -309,7 +309,7 @@ export default function ScheduleManagement() {
       // Load all weeks in this month (+ buffer)
       const from = isoDate(sundays[0] || new Date(year, month, 1));
       const to   = isoDate(sundays[sundays.length - 1] || new Date(year, month, 28));
-      const { data } = await supabaseAdmin
+      const { data } = await supabase
         .from(KV).select('key, value')
         .like('key', 'schedule:week:%');
       const map: Record<string, WeekSchedule> = {};
@@ -330,7 +330,7 @@ export default function ScheduleManagement() {
   // ── Load Google Sheets config from settings ─────────────────────────────────
   const loadGsheetsUrl = useCallback(async () => {
     try {
-      const { data } = await supabaseAdmin.from(KV).select('value').eq('key', 'schedule:config:gsheets_url').single();
+      const { data } = await supabase.from(KV).select('value').eq('key', 'schedule:config:gsheets_url').single();
       const cfg = data?.value as any;
       const url = cfg?.url || '';
       const script = cfg?.scriptUrl || '';
@@ -350,11 +350,11 @@ export default function ScheduleManagement() {
     setSaving(true);
     try {
       const key = `schedule:week:${weekData.date}`;
-      const { data: existing } = await supabaseAdmin.from(KV).select('key').eq('key', key).single();
+      const { data: existing } = await supabase.from(KV).select('key').eq('key', key).single();
       if (existing) {
-        await supabaseAdmin.from(KV).update({ value: weekData }).eq('key', key);
+        await supabase.from(KV).update({ value: weekData }).eq('key', key);
       } else {
-        await supabaseAdmin.from(KV).insert({ key, value: weekData });
+        await supabase.from(KV).insert({ key, value: weekData });
       }
       setScheduleData(prev => ({ ...prev, [weekData.date]: weekData }));
     } catch (e: any) { setError(e.message); }
@@ -412,9 +412,9 @@ export default function ScheduleManagement() {
     setSavingUrl(true);
     const key = 'schedule:config:gsheets_url';
     const val = { url: gsheetsInput.trim(), scriptUrl: scriptInput.trim() };
-    const { data: ex } = await supabaseAdmin.from(KV).select('key').eq('key', key).single();
-    if (ex) await supabaseAdmin.from(KV).update({ value: val }).eq('key', key);
-    else await supabaseAdmin.from(KV).insert({ key, value: val });
+    const { data: ex } = await supabase.from(KV).select('key').eq('key', key).single();
+    if (ex) await supabase.from(KV).update({ value: val }).eq('key', key);
+    else await supabase.from(KV).insert({ key, value: val });
     setGsheetsUrl(gsheetsInput.trim());
     setScriptUrl(scriptInput.trim());
     setShowSettings(false);

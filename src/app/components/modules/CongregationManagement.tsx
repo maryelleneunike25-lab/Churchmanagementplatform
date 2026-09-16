@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import { Plus, Edit, Trash2, Users, Search, SortAsc, SortDesc, Download, ChevronDown, ChevronRight, X, Check, AlertTriangle, Upload } from 'lucide-react';
-import { importCongregationData } from '../../../lib/congregationSeeder';
+import { parseExcelFile, executeImport, ParsedMember, ImportPreview } from '../../../lib/congregationImport';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useKomsels } from '../../../lib/komsel';
+import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES } from '../../../lib/age';
 import { projectId } from '/utils/supabase/info';
 import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
 
@@ -34,7 +36,6 @@ function getAge(birthDate: string): number {
   return age;
 }
 
-type AgeGroup = 'Children' | 'Teens' | 'Youth' | 'Adults' | 'Seniors' | '-';
 
 function getAgeGroup(birthDate: string): AgeGroup {
   const age = getAge(birthDate);
@@ -52,23 +53,8 @@ function formatDate(iso: string) {
   catch { return iso; }
 }
 
-const AGE_GROUP_STYLES: Record<string, string> = {
-  Children: 'bg-pink-100 text-pink-700',
-  Teens:    'bg-purple-100 text-purple-700',
-  Youth:    'bg-blue-100 text-blue-700',
-  Adults:   'bg-emerald-100 text-emerald-700',
-  Seniors:  'bg-amber-100 text-amber-700',
-  '-':      'bg-gray-100 text-gray-400',
-};
 
 const AGE_GROUPS: AgeGroup[] = ['Children', 'Teens', 'Youth', 'Adults', 'Seniors'];
-const AGE_GROUP_LABELS: Record<string, string> = {
-  Children: 'Children (0–12)',
-  Teens:    'Teens (13–17)',
-  Youth:    'Youth (18–30)',
-  Adults:   'Adults (31–59)',
-  Seniors:  'Seniors (60+)',
-};
 
 // Divisions that link directly to Jadwal Pelayanan (matching ScheduleManagement)
 // These get a dot indicator in the form — only these keys sync to the schedule dropdowns
@@ -115,8 +101,12 @@ interface Member {
   baptismDate?: string;
   status: 'active' | 'inactive' | 'new';
   pelayan?: string[];
-  komselJoined?: boolean;
-  pksName?: string;
+    familyId?: string;
+    spouseName?: string;
+    children?: {name: string, birthDate?: string}[];
+    parentId?: string;
+    parentName?: string;
+  komselId?: string;
   ibadah?: string[];
   baptismStatus?: 'sudah' | 'belum';
   birthPlace?: string;
@@ -137,7 +127,7 @@ const BLANK_FORM = {
   baptismDate: '',
   baptismStatus: 'belum' as 'sudah' | 'belum',
   status: 'new' as 'active' | 'inactive' | 'new',
-  pelayan: [] as string[], komselJoined: false, pksName: '',
+  pelayan: [] as string[], komselId: '',
   additionalPhones: [] as string[],
   ibadah: [] as string[],
   spouseName: '',
@@ -154,127 +144,60 @@ interface FamilyGroup {
 }
 
 function buildFamilyGroups(members: Member[]): FamilyGroup[] {
+  const groups = new Map<string, FamilyGroup>();
   const byName = new Map<string, Member>();
   for (const m of members) byName.set(m.name.toLowerCase().trim(), m);
 
-  // Build reverse spouse map: who lists this member as their spouse
-  const spouseOf = new Map<string, Member>(); // key = member name → value = their spouse
+  // Group by familyId first
   for (const m of members) {
-    if (m.spouseName?.trim()) {
-      spouseOf.set(m.spouseName.toLowerCase().trim(), m);
+    if (m.familyId) {
+      if (!groups.has(m.familyId)) {
+        groups.set(m.familyId, { key: m.familyId, parent: m, dbChildren: [], nameOnlyChildren: [] });
+      } else {
+        const g = groups.get(m.familyId)!;
+        // Assign roles (spouse, child) based on age or marital status if known, otherwise just collect them
+        // For simplicity, if they are married/widowed they are parents, else children
+        if (m.maritalStatus !== 'single' && !g.coParent) {
+          g.coParent = m;
+        } else {
+          g.dbChildren.push(m);
+        }
+      }
     }
   }
 
+  // Fallback for members without familyId but with children defined
   const processedCoParents = new Set<string>();
-  const groups: FamilyGroup[] = [];
-
   for (const parent of members) {
-    if ((parent.children || []).length === 0) continue; // only actual parents
-    if (processedCoParents.has(parent.id)) continue;    // already grouped as co-parent
+    if (parent.familyId) continue;
+    if ((parent.children || []).length === 0) continue; 
+    if (processedCoParents.has(parent.id)) continue;    
 
     let coParent: Member | undefined;
-    // Forward lookup: parent's spouseName field
-    if (parent.spouseName?.trim()) {
-      const sp = byName.get(parent.spouseName.toLowerCase().trim());
-      if (sp && !processedCoParents.has(sp.id)) coParent = sp;
+    if (parent.spouseName) {
+      coParent = byName.get(parent.spouseName.toLowerCase().trim());
+      if (coParent) processedCoParents.add(coParent.id);
     }
-    // Reverse lookup: someone who lists this parent as their spouse
-    if (!coParent) {
-      const rev = spouseOf.get(parent.name.toLowerCase().trim());
-      if (rev && rev.id !== parent.id && !processedCoParents.has(rev.id)) coParent = rev;
-    }
-    if (coParent && (coParent.children || []).length > 0) processedCoParents.add(coParent.id);
-
-    // Union children from both parents
-    const allChildNames = new Set<string>();
-    for (const c of parent.children || []) if (c.name.trim()) allChildNames.add(c.name.trim());
-    for (const c of coParent?.children || []) if (c.name.trim()) allChildNames.add(c.name.trim());
 
     const dbChildren: Member[] = [];
     const nameOnlyChildren: { name: string; birthDate?: string }[] = [];
-    for (const childName of allChildNames) {
-      const child = byName.get(childName.toLowerCase());
-      if (child) {
-        dbChildren.push(child);
-      } else {
-        const c1 = (parent.children || []).find(c => c.name.trim() === childName);
-        const c2 = (coParent?.children || []).find(c => c.name.trim() === childName);
-        nameOnlyChildren.push({ name: childName, birthDate: (c1 || c2)?.birthDate });
-      }
+
+    for (const c of parent.children || []) {
+      const dbMatch = byName.get(c.name.toLowerCase().trim());
+      if (dbMatch) dbChildren.push(dbMatch);
+      else nameOnlyChildren.push(c);
     }
 
-    groups.push({ key: parent.id, parent, coParent, dbChildren, nameOnlyChildren });
+    groups.set(parent.id, {
+      key: parent.id,
+      parent,
+      coParent,
+      dbChildren,
+      nameOnlyChildren
+    });
   }
 
-  return groups.sort((a, b) => a.parent.name.localeCompare(b.parent.name, 'id'));
-}
-
-function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) => void; onDelete?: (id: string) => void }) {
-  const age = getAge(m.birthDate);
-  const ageGroup = getAgeGroup(m.birthDate);
-  const allPhones = m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : [];
-  return (
-    <div className="flex items-start gap-2.5">
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
-        {m.name.charAt(0)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="font-semibold text-sm text-gray-900">{m.name}</p>
-          {m.nickname && <span className="text-xs text-gray-400">({m.nickname})</span>}
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${AGE_GROUP_STYLES[ageGroup]}`}>{ageGroup}</span>
-          {age >= 0 && <span className="text-xs text-gray-400">{age} thn</span>}
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : m.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-            {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Non-aktif'}
-          </span>
-        </div>
-        {m.pksName && <p className="text-xs text-purple-600 font-medium mt-0.5">PKS {m.pksName}</p>}
-        {allPhones.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-0.5">
-            {allPhones.map((ph, i) => (
-              <a key={i} href={`https://wa.me/${ph.replace(/\D/g, '').replace(/^0/, '62')}`} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-emerald-600 hover:underline">{ph}</a>
-            ))}
-          </div>
-        )}
-        {m.ibadah && m.ibadah.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {m.ibadah.map(code => (
-              <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">
-                {IBADAH_LABEL[code] || code}
-              </span>
-            ))}
-          </div>
-        )}
-        {m.pelayan && m.pelayan.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {m.pelayan.slice(0, 3).map((p, i) => {
-              const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
-              return div
-                ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
-                : <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">{p}</span>;
-            })}
-            {m.pelayan.length > 3 && <span className="text-[10px] text-gray-400">+{m.pelayan.length - 3}</span>}
-          </div>
-        )}
-      </div>
-      {(onEdit || onDelete) && (
-        <div className="flex gap-1 flex-shrink-0">
-          {onEdit && <button onClick={() => onEdit(m)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={12} /></button>}
-          {onDelete && <button onClick={() => onDelete(m.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={12} /></button>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface FamilyViewProps {
-  members: Member[];
-  expandedFamilies: Set<string>;
-  onToggle: (id: string) => void;
-  onEdit?: (m: Member) => void;
-  onDelete?: (id: string) => void;
-  onCreateChild?: (name: string, birthDate?: string) => void;
+  return Array.from(groups.values());
 }
 
 function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onCreateChild }: FamilyViewProps) {
@@ -368,7 +291,7 @@ function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onC
 export default function CongregationManagement() {
   const { accessToken, user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
-  const [pksNames, setPksNames] = useState<string[]>([]);
+  const { komsels } = useKomsels();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -395,6 +318,7 @@ export default function CongregationManagement() {
   const [ibadahFilter, setIbadahFilter] = useState<string>('All');
   const [exportDropdown, setExportDropdown] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [importResult, setImportResult] = useState<{ inserted: number; skipped: number; errors: number } | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -519,15 +443,33 @@ export default function CongregationManagement() {
   };
 
   // ── Open dialog ───────────────────────────────────────────────────────────
-  const handleImport = async () => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     setImporting(true);
-    setImportResult(null);
-    setImportProgress({ done: 0, total: 0, label: 'Memulai...' });
     try {
-      const result = await importCongregationData((done, total, label) => {
-        setImportProgress({ done, total, label });
+      const preview = await parseExcelFile(file);
+      setImportPreview(preview);
+    } catch (e: any) {
+      alert('Error parsing Excel: ' + e.message);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    setImporting(true);
+    setImportProgress({ done: 0, total: importPreview.valid.length, label: 'Menyimpan ke database...' });
+    try {
+      await executeImport(importPreview.valid, (done, total) => {
+        setImportProgress({ done, total, label: `Menyimpan ${done}/${total}...` });
       });
-      setImportResult(result);
+      setImportResult({ inserted: importPreview.valid.length, skipped: 0, errors: 0 });
+      setImportPreview(null);
       await loadMembers();
     } catch (e: any) {
       setImportResult({ inserted: 0, skipped: 0, errors: 1 });
@@ -549,8 +491,7 @@ export default function CongregationManagement() {
         baptismDate: member.baptismDate || '',
         baptismStatus: member.baptismStatus || 'belum',
         status: member.status,
-        pelayan: member.pelayan || [], komselJoined: member.komselJoined || false,
-        pksName: member.pksName || '',
+        pelayan: member.pelayan || [], komselId: member.komselId || '',
         additionalPhones: (member.phones || []).slice(1),
         ibadah: member.ibadah || [],
         spouseName: member.spouseName || '',
@@ -590,8 +531,7 @@ export default function CongregationManagement() {
         baptismDate: formData.baptismDate || undefined,
         status: formData.status,
         pelayan: formData.pelayan,
-        komselJoined: formData.komselJoined,
-        pksName: formData.pksName,
+        komselId: formData.komselId || undefined,
         birthPlace: formData.birthPlace.trim() || undefined,
         baptismStatus: formData.baptismStatus,
         ibadah: formData.ibadah.length > 0 ? formData.ibadah : undefined,
@@ -685,9 +625,14 @@ export default function CongregationManagement() {
         }
       }
       // Add new memberships
-      for (const komisiId of targetKomisiIds) {
-        if (!existingKomisiIds.includes(komisiId)) {
-          const joinId = crypto.randomUUID();
+        const age = getAge(record.birthDate || '');
+        for (const komisiId of targetKomisiIds) {
+          if (!existingKomisiIds.includes(komisiId)) {
+            // Apply hardcoded age rules for specific komisi only
+            if (komisiId === 'sekolah-minggu' && age >= 0 && age > 12) continue;
+            if (komisiId === 'teens' && age >= 0 && (age < 13 || age > 17)) continue;
+
+            const joinId = crypto.randomUUID();
           await supabaseAdmin.from(KV).insert({
             key: `komisi:${komisiId}:member:${joinId}`,
             value: { id: joinId, jemaatId: id, komisiId, name: record.name, phone: record.phone || (record.phones || [])[0] || '', address: record.address || '', birthDate: record.birthDate || '', joinedAt: now },
@@ -849,8 +794,7 @@ export default function CongregationManagement() {
       'Alamat Domisili': m.address || '',
       'Status': m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif',
       'Pelayan': (m.pelayan || []).join(', '),
-      'Komsel': m.komselJoined ? 'Ya' : 'Tidak',
-      'PKS': m.pksName || '',
+      'Komsel/PKS': komsels.find(k => k.id === m.komselId)?.name || '',
       'Ibadah': (m.ibadah || []).join(', '),
       'Pasangan': m.spouseName || '',
       'Anak': (m.children || []).map(c => c.name).join(', '),
@@ -901,12 +845,11 @@ export default function CongregationManagement() {
           </div>
           {canEdit && (
             <>
-              <button onClick={handleImport} disabled={importing || syncing}
-                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-3 py-2 rounded-xl text-sm font-medium shadow-sm transition-colors">
-                {importing
-                  ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <Upload size={14} />}
-                Import Data
+              <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={importing || syncing}
+                  className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-3 py-2 rounded-xl text-sm font-medium shadow-sm transition-colors">
+                  {importing ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
+                  Import Data
               </button>
               <button onClick={handleBulkSync} disabled={syncing || importing || members.length === 0}
                 title="Sync semua data ibadah → Komisi (jalankan sekali setelah import)"
@@ -929,6 +872,52 @@ export default function CongregationManagement() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
           <AlertTriangle size={15} />{error}
           <button onClick={() => setError('')} className="ml-auto"><X size={14} /></button>
+        </div>
+      )}
+
+      
+      {/* Import Preview Dialog */}
+      {importPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 max-h-[90vh] flex flex-col">
+            <h2 className="text-xl font-bold mb-4">Preview Import Data</h2>
+            <div className="flex-1 overflow-auto border border-gray-200 rounded-xl mb-4">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Baris</th>
+                    <th className="px-4 py-2 font-semibold">Nama</th>
+                    <th className="px-4 py-2 font-semibold">Keluarga</th>
+                    <th className="px-4 py-2 font-semibold">Telepon</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {importPreview.errors.map((err, i) => (
+                    <tr key={`err-${i}`} className="bg-red-50">
+                      <td className="px-4 py-2 text-red-600 font-medium">{err.row}</td>
+                      <td className="px-4 py-2 text-red-600" colSpan={3}>Error: {err.error}</td>
+                    </tr>
+                  ))}
+                  {importPreview.valid.map((v, i) => (
+                    <tr key={`v-${i}`}>
+                      <td className="px-4 py-2 text-gray-500">{v._rowNumber}</td>
+                      <td className="px-4 py-2 font-medium">{v.name} {v.nickname && <span className="text-gray-400">({v.nickname})</span>}</td>
+                      <td className="px-4 py-2">
+                        {v.familyId ? <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Family Linked</span> : '-'}
+                      </td>
+                      <td className="px-4 py-2">{v.phone || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-3 mt-auto">
+              <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-xl font-medium border border-gray-200">Batal</button>
+              <button onClick={handleConfirmImport} disabled={importing} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-sm hover:bg-blue-700 disabled:bg-gray-300">
+                {importing ? 'Menyimpan...' : `Konfirmasi Import (${importPreview.valid.length} data)`}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1454,26 +1443,19 @@ export default function CongregationManagement() {
                 </div>
 
                 {/* Komsel */}
-                <div className="flex items-center gap-3 pt-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div className={`relative w-10 h-5 rounded-full transition-colors ${formData.komselJoined ? 'bg-blue-500' : 'bg-gray-200'}`}
-                      onClick={() => setFormData(p => ({ ...p, komselJoined: !p.komselJoined }))}>
-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${formData.komselJoined ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">Sudah Join Komsel</span>
-                  </label>
-                </div>
-                {/* PKS */}
-                {formData.komselJoined && (
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama PKS</label>
-                    <select value={formData.pksName} onChange={e => setFormData(p => ({ ...p, pksName: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                      <option value="">-- Pilih PKS --</option>
-                      {pksNames.map(n => <option key={n} value={n}>{n}</option>)}
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Komsel/PKS</label>
+                    <select 
+                      value={formData.komselId || ''} 
+                      onChange={e => setFormData(p => ({ ...p, komselId: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    >
+                      <option value="">-- Pilih Komsel --</option>
+                      {komsels.map(k => (
+                        <option key={k.id} value={k.id}>{k.pksName || k.name}</option>
+                      ))}
                     </select>
                   </div>
-                )}
 
                 {/* Pelayan Section */}
                 <div className="col-span-2">

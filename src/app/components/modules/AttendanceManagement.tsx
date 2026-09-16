@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
-import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
   Save, Download, Calendar, Users, TrendingDown, ChevronLeft, ChevronRight,

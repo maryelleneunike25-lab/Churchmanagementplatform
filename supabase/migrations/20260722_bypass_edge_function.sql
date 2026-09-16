@@ -45,3 +45,26 @@ BEGIN
 END; $$;
 
 GRANT EXECUTE ON FUNCTION public.create_user_profile TO anon, authenticated;
+
+-- 5. RLS policies for authenticated users to cover the anon-client path
+-- This replaces supabaseAdmin for non-sensitive/misc modules
+DO $$ BEGIN
+  CREATE POLICY "auth_all_kv_except_sensitive" ON kv_store_561004a0
+    FOR ALL TO authenticated
+    USING (
+      key NOT LIKE 'congregation:%' AND
+      key NOT LIKE 'member:%' AND
+      key NOT LIKE 'komisi:%' AND
+      key NOT LIKE 'attendance:%' AND
+      key NOT LIKE 'user:%' AND
+      key NOT LIKE 'pending_approval:%'
+    )
+    WITH CHECK (
+      key NOT LIKE 'congregation:%' AND
+      key NOT LIKE 'member:%' AND
+      key NOT LIKE 'komisi:%' AND
+      key NOT LIKE 'attendance:%' AND
+      key NOT LIKE 'user:%' AND
+      key NOT LIKE 'pending_approval:%'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

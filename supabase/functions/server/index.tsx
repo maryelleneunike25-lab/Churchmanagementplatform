@@ -58,7 +58,56 @@ const requireAuth = async (c: any, next: any) => {
   }
 };
 
+
+// ===== GENERIC KV PROXY (For UI Migrations) =====
+
+app.post("/make-server-561004a0/kv/read", requireAuth, async (c) => {
+  try {
+    const { key, prefix, exact } = await c.req.json();
+    const supabase = getSupabaseClient();
+    if (prefix) {
+      const { data, error } = await supabase.from("kv_store_561004a0").select("key, value").like("key", prefix + "%");
+      if (error) throw error;
+      return c.json({ success: true, data: data || [] });
+    } else if (key) {
+      const { data, error } = await supabase.from("kv_store_561004a0").select("key, value").eq("key", key).maybeSingle();
+      if (error) throw error;
+      return c.json({ success: true, data });
+    }
+    return c.json({ error: "Missing key or prefix" }, 400);
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post("/make-server-561004a0/kv/write", requireAuth, async (c) => {
+  try {
+    const { key, value } = await c.req.json();
+    if (!key || value === undefined) return c.json({ error: "Missing key or value" }, 400);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("kv_store_561004a0").upsert({ key, value });
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+app.post("/make-server-561004a0/kv/delete", requireAuth, async (c) => {
+  try {
+    const { key } = await c.req.json();
+    if (!key) return c.json({ error: "Missing key" }, 400);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("kv_store_561004a0").delete().eq("key", key);
+    if (error) throw error;
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Health check endpoint (no auth required)
+
 app.get("/make-server-561004a0/health", (c) => {
   return c.json({
     status: "ok",
@@ -607,12 +656,21 @@ app.put("/make-server-561004a0/admin/users/:targetUserId", requireAuth, async (c
 // ===== DASHBOARD STATS =====
 app.get("/make-server-561004a0/stats/dashboard", requireAuth, async (c) => {
   try {
-    const members = await kv.getByPrefix("member:");
-    const komsels = await kv.getByPrefix("komsel:");
+    const newMembers = await kv.getByPrefix("congregation:member:") || [];
+    const legacyMembers = await kv.getByPrefix("member:") || [];
+    const membersMap = new Map();
+    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
+    const members = Array.from(membersMap.values());
+    const allKomsels = await kv.getByPrefix("komsel:");
+    const komsels = (allKomsels || []).filter(item => item && item.id && item.id.startsWith("komsel_"));
     const pendingApprovals = await kv.getByPrefix("pending_approval:");
 
     const today = new Date().toISOString().split('T')[0];
-    const todayAttendance = await kv.get(`attendance:date:${today}`) || [];
+    const todaySessions = await kv.getByPrefix(`attendance_session:sess_${today}`);
+    let todayAttendance = [];
+    if (todaySessions && todaySessions.length > 0) {
+      todayAttendance = todaySessions.flatMap(s => s.presentIds || []);
+    }
 
     return c.json({
       success: true,
@@ -634,7 +692,11 @@ app.get("/make-server-561004a0/stats/dashboard", requireAuth, async (c) => {
 // Get all members
 app.get("/make-server-561004a0/congregation/members", requireAuth, async (c) => {
   try {
-    const members = await kv.getByPrefix("member:");
+    const newMembers = await kv.getByPrefix("congregation:member:") || [];
+    const legacyMembers = await kv.getByPrefix("member:") || [];
+    const membersMap = new Map();
+    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
+    const members = Array.from(membersMap.values());
     return c.json({ success: true, members: members || [] });
   } catch (error) {
     console.log("Get members error:", error);
@@ -648,37 +710,17 @@ app.post("/make-server-561004a0/congregation/members", requireAuth, async (c) =>
     const userId = c.get("userId");
     const data = await c.req.json();
 
-    const memberId = `member_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const memberId = data.id || `member_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const member = {
-      id: memberId,
       ...data,
-      joinDate: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
+      id: memberId,
+      joinDate: data.joinDate || new Date().toISOString(),
+      createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: userId
     };
 
-    await kv.set(`member:${memberId}`, member);
-
-    // If member joined komsel, add to komsel members
-    if (data.komselJoined && data.pksName) {
-      const komselId = await kv.get(`komsel:pks:${data.pksName}`);
-      if (komselId) {
-        const komsel = await kv.get(`komsel:${komselId}`);
-        if (komsel) {
-          const members = komsel.members || [];
-          if (!members.includes(memberId)) {
-            members.push(memberId);
-            await kv.set(`komsel:${komselId}`, {
-              ...komsel,
-              members,
-              memberCount: members.length,
-              updatedAt: new Date().toISOString()
-            });
-          }
-        }
-      }
-    }
+    await kv.set(`congregation:member:${memberId}`, member);
 
     // Audit log
     await kv.set(`audit:${Date.now()}:member_create`, {
@@ -687,7 +729,6 @@ app.post("/make-server-561004a0/congregation/members", requireAuth, async (c) =>
       userId,
       timestamp: new Date().toISOString()
     });
-
     return c.json({ success: true, member });
   } catch (error) {
     console.log("Create member error:", error);
@@ -702,9 +743,30 @@ app.put("/make-server-561004a0/congregation/members/:id", requireAuth, async (c)
     const memberId = c.req.param("id");
     const data = await c.req.json();
 
-    const existingMember = await kv.get(`member:${memberId}`);
+    let existingMember = await kv.get(`congregation:member:${memberId}`);
+    if (!existingMember) existingMember = await kv.get(`member:${memberId}`);
+    
     if (!existingMember) {
       return c.json({ error: "Member not found" }, 404);
+    }
+
+    const updatedMember = {
+      ...existingMember,
+      ...data,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId
+    };
+
+    await kv.set(`congregation:member:${memberId}`, updatedMember);
+
+    // Audit log
+    await kv.set(`audit:${Date.now()}:member_update`, {
+      action: "member_updated",
+      memberId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    return c.json({ error: "Member not found" }, 404);
     }
 
     const updatedMember = {
@@ -780,6 +842,7 @@ app.delete("/make-server-561004a0/congregation/members/:id", requireAuth, async 
     const userId = c.get("userId");
     const memberId = c.req.param("id");
 
+    await kv.del(`congregation:member:${memberId}`);
     await kv.del(`member:${memberId}`);
 
     // Audit log
@@ -789,7 +852,6 @@ app.delete("/make-server-561004a0/congregation/members/:id", requireAuth, async 
       userId,
       timestamp: new Date().toISOString()
     });
-
     return c.json({ success: true });
   } catch (error) {
     console.log("Delete member error:", error);
@@ -849,7 +911,11 @@ app.post("/make-server-561004a0/attendance/scan", requireAuth, async (c) => {
 
     // Add to event attendance list
     const today = new Date().toISOString().split('T')[0];
-    const todayAttendance = await kv.get(`attendance:date:${today}`) || [];
+    const todaySessions = await kv.getByPrefix(`attendance_session:sess_${today}`);
+    let todayAttendance = [];
+    if (todaySessions && todaySessions.length > 0) {
+      todayAttendance = todaySessions.flatMap(s => s.presentIds || []);
+    }
     todayAttendance.push(attendance);
     await kv.set(`attendance:date:${today}`, todayAttendance);
 
@@ -880,28 +946,28 @@ app.get("/make-server-561004a0/attendance/event/:eventId", requireAuth, async (c
 app.get("/make-server-561004a0/komsel/list", requireAuth, async (c) => {
   try {
     const allKomsels = await kv.getByPrefix("komsel:");
-    // Filter out pks mapping keys, only get actual komsel objects
     const komsels = allKomsels.filter((item: any) => item.id && item.id.startsWith('komsel_'));
 
-    // Populate member details for each komsel
-    for (const komsel of komsels) {
-      if (komsel.members && komsel.members.length > 0) {
-        const memberDetails = [];
-        for (const memberId of komsel.members) {
-          const member = await kv.get(`member:${memberId}`);
-          if (member) {
-            memberDetails.push({
-              id: member.id,
-              name: member.name,
-              email: member.email,
-              phone: member.phone
-            });
-          }
-        }
-        komsel.memberDetails = memberDetails;
-      }
-    }
+    // Get all members to compute membership dynamically
+    const newMembers = await kv.getByPrefix("congregation:member:") || [];
+    const legacyMembers = await kv.getByPrefix("member:") || [];
+    const membersMap = new Map();
+    [...legacyMembers, ...newMembers].forEach(m => membersMap.set(m.id, m));
+    const allMembers = Array.from(membersMap.values());
 
+    for (const komsel of komsels) {
+      const komselMembers = allMembers.filter(m => m.komselId === komsel.id);
+      komsel.memberCount = komselMembers.length;
+      
+      const memberDetails = komselMembers.map(m => ({
+        id: m.id,
+        name: m.name,
+        phone: m.phone,
+        address: m.address
+      }));
+      
+      komsel.memberDetails = memberDetails;
+    }
     return c.json({ success: true, komsels: komsels || [] });
   } catch (error) {
     console.log("Get komsels error:", error);
@@ -932,22 +998,23 @@ app.post("/make-server-561004a0/komsel/create", requireAuth, async (c) => {
     const userId = c.get("userId");
     const data = await c.req.json();
 
+    if (!data.name || !data.pksName) {
+      return c.json({ error: "Name and pksName are required" }, 400);
+    }
+
     const komselId = `komsel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const komsel = {
       id: komselId,
-      ...data,
-      members: [],
-      memberCount: 0,
+      name: data.name,
+      pksName: data.pksName, // Normalizer should run on frontend before saving
+      status: data.status || "active",
       createdAt: new Date().toISOString(),
-      createdBy: userId
+      updatedAt: new Date().toISOString(),
+      createdBy: userId,
+      leaderId: data.leaderId || null
     };
 
     await kv.set(`komsel:${komselId}`, komsel);
-
-    // Also store by pksName for easy lookup
-    if (data.pksName) {
-      await kv.set(`komsel:pks:${data.pksName}`, komselId);
-    }
 
     // Audit log
     await kv.set(`audit:${Date.now()}:komsel_create`, {
@@ -956,7 +1023,6 @@ app.post("/make-server-561004a0/komsel/create", requireAuth, async (c) => {
       userId,
       timestamp: new Date().toISOString()
     });
-
     return c.json({ success: true, komsel });
   } catch (error) {
     console.log("Create komsel error:", error);
@@ -974,6 +1040,26 @@ app.put("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
     const existingKomsel = await kv.get(`komsel:${komselId}`);
     if (!existingKomsel) {
       return c.json({ error: "Komsel not found" }, 404);
+    }
+
+    const updatedKomsel = {
+      ...existingKomsel,
+      ...data,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId
+    };
+
+    // Note: Do not override dynamically computed memberCount or memberDetails
+    await kv.set(`komsel:${komselId}`, updatedKomsel);
+
+    // Audit log
+    await kv.set(`audit:${Date.now()}:komsel_update`, {
+      action: "komsel_updated",
+      komselId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    return c.json({ error: "Komsel not found" }, 404);
     }
 
     const updatedKomsel = {
@@ -1005,9 +1091,18 @@ app.put("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
 // Delete komsel
 app.delete("/make-server-561004a0/komsel/:id", requireAuth, async (c) => {
   try {
+    const userId = c.get("userId");
     const komselId = c.req.param("id");
+
     await kv.del(`komsel:${komselId}`);
 
+    // Audit log
+    await kv.set(`audit:${Date.now()}:komsel_delete`, {
+      action: "komsel_deleted",
+      komselId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
     return c.json({ success: true });
   } catch (error) {
     console.log("Delete komsel error:", error);
