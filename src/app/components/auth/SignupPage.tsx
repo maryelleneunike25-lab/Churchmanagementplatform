@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, AlertCircle, Clock } from 'lucide-react';
 
-export default function SignupPage() {
+export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,7 +11,6 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const { signUp } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,9 +19,7 @@ export default function SignupPage() {
 
     const result = await signUp({ email, password, name });
     if (result.success) {
-      if (result.status === 'approved') {
-        navigate('/');
-      } else {
+      if (result.status !== 'approved') {
         setSuccess(true);
       }
     } else {
@@ -42,12 +39,12 @@ export default function SignupPage() {
               Akun Anda telah dibuat namun masih menunggu persetujuan dari Super Admin.
               Silakan hubungi administrator sistem untuk mengaktifkan akun Anda.
             </p>
-            <Link
-              to="/login"
+            <button
+              onClick={onSwitchToLogin}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
               Kembali ke Login
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -62,9 +59,9 @@ export default function SignupPage() {
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Sudah punya akun?{' '}
-          <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+          <button onClick={onSwitchToLogin} className="font-medium text-blue-600 hover:text-blue-500">
             Masuk di sini
-          </Link>
+          </button>
         </p>
       </div>
 

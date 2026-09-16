@@ -3,14 +3,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, AlertCircle, Clock } from 'lucide-react';
 
-export default function LoginPage() {
+export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [pendingStatus, setPendingStatus] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,9 +46,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     const result = await signInWithGoogle(response.credential);
-    if (result.success) {
-      navigate('/');
-    } else {
+    if (!result.success) {
       if (result.status === 'pending') {
         setPendingStatus(true);
       } else {
@@ -66,9 +63,7 @@ export default function LoginPage() {
     setPendingStatus(false);
 
     const result = await signIn(email, password);
-    if (result.success) {
-      navigate('/');
-    } else {
+    if (!result.success) {
       if (result.status === 'pending') {
         setPendingStatus(true);
       } else {
@@ -109,9 +104,9 @@ export default function LoginPage() {
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Atau{' '}
-          <Link to="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+          <button onClick={onSwitchToSignup} className="font-medium text-blue-600 hover:text-blue-500">
             daftar akun baru
-          </Link>
+          </button>
         </p>
       </div>
 
