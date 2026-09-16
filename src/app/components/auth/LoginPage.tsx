@@ -20,11 +20,15 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
       script.async = true;
       script.defer = true;
       script.onload = () => {
+        // @ts-ignore
         if (window.google && googleButtonRef.current) {
+          // @ts-ignore
           window.google.accounts.id.initialize({
+            // @ts-ignore
             client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id',
             callback: handleGoogleCredentialResponse
           });
+          // @ts-ignore
           window.google.accounts.id.renderButton(googleButtonRef.current, {
             theme: 'outline',
             size: 'large',
