@@ -1,6 +1,6 @@
-import sql from '../_lib/db.js';
-import { requireUser } from '../_lib/guard.js';
-import { sendJson, sendError, getBody, requireMethod } from '../_lib/http.js';
+import sql from '../db.js';
+import { requireUser } from '../guard.js';
+import { sendJson, sendError, getBody, requireMethod } from '../http.js';
 
 export default async function handler(req, res) {
   const admin = await requireUser(req, res, { role: 'super_admin' });

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
-import sql from '../_lib/db.js';
-import { issueSessionToken } from '../_lib/session.js';
-import { sendJson, sendError, getBody, requireMethod } from '../_lib/http.js';
+import sql from '../db.js';
+import { issueSessionToken } from '../session.js';
+import { sendJson, sendError, getBody, requireMethod } from '../http.js';
 
 export default async function handler(req, res) {
   if (!requireMethod(req, res, 'POST')) return;

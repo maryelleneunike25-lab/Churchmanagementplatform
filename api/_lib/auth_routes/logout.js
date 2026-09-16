@@ -1,5 +1,5 @@
-import { clearSession } from '../_lib/session.js';
-import { sendJson, requireMethod } from '../_lib/http.js';
+import { clearSession } from '../session.js';
+import { sendJson, requireMethod } from '../http.js';
 
 export default function handler(req, res) {
   if (!requireMethod(req, res, 'POST')) return;

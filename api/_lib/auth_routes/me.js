@@ -1,6 +1,6 @@
-import { verifySessionToken } from '../_lib/session.js';
-import sql from '../_lib/db.js';
-import { sendJson, sendError, requireMethod } from '../_lib/http.js';
+import { verifySessionToken } from '../session.js';
+import sql from '../db.js';
+import { sendJson, sendError, requireMethod } from '../http.js';
 
 export default async function handler(req, res) {
   if (!requireMethod(req, res, 'GET')) return;

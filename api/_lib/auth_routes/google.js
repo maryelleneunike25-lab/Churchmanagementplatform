@@ -1,7 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
-import sql from '../_lib/db.js';
-import { issueSessionToken } from '../_lib/session.js';
-import { sendJson, sendError, getBody, requireMethod } from '../_lib/http.js';
+import sql from '../db.js';
+import { issueSessionToken } from '../session.js';
+import { sendJson, sendError, getBody, requireMethod } from '../http.js';
 
 const client = new OAuth2Client();
 
