@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../../lib/api';
 import { Alert } from '@mui/material';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
 import PendingApprovals from './PendingApprovals';
 import CongregationManagement from '../modules/CongregationManagement';
 import AttendanceManagement from '../modules/AttendanceManagement';
@@ -47,8 +47,6 @@ function birthdayInfo(birthDate: string): { daysUntil: number; age: number } | n
 
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
-
 const NAV_ICONS: Record<string, any> = {
   dashboard:       LayoutDashboard,
   userManagement:  ShieldCheck,
@@ -67,7 +65,7 @@ const NAV_ICONS: Record<string, any> = {
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
-  const { user, signOut, accessToken } = useAuth();
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -109,22 +107,16 @@ export default function SuperAdminDashboard() {
 
   const loadMembers = async () => {
     try {
-      const res = await fetch(`${API_URL}/congregation/members`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const data = await res.json();
-      if (data.members) setMembers(data.members.filter((m: any) => m?.name));
+      const data = await api.get('/api/kv/search?prefix=congregation:member:');
+      if (Array.isArray(data)) setMembers(data.map((r: any) => r.value).filter((m: any) => m?.name));
     } catch {}
   };
 
   const loadStats = async () => {
     try {
-      const res = await fetch(`${API_URL}/stats/dashboard`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.success) setStats(result.stats);
+      const result = await api.get('/api/stats/dashboard');
+      if (result.success && result.stats) {
+        setStats(result.stats);
       }
     } catch {}
   };

@@ -10,7 +10,11 @@ type PendingUser = {
   created_at: string;
 };
 
-export default function PendingApprovals() {
+interface PendingApprovalsProps {
+  onApprovalChange?: () => void;
+}
+
+export default function PendingApprovals({ onApprovalChange }: PendingApprovalsProps = {}) {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,6 +39,7 @@ export default function PendingApprovals() {
     try {
       await api.post(`/api/admin/users/${id}`, { action });
       setUsers(users.filter(u => u.id !== id));
+      onApprovalChange?.();
     } catch (err: any) {
       setError(err.message);
     }

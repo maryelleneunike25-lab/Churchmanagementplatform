@@ -32,11 +32,23 @@ export default async function handler(req, res) {
       GROUP BY k.name
     `;
 
+    // Komsel count
+    const totalKomsel = await sql`SELECT count(*) as c FROM komsel`;
+
+    // Pending user approvals
+    const pendingUsers = await sql`SELECT count(*) as c FROM users WHERE status = 'pending'`;
+
     return sendJson(res, 200, {
-      totalCongregation: parseInt(totalJemaat[0].c),
-      newRegistrations: parseInt(newRegistrations[0].c),
-      attendanceTrends: trends.map(t => ({ week: t.date, count: parseInt(t.count) })).reverse(),
-      komisiDemographics: komisiCounts.map(k => ({ name: k.name, value: parseInt(k.count) }))
+      success: true,
+      stats: {
+        totalMembers: parseInt(totalJemaat[0]?.c || 0),
+        newRegistrations: parseInt(newRegistrations[0]?.c || 0),
+        totalKomsel: parseInt(totalKomsel[0]?.c || 0),
+        pendingApprovals: parseInt(pendingUsers[0]?.c || 0),
+        todayAttendance: 0,
+        attendanceTrends: trends.map(t => ({ week: t.date, count: parseInt(t.count) })).reverse(),
+        komisiDemographics: komisiCounts.map(k => ({ name: k.name, value: parseInt(k.count) }))
+      }
     });
   }
 
