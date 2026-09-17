@@ -1,42 +1,36 @@
-import { supabase } from './supabaseClient';
-import { projectId } from '/utils/supabase/info';
-
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
-
-async function getAuthHeader() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return { Authorization: `Bearer ${session?.access_token}` };
-}
+import { api } from './api';
 
 export const EdgeKV = {
   from(tableName: string) {
-    if (tableName !== 'kv_store_561004a0') throw new Error('Unsupported table');
     return {
       select(columns: string) {
         return {
           like: async (col: string, prefix: string) => {
-            const h = await getAuthHeader();
-            const res = await fetch(`${API_URL}/kv/read`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...h },
-              body: JSON.stringify({ prefix: prefix.replace('%', '') })
-            });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
-            return { data: json.data, error: null };
+            try {
+              const cleanPrefix = prefix.replace('%', '');
+              const res = await api.get(`/api/kv?prefix=${encodeURIComponent(cleanPrefix)}`);
+              return { data: res.data, error: null };
+            } catch (error: any) {
+              return { data: null, error };
+            }
           },
           eq: async (col: string, key: string) => {
-            const h = await getAuthHeader();
-            const res = await fetch(`${API_URL}/kv/read`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...h },
-              body: JSON.stringify({ key })
-            });
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
+            const fetchSingle = async () => {
+              try {
+                const value = await api.get(`/api/kv/${encodeURIComponent(key)}`);
+                // If the key doesn't exist, our API might return null or 404
+                if (value === null || value === undefined) {
+                  return { data: null, error: null };
+                }
+                return { data: { key, value }, error: null };
+              } catch (error: any) {
+                // Return null data on error (e.g. 404 not found)
+                return { data: null, error: null };
+              }
+            };
             return {
-              maybeSingle: async () => ({ data: json.data, error: null }),
-              single: async () => ({ data: json.data, error: null })
+              maybeSingle: fetchSingle,
+              single: fetchSingle
             };
           }
         };
@@ -44,44 +38,35 @@ export const EdgeKV = {
       update: (payload: { value: any }) => {
         return {
           eq: async (col: string, key: string) => {
-            const h = await getAuthHeader();
-            const res = await fetch(`${API_URL}/kv/write`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...h },
-              body: JSON.stringify({ key, value: payload.value })
-            });
-            const json = await res.json();
-            if (!res.ok) return { error: { message: json.error } };
-            return { error: null };
+            try {
+              await api.put(`/api/kv/${encodeURIComponent(key)}`, payload.value);
+              return { error: null };
+            } catch (error: any) {
+              return { error };
+            }
           }
         };
       },
       insert: async (payload: { key: string, value: any }) => {
-        const h = await getAuthHeader();
-        const res = await fetch(`${API_URL}/kv/write`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...h },
-          body: JSON.stringify({ key: payload.key, value: payload.value })
-        });
-        const json = await res.json();
-        if (!res.ok) return { error: { message: json.error } };
-        return { error: null };
+        try {
+          await api.put(`/api/kv/${encodeURIComponent(payload.key)}`, payload.value);
+          return { error: null };
+        } catch (error: any) {
+          return { error };
+        }
       },
       delete: () => {
         return {
           eq: async (col: string, key: string) => {
-            const h = await getAuthHeader();
-            const res = await fetch(`${API_URL}/kv/delete`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...h },
-              body: JSON.stringify({ key })
-            });
-            const json = await res.json();
-            if (!res.ok) return { error: { message: json.error } };
-            return { error: null };
+            try {
+              await api.del(`/api/kv/${encodeURIComponent(key)}`);
+              return { error: null };
+            } catch (error: any) {
+              return { error };
+            }
           }
         };
       }
     };
   }
-};
+};
