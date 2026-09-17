@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import {
@@ -75,10 +76,11 @@ function Avatar({ name, present }: { name: string; present: boolean }) {
 }
 
 // ─── Daily Input Tab ─────────────────────────────────────────────────────────
-function DailyInput({ members, sessions, onSessionSaved }: {
+function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
   members: Member[];
   sessions: Session[];
   onSessionSaved: () => void;
+  canEdit: boolean;
 }) {
   const today = fmt(new Date());
   const [date, setDate] = useState(today);
@@ -100,11 +102,13 @@ function DailyInput({ members, sessions, onSessionSaved }: {
     setSaved(!!existing);
   }, [sessionId, sessions]);
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    if (!canEdit) return;
     setPresent(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
 
-  const markAll = () => setPresent(new Set(filtered.map(m => m.id)));
-  const clearAll = () => setPresent(new Set());
+  const markAll = () => { if (canEdit) setPresent(new Set(filtered.map(m => m.id))); };
+  const clearAll = () => { if (canEdit) setPresent(new Set()); };
 
   const filtered = useMemo(() => {
     let list = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
@@ -159,7 +163,7 @@ function DailyInput({ members, sessions, onSessionSaved }: {
             {SERVICE_TYPES.map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
-        <button onClick={handleSave} disabled={saving}
+        <button onClick={handleSave} disabled={saving || !canEdit}
           className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Menyimpan...' : saved ? 'Tersimpan ✓' : 'Simpan Absensi'}
@@ -214,14 +218,16 @@ function DailyInput({ members, sessions, onSessionSaved }: {
             {f === 'all' ? 'Semua' : f === 'hadir' ? 'Hadir' : 'Absen'}
           </button>
         ))}
-        <div className="flex items-center gap-2 ml-auto">
-          <button onClick={markAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-50">
-            <CheckSquare size={14} /> Semua Hadir
-          </button>
-          <button onClick={clearAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50">
-            <Square size={14} /> Clear
-          </button>
-        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={markAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-50">
+              <CheckSquare size={14} /> Semua Hadir
+            </button>
+            <button onClick={clearAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50">
+              <Square size={14} /> Clear
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Member checklist */}
@@ -473,11 +479,15 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function AttendanceManagement() {
+  const { user } = useAuth();
   const [tab, setTab] = useState<'input' | 'report'>('input');
   const [members, setMembers] = useState<Member[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canEdit = isSuperAdmin || user?.permissions?.editAbsen || false;
 
   const loadData = async () => {
     try {
@@ -542,6 +552,12 @@ export default function AttendanceManagement() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
       )}
 
+      {!canEdit && tab === 'input' && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
+        </div>
+      )}
+
       {members.length === 0 && !loading && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-2 text-amber-700 text-sm">
           <Users size={16} /> Belum ada data jemaat. Tambahkan jemaat di menu "Data Jemaat" terlebih dahulu.
@@ -549,7 +565,7 @@ export default function AttendanceManagement() {
       )}
 
       {tab === 'input' ? (
-        <DailyInput members={members} sessions={sessions} onSessionSaved={loadData} />
+        <DailyInput members={members} sessions={sessions} onSessionSaved={loadData} canEdit={canEdit} />
       ) : (
         <ReportSummary members={members} sessions={sessions} />
       )}

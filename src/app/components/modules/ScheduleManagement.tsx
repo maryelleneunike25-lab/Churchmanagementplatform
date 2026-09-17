@@ -713,6 +713,12 @@ export default function ScheduleManagement() {
         </div>
       )}
 
+      {!canEdit && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
+        </div>
+      )}
+
       {/* ── Conflict warning ── */}
       {allConflicts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">

@@ -18,6 +18,7 @@ import RegistrationManagement from '../modules/RegistrationManagement';
 import KomisiManagement from '../modules/KomisiManagement';
 import ScheduleManagement from '../modules/ScheduleManagement';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+// @ts-ignore
 import gbiLogo from '../../../imports/pngegg__1_-1.png';
 import {
   LayoutDashboard, Users, ClipboardCheck, CalendarCheck, Group,

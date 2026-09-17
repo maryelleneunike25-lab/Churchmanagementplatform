@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
 import { Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -37,6 +38,10 @@ interface Registration {
 
 export default function RegistrationManagement() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canEdit = isSuperAdmin || user?.permissions?.editPendaftaran || false;
+
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -49,11 +54,10 @@ export default function RegistrationManagement() {
       const { data, error } = await supabase
         .from('kv_store_561004a0')
         .select('key, value')
-        .like('key', 'registration:%')
-        .order('key', { ascending: false });
+        .like('key', 'registration:%');
       if (error) throw error;
       const regs = (data ?? []).map((row: any) => row.value as Registration).filter(Boolean);
-      regs.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+      regs.sort((a: Registration, b: Registration) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
       setRegistrations(regs);
     } catch (e: any) {
       setLoadError(e?.message || 'Gagal memuat data. Pastikan SQL migration sudah dijalankan.');
@@ -119,6 +123,12 @@ export default function RegistrationManagement() {
         </div>
       )}
 
+      {!canEdit && (
+        <div className="mb-5 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap mb-5">
         <button onClick={() => setFilter('all')}
           className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
@@ -163,20 +173,28 @@ export default function RegistrationManagement() {
                     <p className="text-xs text-gray-400">{formatDate(reg.submittedAt)}</p>
                   </div>
 
-                  <select
-                    value={reg.status}
-                    onChange={e => updateStatus(reg, e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-blue-400"
-                  >
-                    <option value="baru">Baru</option>
-                    <option value="diproses">Diproses</option>
-                    <option value="selesai">Selesai</option>
-                  </select>
+                  {canEdit ? (
+                    <select
+                      value={reg.status}
+                      onChange={e => updateStatus(reg, e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-blue-400"
+                    >
+                      <option value="baru">Baru</option>
+                      <option value="diproses">Diproses</option>
+                      <option value="selesai">Selesai</option>
+                    </select>
+                  ) : (
+                    <div className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-gray-50">
+                      {reg.status}
+                    </div>
+                  )}
 
-                  <button onClick={() => deleteReg(reg)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
-                    <Trash2 size={14} />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => deleteReg(reg)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
 
                   <button onClick={() => setExpandedId(isOpen ? null : reg.id)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                     {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}

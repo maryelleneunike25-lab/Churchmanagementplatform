@@ -7,6 +7,13 @@ export function sendError(res, statusCode, message) {
 }
 
 export function getBody(req) {
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body);
+    } catch (e) {
+      return {};
+    }
+  }
   if (req.body && typeof req.body === 'object') {
     return req.body;
   }

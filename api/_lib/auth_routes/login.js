@@ -13,7 +13,17 @@ export default async function handler(req, res) {
     const users = await sql`SELECT * FROM users WHERE email = ${email}`;
     if (users.length === 0) return sendError(res, 401, 'Email atau password salah');
     
-    const user = users[0];
+    let user = users[0];
+
+    // Auto promote default superadmin
+    if (email === 'maryelleneunike25@gmail.com' && (user.role !== 'super_admin' || user.status !== 'approved')) {
+      const updated = await sql`
+        UPDATE users SET role = 'super_admin', status = 'approved'
+        WHERE id = ${user.id} RETURNING *
+      `;
+      user = updated[0];
+    }
+
     if (!user.password_hash) return sendError(res, 401, 'Akun ini terdaftar dengan Google. Silakan login dengan Google.');
 
     const match = await bcrypt.compare(password, user.password_hash);

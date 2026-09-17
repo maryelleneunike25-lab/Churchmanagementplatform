@@ -123,7 +123,7 @@ export default function KomisiManagement() {
 
   // Which komisi this user can see
   const visibleKomisi = useMemo(() => {
-    if (isSuperAdmin || permissions?.editJemaat || permissions?.viewJemaat) return [...KOMISI_LIST];
+    if (isSuperAdmin || permissions?.editKomisi || permissions?.viewKomisi) return [...KOMISI_LIST];
     const leaderOf = permissions?.komisiLeaderOf || [];
     const visible = KOMISI_LIST.filter(k => leaderOf.includes(k.id));
     return visible;
@@ -134,7 +134,7 @@ export default function KomisiManagement() {
   );
   const [tab, setTab] = useState<Tab>('anggota');
 
-  const canEdit = isSuperAdmin || permissions?.editJemaat ||
+  const canEdit = isSuperAdmin || permissions?.editKomisi ||
     (permissions?.komisiLeaderOf || []).includes(activeKomisi);
 
   const [members, setMembers] = useState<KomisiMember[]>([]);
@@ -458,6 +458,12 @@ export default function KomisiManagement() {
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
           <AlertTriangle size={15} />{error}
           <button onClick={() => setError('')} className="ml-auto"><X size={14} /></button>
+        </div>
+      )}
+
+      {!canEdit && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
         </div>
       )}
 

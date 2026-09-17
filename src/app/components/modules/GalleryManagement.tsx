@@ -33,6 +33,10 @@ async function getSignedUrl(path: string): Promise<string> {
 }
 
 export default function GalleryManagement() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canEdit = isSuperAdmin || user?.permissions?.editGaleri || false;
+
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -233,7 +237,7 @@ export default function GalleryManagement() {
             <p className="text-gray-500 text-sm mt-0.5">Kelola album dan foto gereja</p>
           </div>
         )}
-        {!openAlbum && (
+        {!openAlbum && canEdit && (
           <button onClick={openNewAlbum} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm">
             <Plus size={16} />Buat Album
           </button>
@@ -244,6 +248,12 @@ export default function GalleryManagement() {
         <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
           <AlertTriangle size={16} />{error}
           <button onClick={() => setError('')} className="ml-auto"><X size={14} /></button>
+        </div>
+      )}
+
+      {!canEdit && (
+        <div className="mb-5 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
         </div>
       )}
 
@@ -266,10 +276,12 @@ export default function GalleryManagement() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><Image size={36} className="text-blue-300" /></div>
                   )}
-                  <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => openEditAlbum(album, e)} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white text-gray-700"><Edit2 size={12} /></button>
-                    <button onClick={(e) => { e.stopPropagation(); setDeleteAlbum(album); }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center hover:bg-red-50 text-red-500"><Trash2 size={12} /></button>
-                  </div>
+                  {canEdit && (
+                    <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => openEditAlbum(album, e)} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center hover:bg-white text-gray-700"><Edit2 size={12} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteAlbum(album); }} className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow flex items-center justify-center hover:bg-red-50 text-red-500"><Trash2 size={12} /></button>
+                    </div>
+                  )}
                   <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">{album.photoCount} foto</div>
                 </div>
                 <div className="p-3">
@@ -285,31 +297,33 @@ export default function GalleryManagement() {
       {/* Photos View */}
       {openAlbum && (
         <div>
-          <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 mb-7">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Upload size={15} />Tambah Foto</h3>
-            <div className="flex items-start gap-5 flex-wrap">
-              <div onClick={() => fileRef.current?.click()}
-                className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-white flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden flex-shrink-0">
-                {uploadPreview ? (
-                  <img src={uploadPreview} alt="preview" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="text-center text-gray-400"><Image size={24} className="mx-auto mb-1" /><p className="text-xs">Pilih foto</p></div>
-                )}
-              </div>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-              <div className="flex-1 min-w-[200px]">
-                <input type="text" placeholder="Keterangan foto (opsional)" value={uploadCaption}
-                  onChange={e => setUploadCaption(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-3 bg-white" />
-                <button onClick={handleUploadPhoto} disabled={!uploadFile || uploading}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">
-                  {uploading
-                    ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Mengupload...</>
-                    : <><Upload size={15} />Upload Foto</>}
-                </button>
+          {canEdit && (
+            <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 mb-7">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Upload size={15} />Tambah Foto</h3>
+              <div className="flex items-start gap-5 flex-wrap">
+                <div onClick={() => fileRef.current?.click()}
+                  className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-white flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden flex-shrink-0">
+                  {uploadPreview ? (
+                    <img src={uploadPreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center text-gray-400"><Image size={24} className="mx-auto mb-1" /><p className="text-xs">Pilih foto</p></div>
+                  )}
+                </div>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                <div className="flex-1 min-w-[200px]">
+                  <input type="text" placeholder="Keterangan foto (opsional)" value={uploadCaption}
+                    onChange={e => setUploadCaption(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mb-3 bg-white" />
+                  <button onClick={handleUploadPhoto} disabled={!uploadFile || uploading}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">
+                    {uploading
+                      ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Mengupload...</>
+                      : <><Upload size={15} />Upload Foto</>}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {photosLoading ? (
             <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -328,10 +342,12 @@ export default function GalleryManagement() {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageOff size={24} /></div>
                   )}
-                  <button onClick={() => setDeletePhoto(photo)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-red-600">
-                    <Trash2 size={12} />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => setDeletePhoto(photo)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-red-600">
+                      <Trash2 size={12} />
+                    </button>
+                  )}
                   {photo.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-white text-xs truncate">{photo.caption}</p>

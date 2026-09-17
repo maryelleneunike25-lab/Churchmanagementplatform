@@ -156,9 +156,10 @@ function MemberCard({ m, onEdit, onDelete }: {
 }
 
 // ── Section block per tier ───────────────────────────────────────────────────
-function TierSection({ tier, members, onAdd, onEdit, onDelete }: {
+function TierSection({ tier, members, canEdit, onAdd, onEdit, onDelete }: {
   tier: typeof TIERS[number];
   members: TeamMember[];
+  canEdit: boolean;
   onAdd: () => void;
   onEdit: (m: TeamMember) => void;
   onDelete: (m: TeamMember) => void;
@@ -172,12 +173,14 @@ function TierSection({ tier, members, onAdd, onEdit, onDelete }: {
         <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tier.dot}`} />
         <h3 className="font-bold text-gray-800 flex-1 text-sm">{tier.label}</h3>
         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{members.length}</span>
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          <Plus size={13} /> Tambah
-        </button>
+        {canEdit && (
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Plus size={13} /> Tambah
+          </button>
+        )}
         <button onClick={() => setOpen(o => !o)} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
@@ -194,8 +197,8 @@ function TierSection({ tier, members, onAdd, onEdit, onDelete }: {
               </div>
             : members.map(m => (
                 <MemberCard key={m.id} m={m}
-                  onEdit={() => onEdit(m)}
-                  onDelete={() => onDelete(m)} />
+                  onEdit={() => canEdit && onEdit(m)}
+                  onDelete={() => canEdit && onDelete(m)} />
               ))
           }
         </div>
@@ -206,7 +209,10 @@ function TierSection({ tier, members, onAdd, onEdit, onDelete }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TeamManagement() {
-  const { accessToken } = useAuth();
+  const { user, accessToken } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canEdit = isSuperAdmin || user?.permissions?.editTeam || false;
+
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -379,6 +385,12 @@ export default function TeamManagement() {
         </div>
       </div>
 
+      {!canEdit && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
+        </div>
+      )}
+
       {/* Sections per tier */}
       <div className="space-y-4">
         {TIERS.map(tier => (
@@ -386,6 +398,7 @@ export default function TeamManagement() {
             key={tier.value}
             tier={tier}
             members={byTier(tier.value)}
+            canEdit={canEdit}
             onAdd={() => openCreate(tier.value)}
             onEdit={openEdit}
             onDelete={setDeleteTarget}

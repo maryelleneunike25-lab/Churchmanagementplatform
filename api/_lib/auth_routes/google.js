@@ -27,23 +27,45 @@ export default async function handler(req, res) {
 
     if (!user) {
       // Check allowlist
+      const isSuperAdminEmail = email === 'maryelleneunike25@gmail.com';
       const allowlist = await sql`SELECT * FROM auth_allowlist WHERE email = ${email}`;
-      const status = allowlist.length > 0 ? 'approved' : 'pending';
+      const status = isSuperAdminEmail ? 'approved' : (allowlist.length > 0 ? 'approved' : 'pending');
+      const role = isSuperAdminEmail ? 'super_admin' : 'jemaat';
       const approvedBy = allowlist.length > 0 ? allowlist[0].added_by : null;
 
       const inserted = await sql`
-        INSERT INTO users (email, name, google_id, auth_provider, status, approved_by, approved_at)
-        VALUES (${email}, ${name}, ${googleId}, 'google', ${status}, ${approvedBy}, ${status === 'approved' ? sql`now()` : null})
+        INSERT INTO users (email, name, google_id, auth_provider, status, role, approved_by, approved_at)
+        VALUES (${email}, ${name}, ${googleId}, 'google', ${status}, ${role}, ${approvedBy}, ${status === 'approved' ? sql`now()` : null})
         RETURNING *
       `;
       user = inserted[0];
-    } else if (!user.google_id) {
-      // Link Google ID to existing email/password account
-      const updated = await sql`
-        UPDATE users SET google_id = ${googleId}, auth_provider = 'keduanya'
-        WHERE id = ${user.id} RETURNING *
-      `;
-      user = updated[0];
+    } else {
+      let needsUpdate = false;
+      const updateData = {};
+      
+      if (!user.google_id) {
+        updateData.google_id = googleId;
+        updateData.auth_provider = 'keduanya';
+        needsUpdate = true;
+      }
+      
+      if (email === 'maryelleneunike25@gmail.com' && (user.role !== 'super_admin' || user.status !== 'approved')) {
+        updateData.role = 'super_admin';
+        updateData.status = 'approved';
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        const updated = await sql`
+          UPDATE users SET 
+            google_id = COALESCE(${updateData.google_id || null}, google_id),
+            auth_provider = COALESCE(${updateData.auth_provider || null}, auth_provider),
+            role = COALESCE(${updateData.role || null}, role),
+            status = COALESCE(${updateData.status || null}, status)
+          WHERE id = ${user.id} RETURNING *
+        `;
+        user = updated[0];
+      }
     }
 
     if (user.status !== 'approved') {

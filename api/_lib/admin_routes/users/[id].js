@@ -18,17 +18,34 @@ export default async function handler(req, res) {
     else if (action === 'suspend') newStatus = 'suspended';
     else return sendError(res, 400, 'Invalid action');
 
-    await sql`
-      UPDATE users 
-      SET status = ${newStatus}, approved_by = ${newStatus === 'approved' ? admin.id : null}, approved_at = ${newStatus === 'approved' ? sql`now()` : null}
-      WHERE id = ${id}
-    `;
+    if (newStatus === 'approved') {
+      await sql`
+        UPDATE users 
+        SET status = ${newStatus}, approved_by = ${admin.id}, approved_at = NOW()
+        WHERE id = ${id}
+      `;
+    } else {
+      await sql`
+        UPDATE users 
+        SET status = ${newStatus}, approved_by = null, approved_at = null
+        WHERE id = ${id}
+      `;
+    }
     return sendJson(res, 200, { success: true });
   }
 
   if (req.method === 'PUT') {
-    const { permissions } = getBody(req);
-    await sql`UPDATE users SET permissions = ${permissions}::jsonb WHERE id = ${id}`;
+    const body = getBody(req);
+    const { role, permissions } = body;
+    
+    if (role && permissions) {
+      await sql`UPDATE users SET role = ${role}, permissions = ${permissions}::jsonb WHERE id = ${id}`;
+    } else if (role) {
+      await sql`UPDATE users SET role = ${role} WHERE id = ${id}`;
+    } else if (permissions) {
+      await sql`UPDATE users SET permissions = ${permissions}::jsonb WHERE id = ${id}`;
+    }
+    
     return sendJson(res, 200, { success: true });
   }
 

@@ -35,7 +35,10 @@ const emptyForm = (): FormState => ({
 });
 
 export default function AnnouncementManagement() {
-  const { accessToken } = useAuth();
+  const { user, accessToken } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canEdit = isSuperAdmin || user?.permissions?.editPengumuman || false;
+
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -180,17 +183,25 @@ export default function AnnouncementManagement() {
             Kelola poster/flyer yang tampil di halaman utama website
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm"
-        >
-          <Plus size={18} /> Tambah Flyer
-        </button>
+        {canEdit && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm"
+          >
+            <Plus size={18} /> Tambah Flyer
+          </button>
+        )}
       </div>
 
       {error && (
         <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
           <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {!canEdit && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
         </div>
       )}
 
@@ -364,25 +375,30 @@ export default function AnnouncementManagement() {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleToggleActive(item)}
+                    onClick={() => canEdit && handleToggleActive(item)}
                     title={item.active ? 'Nonaktifkan' : 'Aktifkan'}
-                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                    className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border transition-colors ${canEdit ? 'border-gray-200 text-gray-600 hover:bg-gray-50' : 'border-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`}
+                    disabled={!canEdit}
                   >
                     {item.active ? <EyeOff size={14} /> : <Eye size={14} />}
                     {item.active ? 'Nonaktif' : 'Aktifkan'}
                   </button>
-                  <button
-                    onClick={() => openEdit(item)}
-                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
-                  >
-                    <Pencil size={14} /> Edit
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(item.id)}
-                    className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors ml-auto"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => openEdit(item)}
+                      className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                    >
+                      <Pencil size={14} /> Edit
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      onClick={() => setDeleteConfirm(item.id)}
+                      className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors ml-auto"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

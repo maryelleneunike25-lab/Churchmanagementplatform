@@ -129,6 +129,12 @@ export default function KomselManagement() {
         </div>
       )}
 
+      {!canEdit && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+          Anda hanya memiliki akses <strong>view-only</strong>. Hubungi Super Admin untuk akses edit.
+        </div>
+      )}
+
       {/* Cards */}
       <div className="space-y-3">
         {komsels.length === 0 ? (

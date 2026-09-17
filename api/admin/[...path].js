@@ -1,6 +1,7 @@
 import allowlistHandler from '../_lib/admin_routes/allowlist.js';
 import pendingHandler from '../_lib/admin_routes/pending.js';
 import usersHandler from '../_lib/admin_routes/users/[id].js';
+import usersListHandler from '../_lib/admin_routes/users_list.js';
 import { sendError } from '../_lib/http.js';
 
 export default async function handler(req, res) {
@@ -36,7 +37,7 @@ export default async function handler(req, res) {
         req.query.id = pathSegments[1];
         return await usersHandler(req, res);
       }
-      return sendError(res, 404, 'User ID missing');
+      return await usersListHandler(req, res);
     default:
       return sendError(res, 404, 'Admin route not found');
   }
