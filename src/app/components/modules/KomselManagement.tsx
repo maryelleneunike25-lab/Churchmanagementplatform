@@ -3,17 +3,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { Users, Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, User as UserIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, TextField, Select, MenuItem, FormControl, InputLabel, Button } from '@mui/material';
-import { projectId } from '/utils/supabase/info';
-import { useKomsels, Komsel } from '../../../lib/komsel';
-
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+import { useKomsels, saveKomsel, deleteKomsel, Komsel } from '../../../lib/komsel';
 
 const BLANK_FORM = {
   pksName: '', name: '', status: 'active' as 'active' | 'inactive',
 };
 
 export default function KomselManagement() {
-  const { user, accessToken } = useAuth();
+  const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const canEdit = isSuperAdmin || (user?.permissions as any)?.editKomsel || false;
 
@@ -46,17 +43,11 @@ export default function KomselManagement() {
     if (!formData.name.trim()) return;
     setSaving(true);
     try {
-      const url = editingKomsel ? `${API_URL}/komsel/${editingKomsel.id}` : `${API_URL}/komsel/create`;
-      const res = await fetch(url, {
-        method: editingKomsel ? 'PUT' : 'POST',
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const result = await res.json();
-      if (result.success) { await loadKomsels(); setOpenDialog(false); }
-      else setError(result.error || 'Gagal menyimpan');
+      await saveKomsel(formData, editingKomsel, user?.email || '');
+      await loadKomsels();
+      setOpenDialog(false);
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Gagal menyimpan');
     } finally {
       setSaving(false);
     }
@@ -65,15 +56,10 @@ export default function KomselManagement() {
   const handleDelete = async (id: string) => {
     if (!confirm('Hapus komsel ini?')) return;
     try {
-      const res = await fetch(`${API_URL}/komsel/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      });
-      const result = await res.json();
-      if (result.success) await loadKomsels();
-      else setError(result.error || 'Gagal menghapus');
+      await deleteKomsel(id);
+      await loadKomsels();
     } catch (e: any) {
-      setError(e.message);
+      setError(e.message || 'Gagal menghapus');
     }
   };
 
@@ -177,9 +163,9 @@ export default function KomselManagement() {
                         <button onClick={() => handleOpenDialog(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
                           <Edit2 size={13} /> Edit
                         </button>
-                        <button onClick={() => handleDelete(komsel.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                        {!komsel.virtual && <button onClick={() => handleDelete(komsel.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                           <Trash2 size={13} /> Hapus
-                        </button>
+                        </button>}
                       </div>
                     )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { loadAllMembers } from '../../../lib/komsel';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../../lib/api';
@@ -108,8 +109,8 @@ export default function SuperAdminDashboard() {
 
   const loadMembers = async () => {
     try {
-      const data = await api.get('/api/kv/search?prefix=congregation:member:');
-      if (Array.isArray(data)) setMembers(data.map((r: any) => r.value).filter((m: any) => m?.name));
+      const all = await loadAllMembers();
+      setMembers(all);
     } catch {}
   };
 

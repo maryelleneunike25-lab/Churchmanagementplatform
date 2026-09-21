@@ -13,8 +13,8 @@ export const supabase = {
           like: async (col: string, val: string) => {
              const prefix = val.replace('%', '');
              try {
-                const res = await api.get(`/api/kv/search?prefix=${prefix}`);
-                return { data: res, error: null };
+                const res = await api.get(`/api/kv?prefix=${encodeURIComponent(prefix)}`);
+                return { data: res.data, error: null };
              } catch (e: any) {
                 return { data: null, error: e };
              }
