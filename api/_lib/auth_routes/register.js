@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const isSuperAdminEmail = email === 'maryelleneunike25@gmail.com';
     const allowlist = await sql`SELECT * FROM auth_allowlist WHERE email = ${email}`;
     const status = isSuperAdminEmail ? 'approved' : (allowlist.length > 0 ? 'approved' : 'pending');
-    const role = isSuperAdminEmail ? 'super_admin' : 'jemaat';
+    const role = isSuperAdminEmail ? 'super_admin' : 'admin';
     const approvedBy = allowlist.length > 0 ? allowlist[0].added_by : null;
 
     const inserted = await sql`
@@ -27,6 +27,7 @@ export default async function handler(req, res) {
     
     return sendJson(res, 200, { success: true, user: inserted[0] });
   } catch (err) {
+    console.error('register error:', err);
     return sendError(res, 500, 'Server error');
   }
 }
