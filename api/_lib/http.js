@@ -25,6 +25,15 @@ export function getBody(req) {
 }
 
 export function requireMethod(req, res, method) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return false;
+  }
+
   if (req.method !== method && !(Array.isArray(method) && method.includes(req.method))) {
     res.setHeader('Allow', Array.isArray(method) ? method.join(', ') : method);
     sendError(res, 405, `Method ${req.method} Not Allowed`);

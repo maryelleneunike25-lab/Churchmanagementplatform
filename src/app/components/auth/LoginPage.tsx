@@ -77,7 +77,9 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
       }
     } catch (err: any) {
       console.error('Native Google Sign-In error:', err);
-      setError(err.message || 'Gagal login dengan Google');
+      const errMsg = err.message || 'Gagal login dengan Google';
+      setError(errMsg);
+      alert('Native Error: ' + errMsg);
       setLoading(false);
     }
   };
@@ -90,7 +92,9 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
       if (result.status === 'pending') {
         setPendingStatus(true);
       } else {
-        setError(result.error || 'Failed to sign in with Google');
+        const errMsg = result.error || 'Failed to sign in with Google';
+        setError(errMsg);
+        alert('API Error: ' + errMsg);
       }
     }
     setLoading(false);
