@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 
-const sql = neon('postgresql://neondb_owner:npg_MrsRLhB3Zmy5@ep-weathered-math-b48091qo-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
+const sql = neon(process.env.DATABASE_URL);
 
 async function setPassword(email, newPassword) {
   if (!email || !newPassword) {
