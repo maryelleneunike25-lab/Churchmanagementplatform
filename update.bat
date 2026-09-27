@@ -9,6 +9,7 @@ call npm run build
 
 REM Add git safe directory exception in case of ownership mismatched environment
 git config --global --add safe.directory D:/Home/Projects/Users/Acelbyte/Categories/Programmings/projects/websites/Churchmanagementplatform >nul 2>&1
+git config --global --add safe.directory D:/Home/Projects/Users/Acelbyte/Categories/Programmings/projects/websites/GBI >nul 2>&1
 
 set /p COMMIT_MSG="Enter commit message (default: Update website): "
 if "%COMMIT_MSG%"=="" set COMMIT_MSG=Update website

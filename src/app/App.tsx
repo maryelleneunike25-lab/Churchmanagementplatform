@@ -4,24 +4,14 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginPage from "./components/auth/LoginPage";
 import SignupPage from "./components/auth/SignupPage";
 import SuperAdminDashboard from "./components/dashboard/SuperAdminDashboard";
-import JemaatPage from "./pages/JemaatPage";
-import TentangPage from "./pages/TentangPage";
-import GaleriPage from "./pages/GaleriPage";
-import LokasiPage from "./pages/LokasiPage";
-import ServicePage from "./pages/ServicePage";
 
-// Protected Route Component
-function ProtectedRoute({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// Protected Route — redirects to /login if not authenticated
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -36,18 +26,17 @@ function ProtectedRoute({
   }
 
   if (!user) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 }
 
-// Admin Login Route
+// Login/Signup route — redirects to /dashboard if already logged in
 function AdminRoute() {
   const { user } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
 
-  // If already logged in, redirect to dashboard
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -64,18 +53,11 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/jemaat" element={<JemaatPage />} />
-          <Route path="/tentang" element={<TentangPage />} />
-          <Route path="/service" element={<ServicePage />} />
-          <Route path="/galeri" element={<GaleriPage />} />
-          <Route path="/lokasi" element={<LokasiPage />} />
-
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminRoute />} />
+          {/* Login */}
           <Route path="/login" element={<AdminRoute />} />
+          <Route path="/admin" element={<AdminRoute />} />
 
-          {/* Protected Admin Dashboard */}
+          {/* Protected Admin / SuperAdmin Dashboard */}
           <Route
             path="/dashboard"
             element={
@@ -85,19 +67,11 @@ export default function App() {
             }
           />
 
-          {/* Default Route - Redirect to Jemaat Page */}
-          <Route
-            path="/"
-            element={<Navigate to="/jemaat" replace />}
-          />
-
-          {/* 404 - Redirect to Jemaat */}
-          <Route
-            path="*"
-            element={<Navigate to="/jemaat" replace />}
-          />
+          {/* Default — open login screen */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
   );
-}
+}

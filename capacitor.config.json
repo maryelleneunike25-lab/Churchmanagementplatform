@@ -1,0 +1,12 @@
+{
+  "appId": "com.gbi.app",
+  "appName": "GBI App",
+  "webDir": "dist",
+  "android": {
+    "path": "d:\\Home\\Projects\\Users\\Acelbyte\\Categories\\Programmings\\projects\\applications\\GBI\\android"
+  },
+  "server": {
+    "url": "https://gbijeltim.vercel.app",
+    "cleartext": false
+  }
+}

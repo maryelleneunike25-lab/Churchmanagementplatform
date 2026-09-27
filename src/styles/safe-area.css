@@ -1,0 +1,54 @@
+/*
+  safe-area.css
+  ─────────────────────────────────────────────────────────────────
+  Applies env(safe-area-inset-*) padding so web content never hides
+  behind the native status bar or navigation bar when edge-to-edge
+  rendering is active (Android windowDecorFitsSystemWindows = false).
+
+  The viewport-fit=cover meta tag must be present in index.html for
+  env() variables to be populated by the browser/WebView.
+*/
+
+/* ── Expose insets as CSS custom properties ─────────────────────── */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+/* ── Root app shell: push all content below the status bar ──────── */
+#root {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+}
+
+/* ── Fixed/sticky top elements (topbars, headers) ───────────────── */
+/* Any element with the .safe-top utility gets pushed below the bar */
+.safe-top {
+  padding-top: var(--sat) !important;
+}
+
+/* ── Fixed bottom elements (bottom nav bars, FABs) ─────────────── */
+.safe-bottom {
+  padding-bottom: var(--sab) !important;
+}
+
+/* ── Sidebar: account for insets on the left ───────────────────── */
+.safe-left {
+  padding-left: var(--sal) !important;
+}
+
+/*
+  ── Sticky header override ────────────────────────────────────────
+  The dashboard's <header> is position: sticky; top: 0.
+  We shift it by the status bar height so it sits below the bar,
+  and add matching padding so its inner content isn't clipped.
+*/
+header.sticky,
+.sticky-header {
+  top: var(--sat);
+  padding-top: calc(1rem + var(--sat));
+}

@@ -142,6 +142,7 @@ export default function SuperAdminDashboard() {
         md:translate-x-0
         ${mobileDrawerOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
         ${sidebarOpen ? 'md:w-60' : 'md:w-16'}
+        safe-left
       `}>
 
         {/* Logo / toggle */}
@@ -217,7 +218,7 @@ export default function SuperAdminDashboard() {
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-60' : 'md:ml-16'}`}>
 
         {/* Topbar */}
-        <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30 safe-top">
           <div className="flex items-center gap-3">
             {/* Mobile hamburger */}
             <button
