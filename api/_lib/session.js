@@ -15,9 +15,22 @@ export function issueSessionToken(res, userId, role) {
     'Set-Cookie',
     `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax${isProd ? '; Secure' : ''}`
   );
+  return token;
 }
 
 export function verifySessionToken(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearerToken = authHeader.substring(7);
+    try {
+      const payload = jwt.verify(bearerToken, JWT_SECRET);
+      return {
+        userId: payload.sub,
+        role: payload.role
+      };
+    } catch (e) {}
+  }
+
   const cookieHeader = req.headers.cookie;
   if (!cookieHeader) return null;
 

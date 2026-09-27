@@ -5,8 +5,19 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   // In dev, assuming Vite proxies /api to the API server or we just hit it relatively
   // When running locally, Vite's proxy or direct `/api` is used.
   
+  const token = typeof window !== 'undefined' ? localStorage.getItem('gjt_session_token') : null;
+  const isLocalOrNative = typeof window !== 'undefined' && (
+    (window as any).Capacitor?.isNativePlatform?.() ||
+    window.location.origin.includes('localhost') ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:'
+  );
+  const BASE_URL = isLocalOrNative ? 'https://gbijeltim.vercel.app' : '';
+  const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+
   const headers = {
     'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
@@ -15,10 +26,10 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     delete (headers as any)['Content-Type'];
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
-    credentials: 'same-origin', // Always send the httpOnly session cookie
+    credentials: isLocalOrNative ? 'include' : 'same-origin',
   });
 
   const data = await response.json().catch(() => ({}));

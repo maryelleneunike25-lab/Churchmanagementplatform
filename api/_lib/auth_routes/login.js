@@ -33,8 +33,8 @@ export default async function handler(req, res) {
       return sendJson(res, 200, { success: false, status: user.status, message: 'Akun belum disetujui.' });
     }
 
-    issueSessionToken(res, user.id, user.role);
-    return sendJson(res, 200, { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    const token = issueSessionToken(res, user.id, user.role);
+    return sendJson(res, 200, { success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (err) {
     return sendError(res, 500, 'Server error');
   }

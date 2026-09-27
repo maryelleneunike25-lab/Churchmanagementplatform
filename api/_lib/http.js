@@ -1,8 +1,12 @@
 export function sendJson(res, statusCode, data) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.status(statusCode).json(data);
 }
 
 export function sendError(res, statusCode, message) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.status(statusCode).json({ success: false, error: message });
 }
 

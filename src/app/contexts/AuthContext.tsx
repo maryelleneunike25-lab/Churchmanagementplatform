@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.post('/api/auth/login', { email, password });
       if (res.success) {
+        if (res.token) localStorage.setItem('gjt_session_token', res.token);
         setUser(res.user);
         return { success: true };
       }
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.post('/api/auth/google', { credential });
       if (res.success) {
+        if (res.token) localStorage.setItem('gjt_session_token', res.token);
         setUser(res.user);
         return { success: true };
       }
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.post('/api/auth/logout');
     } catch (e) {}
+    localStorage.removeItem('gjt_session_token');
     setUser(null);
   };
 
