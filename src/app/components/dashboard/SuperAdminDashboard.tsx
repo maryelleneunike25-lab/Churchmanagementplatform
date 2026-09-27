@@ -218,7 +218,7 @@ export default function SuperAdminDashboard() {
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-60' : 'md:ml-16'}`}>
 
         {/* Topbar */}
-        <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30 safe-top">
+        <header className="bg-white border-b border-gray-200 px-4 md:px-6 pb-4 flex items-center justify-between sticky top-0 z-30 safe-header">
           <div className="flex items-center gap-3">
             {/* Mobile hamburger */}
             <button
@@ -247,7 +247,7 @@ export default function SuperAdminDashboard() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6">
+        <main className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 safe-bottom">
 
           {/* Dashboard overview */}
           {activeTab === 'dashboard' && (

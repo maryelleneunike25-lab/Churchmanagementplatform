@@ -17,38 +17,30 @@
   --sal: env(safe-area-inset-left, 0px);
 }
 
-/* ── Root app shell: push all content below the status bar ──────── */
-#root {
-  padding-top: var(--sat);
-  padding-right: var(--sar);
-  padding-bottom: var(--sab);
-  padding-left: var(--sal);
-}
-
-/* ── Fixed/sticky top elements (topbars, headers) ───────────────── */
-/* Any element with the .safe-top utility gets pushed below the bar */
+/* ── Utility classes for Capacitor safe areas ─────────────── */
 .safe-top {
   padding-top: var(--sat) !important;
 }
 
-/* ── Fixed bottom elements (bottom nav bars, FABs) ─────────────── */
 .safe-bottom {
   padding-bottom: var(--sab) !important;
 }
 
-/* ── Sidebar: account for insets on the left ───────────────────── */
 .safe-left {
   padding-left: var(--sal) !important;
 }
 
+.safe-right {
+  padding-right: var(--sar) !important;
+}
+
 /*
-  ── Sticky header override ────────────────────────────────────────
-  The dashboard's <header> is position: sticky; top: 0.
-  We shift it by the status bar height so it sits below the bar,
-  and add matching padding so its inner content isn't clipped.
+  ── Header with safe area ────────────────────────────────────────
+  Use this for the main sticky top header. It adds the standard 1rem
+  padding PLUS the status bar height, and keeps top: 0 so it sticks
+  all the way to the top of the screen.
 */
-header.sticky,
-.sticky-header {
-  top: var(--sat);
+header.safe-header {
   padding-top: calc(1rem + var(--sat));
 }
+

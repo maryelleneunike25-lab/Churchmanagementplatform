@@ -127,10 +127,10 @@ export default function PelayanManagement() {
       {/* Division pills — schedule-linked at top */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Bidang Jadwal Pelayanan</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           {SCHEDULE_PELAYAN.map(p => (
             <button key={p.key} onClick={() => { setSelected(p.key); setSearch(''); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex-shrink-0 ${
                 selected === p.key
                   ? `${p.color} text-white border-transparent shadow-sm`
                   : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -144,10 +144,10 @@ export default function PelayanManagement() {
         </div>
 
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Bidang Lainnya</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           {PELAYAN_LAINNYA.map(opt => (
             <button key={opt} onClick={() => { setSelected(opt); setSearch(''); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex-shrink-0 ${
                 selected === opt
                   ? 'bg-gray-800 text-white border-transparent'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'

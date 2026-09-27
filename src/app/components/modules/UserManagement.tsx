@@ -159,27 +159,27 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Shield className="w-5 h-5 text-blue-600" />
             Manajemen Pengguna & Hak Akses
           </h3>
-          <button onClick={openAddUser} className="inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4 mr-2" /> Tambah Pengguna
+          <button onClick={openAddUser} className="inline-flex items-center px-4 py-2 shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700">
+            <Plus className="w-4 h-4 mr-2" /> Tambah
           </button>
         </div>
         {error && !userForm && (
-          <div className="mb-4 bg-red-50 text-red-600 text-sm p-3 rounded-lg flex justify-between items-start gap-2">
+          <div className="mb-4 bg-red-50 text-red-600 text-sm p-3 rounded-xl flex justify-between items-start gap-2">
             <span>{error}</span>
             <button onClick={() => setError('')}><X className="w-4 h-4" /></button>
           </div>
         )}
         
         {loadingUsers ? <RefreshCw className="animate-spin text-gray-400" /> : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama / Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
@@ -248,7 +248,7 @@ export default function UserManagement() {
         )}
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Email yang otomatis disetujui (Allowlist)</h3>
         <p className="text-sm text-gray-500 mb-4">Email dalam daftar ini akan langsung disetujui (approved) saat pertama kali mendaftar.</p>
         
