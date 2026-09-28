@@ -247,11 +247,11 @@ export default function SuperAdminDashboard() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 safe-bottom">
+        <main className="flex-1 flex flex-col min-h-0 safe-bottom">
 
           {/* Dashboard overview */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto">
               {/* Stats grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
@@ -386,20 +386,20 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'userManagement'   && <UserManagement />}
-          {activeTab === 'pendingApprovals' && <PendingApprovals onApprovalChange={loadStats} />}
-          {activeTab === 'jemaat'           && <CongregationManagement />}
-          {activeTab === 'absensi'          && <AttendanceManagement />}
-          {activeTab === 'komsel'           && <KomselManagement />}
-          {activeTab === 'keuangan'         && <FinanceManagement />}
-          {activeTab === 'inventaris'       && <InventoryManagement />}
+          {activeTab === 'userManagement'   && <div className="overflow-y-auto"><div className="p-4 md:p-6"><UserManagement /></div></div>}
+          {activeTab === 'pendingApprovals' && <div className="overflow-y-auto"><div className="p-4 md:p-6"><PendingApprovals onApprovalChange={loadStats} /></div></div>}
+          {activeTab === 'jemaat'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><CongregationManagement /></div></div>}
+          {activeTab === 'absensi'          && <div className="overflow-y-auto"><div className="p-4 md:p-6"><AttendanceManagement /></div></div>}
+          {activeTab === 'komsel'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><KomselManagement /></div></div>}
+          {activeTab === 'keuangan'         && <div className="overflow-y-auto"><div className="p-4 md:p-6"><FinanceManagement /></div></div>}
+          {activeTab === 'inventaris'       && <div className="overflow-y-auto"><div className="p-4 md:p-6"><InventoryManagement /></div></div>}
           {activeTab === 'pelayan'          && <PelayanManagement />}
-          {activeTab === 'pengumuman'       && <AnnouncementManagement />}
-          {activeTab === 'galeri'           && <GalleryManagement />}
-          {activeTab === 'komisi'           && <KomisiManagement />}
+          {activeTab === 'pengumuman'       && <div className="overflow-y-auto"><div className="p-4 md:p-6"><AnnouncementManagement /></div></div>}
+          {activeTab === 'galeri'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><GalleryManagement /></div></div>}
+          {activeTab === 'komisi'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><KomisiManagement /></div></div>}
           {activeTab === 'jadwal'           && <ScheduleManagement />}
-          {activeTab === 'tim'              && <TeamManagement />}
-          {activeTab === 'registrasi'       && <RegistrationManagement />}
+          {activeTab === 'tim'              && <div className="overflow-y-auto"><div className="p-4 md:p-6"><TeamManagement /></div></div>}
+          {activeTab === 'registrasi'       && <div className="overflow-y-auto"><div className="p-4 md:p-6"><RegistrationManagement /></div></div>}
         </main>
       </div>
     </div>

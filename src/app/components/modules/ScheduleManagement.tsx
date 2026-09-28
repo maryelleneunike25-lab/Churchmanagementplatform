@@ -652,7 +652,8 @@ export default function ScheduleManagement() {
   if (loading) return <div className="text-center py-16 text-gray-400">Memuat jadwal...</div>;
 
   return (
-    <div className="space-y-5 max-w-full">
+    <div className="overflow-y-auto flex-1">
+    <div className="space-y-5 max-w-full p-4 md:p-6">
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -1026,6 +1027,7 @@ export default function ScheduleManagement() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

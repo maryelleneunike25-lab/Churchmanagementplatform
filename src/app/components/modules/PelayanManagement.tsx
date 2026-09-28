@@ -5,7 +5,6 @@ import { Search, Phone, User } from 'lucide-react';
 
 const KV = 'kv_store_561004a0';
 
-// Must match CongregationManagement's SCHEDULE_DIVISIONS + PELAYAN_LAINNYA exactly
 const SCHEDULE_PELAYAN = [
   { key: 'Pemuji',                 label: 'Pemuji',                  color: 'bg-blue-600' },
   { key: 'Pemusik',                label: 'Pemusik',                  color: 'bg-purple-600' },
@@ -114,126 +113,192 @@ export default function PelayanManagement() {
   }, [members, selected, search]);
 
   const isScheduleLinked = SCHEDULE_PELAYAN.some(p => p.key === selected);
-  const scheduleColor = SCHEDULE_PELAYAN.find(p => p.key === selected)?.color || 'bg-blue-700';
+  const activePelayanDef = SCHEDULE_PELAYAN.find(p => p.key === selected);
+  const activeBgColor = activePelayanDef?.color ?? 'bg-gray-800';
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">Daftar Pelayan</h2>
-        <p className="text-sm text-gray-500 mt-1">Anggota tim pelayanan berdasarkan bidang — tersinkronisasi dari Data Jemaat</p>
-      </div>
+    <div className="flex flex-col h-full overflow-hidden">
 
-      {/* Division pills — schedule-linked at top */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Bidang Jadwal Pelayanan</p>
-        <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-          {SCHEDULE_PELAYAN.map(p => (
-            <button key={p.key} onClick={() => { setSelected(p.key); setSearch(''); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex-shrink-0 ${
-                selected === p.key
-                  ? `${p.color} text-white border-transparent shadow-sm`
-                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}>
-              {p.label}
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                selected === p.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>{countByBidang[p.key] ?? 0}</span>
-            </button>
-          ))}
+      {/* ── Sticky Filter & Search Section ─────────────────── */}
+      <div className="bg-white border-b border-gray-100 flex-shrink-0">
+
+        {/* Bidang Jadwal Pelayanan row */}
+        <div className="pt-3 pb-1">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">
+            Jadwal Pelayanan
+          </p>
+          <div className="flex overflow-x-auto gap-2 px-4 pb-2" style={{ scrollbarWidth: 'none' }}>
+            {SCHEDULE_PELAYAN.map(p => {
+              const isActive = selected === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => { setSelected(p.key); setSearch(''); }}
+                  className={`flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold transition-all ${
+                    isActive
+                      ? `${p.color} text-white shadow-sm`
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {p.label}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+                    isActive ? 'bg-white/25 text-white' : 'bg-white text-gray-500'
+                  }`}>
+                    {countByBidang[p.key] ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Bidang Lainnya</p>
-        <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-          {PELAYAN_LAINNYA.map(opt => (
-            <button key={opt} onClick={() => { setSelected(opt); setSearch(''); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex-shrink-0 ${
-                selected === opt
-                  ? 'bg-gray-800 text-white border-transparent'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}>
-              {opt}
-              {countByBidang[opt] > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  selected === opt ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'
-                }`}>{countByBidang[opt]}</span>
-              )}
-            </button>
-          ))}
+        {/* Bidang Lainnya row */}
+        <div className="pb-1">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 mb-2">
+            Lainnya
+          </p>
+          <div className="flex overflow-x-auto gap-2 px-4 pb-2" style={{ scrollbarWidth: 'none' }}>
+            {PELAYAN_LAINNYA.map(opt => {
+              const isActive = selected === opt;
+              const count = countByBidang[opt] ?? 0;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => { setSelected(opt); setSearch(''); }}
+                  className={`flex-shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-gray-800 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {opt}
+                  {count > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+                      isActive ? 'bg-white/25 text-white' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Search bar */}
+        <div className="px-4 pb-3 pt-1">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Cari nama pelayan..."
+              className="w-full h-9 pl-9 pr-4 text-sm bg-gray-100 rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Cari nama pelayan..."
-          className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
-
-      {/* Summary bar */}
-      <div className={`${isScheduleLinked ? scheduleColor : 'bg-gradient-to-r from-gray-700 to-gray-800'} rounded-2xl px-6 py-4 flex items-center justify-between text-white`}>
+      {/* ── Active Bidang Banner ─────────────────────────── */}
+      <div className={`${activeBgColor} px-4 py-3 flex items-center justify-between flex-shrink-0`}>
         <div>
-          <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Bidang Pelayanan</p>
-          <p className="text-lg font-bold">{selected}</p>
-          {isScheduleLinked && <p className="text-white/60 text-xs mt-0.5">Terhubung ke Jadwal Pelayanan</p>}
+          <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Bidang Aktif</p>
+          <p className="text-white font-bold text-sm leading-tight">{selected}</p>
+          {isScheduleLinked && (
+            <p className="text-white/50 text-[10px] mt-0.5">Terhubung ke Jadwal</p>
+          )}
         </div>
         <div className="text-right">
-          <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Total Pelayan</p>
-          <p className="text-3xl font-bold">{filtered.length}</p>
+          <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Total</p>
+          <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : filtered.length}</p>
+          <p className="text-white/50 text-[10px]">pelayan</p>
         </div>
       </div>
 
-      {/* Member cards */}
-      {loading ? (
-        <div className="py-12 text-center text-gray-400 text-sm">Memuat data pelayan...</div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-            <User size={28} className="text-gray-400" />
+      {/* ── Member List ──────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-gray-400">Memuat data pelayan...</p>
           </div>
-          <p className="font-semibold text-gray-600">
-            {search ? 'Tidak ada pelayan yang cocok' : `Belum ada pelayan di bidang ${selected}`}
-          </p>
-          <p className="text-sm text-gray-400 mt-1">
-            Tambahkan bidang pelayanan melalui menu <strong>Data Jemaat → Edit → Pelayanan</strong>
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(m => (
-            <div key={m.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex items-start gap-4">
-              <div className={`w-12 h-12 rounded-2xl ${avatarColor(m.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                {getInitials(m.name)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{m.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {m.gender === 'male' ? 'Laki-laki' : m.gender === 'female' ? 'Perempuan' : ''}
-                  {m.gender && m.status ? ' · ' : ''}
-                  <span className={m.status === 'active' ? 'text-emerald-600' : m.status === 'new' ? 'text-blue-600' : 'text-gray-400'}>
-                    {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif'}
-                  </span>
-                </p>
-                {m.phone && (
-                  <a href={`https://wa.me/${m.phone.replace(/\D/g,'').replace(/^0/,'62')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 hover:underline">
-                    <Phone size={12} />{m.phone}
-                  </a>
-                )}
-                {(m.pelayan || []).filter(p => p !== selected).length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {(m.pelayan || []).filter(p => p !== selected).map(p => (
-                      <span key={p} className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{p}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-14 h-14 bg-gray-200 rounded-2xl flex items-center justify-center mb-3">
+              <User size={24} className="text-gray-400" />
             </div>
-          ))}
-        </div>
-      )}
+            <p className="font-semibold text-gray-600 text-sm">
+              {search ? 'Tidak ada yang cocok' : `Belum ada pelayan`}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {search
+                ? `Coba kata kunci lain`
+                : `Tambah via Data Jemaat → Edit → Pelayanan`}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filtered.map(m => {
+              const otherRoles = (m.pelayan || []).filter(p => p !== selected);
+              return (
+                <div key={m.id} className="flex items-center gap-3 px-4 py-3 bg-white active:bg-gray-50">
+                  {/* Avatar */}
+                  <div className={`w-11 h-11 rounded-2xl ${avatarColor(m.name)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                    {getInitials(m.name)}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{m.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {m.gender && (
+                        <span className="text-[11px] text-gray-400">
+                          {m.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                        </span>
+                      )}
+                      {m.gender && m.status && <span className="text-gray-300 text-[11px]">·</span>}
+                      <span className={`text-[11px] font-medium ${
+                        m.status === 'active' ? 'text-emerald-600'
+                          : m.status === 'new' ? 'text-blue-600'
+                          : 'text-gray-400'
+                      }`}>
+                        {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Tidak Aktif'}
+                      </span>
+                    </div>
+                    {otherRoles.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {otherRoles.slice(0, 3).map(p => (
+                          <span key={p} className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-md">
+                            {p}
+                          </span>
+                        ))}
+                        {otherRoles.length > 3 && (
+                          <span className="text-[10px] text-gray-400">+{otherRoles.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* WhatsApp link */}
+                  {m.phone && (
+                    <a
+                      href={`https://wa.me/${m.phone.replace(/\D/g, '').replace(/^0/, '62')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Phone size={15} className="text-emerald-600" />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+            {/* Bottom spacer */}
+            <div className="h-4" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
