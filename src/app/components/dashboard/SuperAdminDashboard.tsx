@@ -148,7 +148,7 @@ export default function SuperAdminDashboard() {
         md:translate-x-0
         ${mobileDrawerOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
         ${sidebarOpen ? 'md:w-60' : 'md:w-16'}
-        safe-left
+        safe-left safe-top safe-bottom
       `}>
 
         {/* Logo / toggle */}
