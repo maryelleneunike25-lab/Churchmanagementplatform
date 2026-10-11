@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { Heart, Star, BookOpen, Users, ArrowRight, UserCircle } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
+import { ALL_MINISTRIES } from '../../lib/ministries';
+import { useChurchStats, yearsServing } from '../../lib/stats';
 import PublicFooter from '../components/public/PublicFooter';
 import gbiLogo from '../../imports/pngegg__1_-1.png';
 
@@ -39,12 +41,6 @@ const values = [
   { label: 'Persekutuan', desc: 'Membangun komunitas yang kuat dan saling mendukung',         icon: Users,    color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-100' },
 ];
 
-const timeline = [
-  { year: '1993', desc: 'Gereja berdiri dengan 30 jemaat pertama' },
-  { year: '2005', desc: 'Gedung utama diresmikan dan diperluas' },
-  { year: '2015', desc: 'Program komsel dan pelayanan pemuda diperluas' },
-  { year: '2024', desc: 'Lebih dari 500 jemaat aktif dan 20 kelompok komsel' },
-];
 
 const TIER_LABELS: Record<string, string> = {
   gembala_sidang:  'Gembala Sidang',
@@ -108,6 +104,7 @@ function PersonCard({ member, size = 'md' }: { member: TeamMember; size?: 'lg' |
 export default function TentangPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
+  const stats = useChurchStats();
 
   useEffect(() => {
     fetch(`${API_URL}/team`)
@@ -180,40 +177,11 @@ export default function TentangPage() {
         </div>
       </section>
 
-      {/* Timeline */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-3xl mx-auto px-6">
-          <FadeIn>
-            <div className="text-center mb-14">
-              <span className="inline-block text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">Sejarah</span>
-              <h2 className="text-3xl font-bold text-gray-900">Perjalanan Kami</h2>
-            </div>
-          </FadeIn>
-          <div className="relative">
-            <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-blue-100" />
-            <div className="space-y-10">
-              {timeline.map((t, i) => (
-                <FadeIn key={t.year} delay={i * 0.1}>
-                  <div className="flex items-start gap-6">
-                    <div className="w-16 flex-shrink-0 flex justify-center">
-                      <span className="relative z-10 text-xs font-bold text-blue-600 bg-blue-50 border-2 border-blue-200 px-2 py-1 rounded-full">{t.year}</span>
-                    </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex-1">
-                      <p className="text-gray-700 leading-relaxed">{t.desc}</p>
-                    </div>
-                  </div>
-                </FadeIn>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Stats */}
       <section className="py-16 bg-gradient-to-r from-blue-700 to-indigo-700">
         <div className="max-w-4xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-white">
-            {[{ n: '500+', label: 'Jemaat Aktif' }, { n: '4', label: 'Ibadah Per Minggu' }, { n: '20+', label: 'Kelompok Komsel' }, { n: '30+', label: 'Tahun Melayani' }].map((s, i) => (
+            {[{ n: stats ? String(stats.members) : '–', label: 'Jemaat' }, { n: String(ALL_MINISTRIES.length), label: 'Komunitas & Ibadah' }, { n: stats ? String(stats.komsel) : '–', label: 'Kelompok Komsel' }, { n: `${yearsServing()}+`, label: 'Tahun Melayani' }].map((s, i) => (
               <FadeIn key={s.label} delay={i * 0.08}>
                 <div className="text-3xl md:text-4xl font-bold">{s.n}</div>
                 <div className="text-blue-200 text-sm mt-1">{s.label}</div>

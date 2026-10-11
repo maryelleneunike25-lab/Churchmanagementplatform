@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { MapPin, ArrowRight, Navigation, Clock } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { CHURCH } from '../../lib/church';
+import { getMinistry, formatSchedules } from '../../lib/ministries';
 import PublicFooter from '../components/public/PublicFooter';
 
 export default function LokasiPage() {
@@ -103,9 +104,7 @@ export default function LokasiPage() {
           </div>
           <div className="grid sm:grid-cols-2 gap-2 text-sm">
             {[
-              ['Ibadah Umum', 'Minggu 07.00 · 09.30 · 17.00'],
-              ['Persekutuan Doa', 'Rabu 18.30 – 20.30'],
-              ['Sekolah Minggu', 'Minggu 07.00 · 09.30'],
+              ...['umum', 'doa', 'sekolah-minggu', 'vessel', 'teens'].flatMap(id => { const m = getMinistry(id); return m ? [[m.name, formatSchedules(m.schedules)]] : []; }),
               ['Lihat semua program', ''],
             ].map(([t, d]) => t === 'Lihat semua program'
               ? <a key={t} href="/service" className="text-blue-600 font-semibold py-1">{t} →</a>

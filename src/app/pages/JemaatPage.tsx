@@ -7,6 +7,8 @@ import {
   ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound
 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
+import { getMinistry, formatSchedules, ALL_MINISTRIES } from '../../lib/ministries';
+import { useChurchStats, yearsServing } from '../../lib/stats';
 import PublicFooter from '../components/public/PublicFooter';
 
 const API_URL = `${apiBase()}/api/content`;
@@ -91,15 +93,17 @@ function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; del
   );
 }
 
-const schedules = [
-  { title: 'Ibadah Minggu', time: 'Minggu, 08:00 – 10:00 WIB', location: 'Gedung Utama', icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
-  { title: 'Ibadah Pemuda', time: 'Sabtu, 18:00 – 20:00 WIB', location: 'Ruang Pemuda', icon: Star, color: 'from-purple-500 to-pink-600' },
-  { title: 'Persekutuan Doa', time: 'Rabu, 19:00 – 21:00 WIB', location: 'Gedung Utama', icon: Heart, color: 'from-rose-500 to-orange-500' },
-  { title: 'Sekolah Minggu', time: 'Minggu, 08:00 – 10:00 WIB', location: 'Ruang Anak', icon: Users, color: 'from-emerald-500 to-teal-600' },
-];
+// Highlighted ministries on the home page; times come from the shared ministries data.
+const HOME_SCHEDULES = [
+  { id: 'umum', icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
+  { id: 'doa', icon: Heart, color: 'from-rose-500 to-orange-500' },
+  { id: 'vessel', icon: Star, color: 'from-purple-500 to-pink-600' },
+  { id: 'sekolah-minggu', icon: Users, color: 'from-emerald-500 to-teal-600' },
+].flatMap(h => { const m = getMinistry(h.id); return m ? [{ ...h, title: m.name, time: formatSchedules(m.schedules) + ' WIB', location: m.location }] : []; });
 
 export default function JemaatPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const stats = useChurchStats();
 
   useEffect(() => {
     fetch(`${API_URL}/announcements`)
@@ -234,10 +238,10 @@ export default function JemaatPage() {
         <div className="bg-gradient-to-r from-blue-700 to-indigo-700 mt-10">
           <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-white">
             {[
-              { n: '500+', label: 'Jemaat Aktif' },
-              { n: '4', label: 'Ibadah Per Minggu' },
-              { n: '20+', label: 'Kelompok Komsel' },
-              { n: '30+', label: 'Tahun Melayani' },
+              { n: stats ? String(stats.members) : '–', label: 'Jemaat' },
+              { n: String(ALL_MINISTRIES.length), label: 'Komunitas & Ibadah' },
+              { n: stats ? String(stats.komsel) : '–', label: 'Kelompok Komsel' },
+              { n: `${yearsServing()}+`, label: 'Tahun Melayani' },
             ].map(item => (
               <div key={item.label}>
                 <div className="text-3xl font-bold">{item.n}</div>
@@ -274,8 +278,8 @@ export default function JemaatPage() {
             </div>
           </FadeInSection>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {schedules.map((s, i) => (
-              <FadeInSection key={s.title} delay={i * 0.1}>
+            {HOME_SCHEDULES.map((s, i) => (
+              <FadeInSection key={s.id} delay={i * 0.1}>
                 <div className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100">
                   <div className={`h-2 bg-gradient-to-r ${s.color}`} />
                   <div className="p-7 flex items-start gap-5">

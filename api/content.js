@@ -73,6 +73,22 @@ export default async function handler(req, res) {
       });
       return sendJson(res, 200, { success: true, members });
     }
+    // Public aggregate numbers for the website (no personal data)
+    if (m === 'GET' && resource === 'stats') {
+      const rows = await sql`SELECT key, value FROM app_kv WHERE key LIKE 'congregation:member:%' OR key LIKE 'member:%' OR key LIKE 'komsel:%' OR key = 'config:pks-names'`;
+      const norm = (n) => String(n || '').toUpperCase().replace(/^PKS\s*/i, '').replace(/\s+/g, ' ').trim();
+      const people = new Set(); const pks = new Set();
+      for (const r of rows) {
+        const v = r.value;
+        if (r.key === 'config:pks-names') { (Array.isArray(v) ? v : []).forEach((n) => { const k = norm(n); if (k) pks.add(k); }); continue; }
+        if (r.key.startsWith('komsel:')) { const k = norm(v?.pksName || v?.name); if (k) pks.add(k); continue; }
+        if (!v?.name || v.status === 'inactive') continue;
+        people.add(v.id || r.key);
+        const k = norm(v.pksName); if (k) pks.add(k);
+      }
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      return sendJson(res, 200, { success: true, members: people.size, komsel: pks.size });
+    }
     // Public: submit a registration form
     if (m === 'POST' && resource === 'registrations') {
       const { type, title, data } = getBody(req);
