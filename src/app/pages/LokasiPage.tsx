@@ -1,8 +1,9 @@
 import { motion } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { MapPin, ArrowRight, Navigation, Clock } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { CHURCH } from '../../lib/church';
-import { getMinistry, formatSchedules } from '../../lib/ministries';
+import { getMinistry, groupSchedules } from '../../lib/ministries';
 import PublicFooter from '../components/public/PublicFooter';
 
 export default function LokasiPage() {
@@ -94,21 +95,47 @@ export default function LokasiPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.33 }}
-          className="bg-gray-50 rounded-2xl p-6 border border-gray-100 mb-4"
+          className="mb-6"
         >
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
-              <Clock size={18} className="text-white" />
+          <div className="flex items-end justify-between gap-3 mb-4 px-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-600/20">
+                <Clock size={18} className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 leading-tight">Jam Ibadah</h3>
+                <p className="text-xs text-gray-400">Pilih waktu yang paling cocok untuk kamu</p>
+              </div>
             </div>
-            <h3 className="font-bold text-gray-900">Jam Ibadah</h3>
+            <Link to="/service" className="text-sm font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap">Semua program →</Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            {[
-              ...['umum', 'doa', 'sekolah-minggu', 'vessel', 'teens'].flatMap(id => { const m = getMinistry(id); return m ? [[m.name, formatSchedules(m.schedules)]] : []; }),
-              ['Lihat semua program', ''],
-            ].map(([t, d]) => t === 'Lihat semua program'
-              ? <a key={t} href="/service" className="text-blue-600 font-semibold py-1">{t} →</a>
-              : <div key={t} className="flex justify-between gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100"><span className="font-semibold text-gray-800">{t}</span><span className="text-gray-500 text-right">{d}</span></div>)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {['umum', 'doa', 'sekolah-minggu', 'vessel', 'teens'].flatMap(id => { const m = getMinistry(id); return m ? [m] : []; }).map((m, i) => (
+              <div key={m.id} className={`relative bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-4 pl-5 overflow-hidden ${i === 0 ? 'sm:col-span-2' : ''}`}>
+                <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: m.accent }} />
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-bold text-gray-900">{m.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{m.label}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1">
+                    <MapPin size={10} />{m.location}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {groupSchedules(m.schedules).map(g => (
+                    <div key={g.day} className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-gray-700 w-24 flex-shrink-0">{g.day}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {g.times.map(t => (
+                          <span key={t} className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </motion.div>
 

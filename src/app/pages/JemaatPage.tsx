@@ -104,6 +104,7 @@ const HOME_SCHEDULES = [
 export default function JemaatPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const stats = useChurchStats();
+  const [videoFailed, setVideoFailed] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/announcements`)
@@ -129,15 +130,24 @@ export default function JemaatPage() {
         </div>
 
         {/* Background video — covers full section including navbar area */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          src="https://nnzqvhkhreesgcjallof.supabase.co/storage/v1/object/sign/video/vid%20homepage.mp4?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9iMTQwMDFhYS1iZTYwLTQzODUtYjM3Zi1kMTZlZDc0YmJjODMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ2aWRlby92aWQgaG9tZXBhZ2UubXA0Iiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MTE5NTM2NywiZXhwIjoyMDk2NTU1MzY3fQ.6TtevDVxZlexuuZdEM4XVIx1h_mgiV0RX1-nxYWBnEA"
-          style={{ opacity: 0.5 }}
-        />
+        {/* Background video: put the file at public/hero.mp4. If it is missing or fails, the animated gradient below shows instead. */}
+        {!videoFailed && (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            controls={false}
+            disablePictureInPicture
+            onError={() => setVideoFailed(true)}
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            style={{ opacity: 0.5 }}
+          >
+            <source src="/hero.mp4" type="video/mp4" onError={() => setVideoFailed(true)} />
+          </video>
+        )}
+        <div className="absolute inset-0 hero-aurora pointer-events-none" />
 
         {/* Gradient overlay on top of video */}
         <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, #1e3a8aCC 0%, #312e81CC 50%, #1e1b4bCC 100%)' }} />

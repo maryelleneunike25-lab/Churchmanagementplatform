@@ -165,3 +165,10 @@ export function formatSchedules(schedules: { day: string; time: string }[]): str
 }
 
 export const getMinistry = (id: string) => ALL_MINISTRIES.find(m => m.id === id);
+
+/** [{ day: 'Minggu', times: ['07.00', '09.30'] }, ...] — start times grouped by day, in order of appearance. */
+export function groupSchedules(schedules: { day: string; time: string }[]): { day: string; times: string[] }[] {
+  const byDay = new Map<string, string[]>();
+  for (const sc of schedules) byDay.set(sc.day, [...(byDay.get(sc.day) || []), sc.time.split('–')[0].trim()]);
+  return [...byDay.entries()].map(([day, times]) => ({ day, times }));
+}
