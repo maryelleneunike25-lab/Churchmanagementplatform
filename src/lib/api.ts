@@ -7,7 +7,7 @@ export function apiBase(): string {
     window.location.origin.includes('localhost') ||
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'file:';
-  return isLocalOrNative ? 'https://gbijeltim.vercel.app' : '';
+  return isLocalOrNative ? 'https://www.gbijelambartimur.com' : '';
 }
 
 /** Unauthenticated JSON fetch for the public website. */
@@ -30,7 +30,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'file:'
   );
-  const BASE_URL = isLocalOrNative ? 'https://gbijeltim.vercel.app' : '';
+  const BASE_URL = isLocalOrNative ? 'https://www.gbijelambartimur.com' : '';
   const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
 
   const headers = {
