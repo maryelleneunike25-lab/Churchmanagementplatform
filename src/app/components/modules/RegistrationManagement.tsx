@@ -203,7 +203,7 @@ export default function RegistrationManagement() {
 
                 {isOpen && (
                   <div className="px-5 pb-5 border-t border-gray-50">
-                    <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3 mt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4">
                       {entries.map(([key, val]) => {
                         const isPhone = key === 'telepon';
                         const waNumber = isPhone && val ? val.replace(/\D/g, '').replace(/^0/, '62') : null;

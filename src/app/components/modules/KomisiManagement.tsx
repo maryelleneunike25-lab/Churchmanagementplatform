@@ -600,7 +600,7 @@ export default function KomisiManagement() {
 
       {/* ── ABSENSI TAB ── */}
       {tab === 'absensi' && (
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="md:col-span-1">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900 text-sm">Absensi Mingguan <span className="text-[10px] font-normal text-gray-400">(otomatis tiap Minggu)</span></h3>

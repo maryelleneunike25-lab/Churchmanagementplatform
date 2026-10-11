@@ -393,7 +393,7 @@ function MinistryPanel({ m }: { m: Ministry }) {
     <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="flex-1 min-w-0">
       <div className="h-px mb-7" style={{ background: `linear-gradient(to right, ${m.accent}50, transparent)` }} />
-      <div className="grid md:grid-cols-2 gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         <InfoBlock m={m} />
         <div className="relative rounded-2xl overflow-hidden h-60 md:h-[320px]">
           <img src={m.photo} alt={m.name} className="w-full h-full object-cover" />
@@ -410,7 +410,7 @@ function ParallaxCard({ m }: { m: Ministry }) {
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
   const photoY = useTransform(scrollYProgress, [0, 1], ['-8%', '8%']);
   return (
-    <div ref={ref} className="grid md:grid-cols-2 rounded-2xl overflow-hidden border border-white/8" style={{ background: 'rgba(255,255,255,0.02)' }}>
+    <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden border border-white/8" style={{ background: 'rgba(255,255,255,0.02)' }}>
       <div className="relative h-64 md:h-auto overflow-hidden order-last md:order-first">
         <motion.img src={m.photo} alt={m.name} style={{ y: photoY }} className="w-full h-[116%] object-cover absolute inset-0" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, transparent 55%, rgba(10,15,30,0.65) 100%)' }} />
@@ -428,7 +428,7 @@ function ParallaxCard({ m }: { m: Ministry }) {
 /* ─────────── KIDS CARD ─────────── */
 function KidsCard({ m }: { m: Ministry }) {
   return (
-    <div className="grid md:grid-cols-2 rounded-2xl overflow-hidden border border-white/8" style={{ background: 'rgba(255,255,255,0.02)' }}>
+    <div className="grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden border border-white/8" style={{ background: 'rgba(255,255,255,0.02)' }}>
       <div className="relative h-56 md:h-auto overflow-hidden">
         <img src={m.photo} alt={m.name} className="w-full h-full object-cover" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, transparent 55%, rgba(10,15,30,0.65) 100%)' }} />
@@ -550,7 +550,7 @@ export default function ServicePage() {
             <motion.div key="layanan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <p className="text-white/25 text-xs font-bold uppercase tracking-widest mb-6">Sakramen &amp; Layanan Khusus</p>
               {/* 3-column grid — Pernikahan spans 2 cols on sm+ */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {LAYANAN.map(item => (
                   <LayananCard key={item.id} item={item} featured={item.id === 'pernikahan'} />
                 ))}

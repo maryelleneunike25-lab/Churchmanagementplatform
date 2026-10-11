@@ -102,7 +102,7 @@ export default function LokasiPage() {
             </div>
             <h3 className="font-bold text-gray-900">Jam Ibadah</h3>
           </div>
-          <div className="grid sm:grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             {[
               ...['umum', 'doa', 'sekolah-minggu', 'vessel', 'teens'].flatMap(id => { const m = getMinistry(id); return m ? [[m.name, formatSchedules(m.schedules)]] : []; }),
               ['Lihat semua program', ''],

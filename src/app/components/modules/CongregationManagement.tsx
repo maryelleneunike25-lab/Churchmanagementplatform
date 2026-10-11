@@ -881,7 +881,7 @@ export default function CongregationManagement() {
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Users size={22} />Manajemen Data Jemaat
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <button onClick={() => setExportDropdown(d => !d)}
               className="flex items-center gap-1.5 border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
