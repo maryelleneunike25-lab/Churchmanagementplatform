@@ -15,6 +15,7 @@ import GaleriPage from "./pages/GaleriPage";
 import LokasiPage from "./pages/LokasiPage";
 import ServicePage from "./pages/ServicePage";
 import AkunPage from "./pages/AkunPage";
+import NativeBackHandler from "./components/common/NativeBackHandler";
 
 // Protected Route — redirects to /login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -60,6 +61,7 @@ function AdminRoute() {
 export default function App() {
   return (
     <BrowserRouter>
+      <NativeBackHandler />
       <AuthProvider>
         <Routes>
           {/* Login */}
