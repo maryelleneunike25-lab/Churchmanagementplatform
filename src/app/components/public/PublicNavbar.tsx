@@ -110,7 +110,7 @@ export default function PublicNavbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                className={`px-3 lg:px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                   active
                     ? solid ? 'bg-blue-50 text-blue-700' : 'bg-white/20 text-white'
                     : solid ? 'text-gray-600 hover:text-blue-700 hover:bg-blue-50' : 'text-white/85 hover:text-white hover:bg-white/15'
@@ -125,7 +125,7 @@ export default function PublicNavbar() {
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setServiceOpen(o => !o)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-3 lg:px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 isService
                   ? solid ? 'bg-blue-50 text-blue-700' : 'bg-white/20 text-white'
                   : solid ? 'text-gray-600 hover:text-blue-700 hover:bg-blue-50' : 'text-white/85 hover:text-white hover:bg-white/15'
@@ -182,13 +182,13 @@ export default function PublicNavbar() {
         <div className="flex items-center gap-2 md:gap-3">
           <Link
             to="/akun"
-            className={`hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full transition-all ${solid ? 'text-blue-700 hover:bg-blue-50' : 'text-white hover:bg-white/15'}`}
+            className={`hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-3 lg:px-4 py-2 rounded-full transition-all ${solid ? 'text-blue-700 hover:bg-blue-50' : 'text-white hover:bg-white/15'}`}
           >
-            <UserRound size={15} /> Akun
+            <UserRound size={15} /> <span className="hidden lg:inline">Akun</span>
           </Link>
           <Link
             to="/lokasi"
-            className={`hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-all duration-200 ${
+            className={`hidden lg:inline-flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-all duration-200 ${
               solid
                 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
                 : 'bg-white/20 text-white hover:bg-white/30 border border-white/30 backdrop-blur-sm'
