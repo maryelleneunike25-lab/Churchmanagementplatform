@@ -181,8 +181,29 @@ export default function FinanceManagement() {
         </Card>
       </div>
 
+      {/* Phones: card per transaction */}
+      <div className="md:hidden space-y-2">
+        {transactions.length === 0 ? (
+          <div className="text-center text-gray-400 bg-white rounded-2xl border border-gray-100 py-8">Belum ada transaksi</div>
+        ) : transactions.map((t) => (
+          <div key={t.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-gray-900 break-words">{t.category || '-'}</p>
+              {t.description && <p className="text-sm text-gray-500 break-words">{t.description}</p>}
+              <p className="text-xs text-gray-400 mt-1">{new Date(t.date).toLocaleDateString('id-ID')}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className={`font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(t.amount)}</p>
+              <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs ${t.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {t.type === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Transactions Table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} className="hidden md:block">
         <Table>
           <TableHead>
             <TableRow>

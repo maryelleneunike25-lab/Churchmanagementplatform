@@ -177,7 +177,37 @@ export default function UserManagement() {
         )}
         
         {loadingUsers ? <RefreshCw className="animate-spin text-gray-400" /> : (
-          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <>
+          {/* Phones: one card per user so nothing is cut off */}
+          <div className="md:hidden space-y-3">
+            {users.map((u) => (
+              <div key={u.id} className="border border-gray-100 rounded-2xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 break-words">{u.name}</p>
+                    <p className="text-sm text-gray-500 break-all">{u.email}</p>
+                  </div>
+                  <span className={`flex-shrink-0 px-2 text-xs leading-5 font-semibold rounded-full ${u.status === 'approved' ? 'bg-green-100 text-green-800' : (u.status === 'rejected' || u.status === 'suspended') ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>{u.status}</span>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)} disabled={u.email === currentUser.email}
+                    className="text-sm rounded-lg border border-gray-300 py-1.5 pl-2 pr-6">
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                  {u.role === 'admin' ? (
+                    <button onClick={() => openAccessModal(u)} className="text-blue-600 text-sm font-medium flex items-center gap-1"><Edit2 className="w-4 h-4" /> Kelola Akses</button>
+                  ) : u.role === 'super_admin' ? <span className="text-gray-400 text-sm">Akses Penuh</span> : null}
+                </div>
+                <div className="flex gap-2 pt-3 border-t border-gray-50">
+                  <button onClick={() => openEditUser(u)} className="flex-1 flex items-center justify-center gap-1 text-sm px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium"><Edit2 className="w-4 h-4" />Ubah</button>
+                  <button onClick={() => handleDeleteUser(u)} disabled={u.email === currentUser.email}
+                    className="flex-1 flex items-center justify-center gap-1 text-sm px-3 py-2 bg-red-50 text-red-600 rounded-lg font-medium disabled:opacity-30"><Trash2 className="w-4 h-4" />Hapus</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50/50">
                 <tr>
@@ -245,6 +275,7 @@ export default function UserManagement() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

@@ -68,7 +68,21 @@ export default function PendingApprovals({ onApprovalChange }: PendingApprovalsP
           Tidak ada akun yang menunggu persetujuan.
         </div>
       ) : (
-        <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
+        <>
+        <div className="md:hidden space-y-3">
+          {users.map((user) => (
+            <div key={user.id} className="bg-white border border-gray-200 rounded-2xl p-4">
+              <p className="font-semibold text-gray-900 break-words">{user.name}</p>
+              <p className="text-sm text-gray-500 break-all">{user.email}</p>
+              <p className="text-xs text-gray-400 mt-1 capitalize">{user.auth_provider} · {new Date(user.created_at).toLocaleDateString('id-ID')}</p>
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => handleAction(user.id, 'approve')} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 text-green-700 text-sm font-semibold"><UserCheck className="w-4 h-4" />Setujui</button>
+                <button onClick={() => handleAction(user.id, 'reject')} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-semibold"><UserX className="w-4 h-4" />Tolak</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden md:block bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -104,6 +118,7 @@ export default function PendingApprovals({ onApprovalChange }: PendingApprovalsP
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
