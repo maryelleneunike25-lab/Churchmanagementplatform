@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, AlertCircle, Clock } from 'lucide-react';
+import AdminAuthShell from './AdminAuthShell';
 
 export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () => void }) {
   const [name, setName] = useState('');
@@ -52,21 +53,11 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Buat Akun Baru
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Sudah punya akun?{' '}
-          <button onClick={onSwitchToLogin} className="font-medium text-blue-600 hover:text-blue-500">
-            Masuk di sini
-          </button>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+    <AdminAuthShell
+      title="Daftar Akun Admin"
+      subtitle="Akun baru perlu disetujui Super Admin"
+      footer={<>Sudah punya akun?{' '}<button onClick={onSwitchToLogin} className="font-semibold text-white underline underline-offset-2">Masuk di sini</button></>}
+    >
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md flex items-start">
@@ -86,7 +77,7 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border p-2"
+                  className="pl-10 block w-full border-gray-200 bg-gray-50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm border py-2.5 px-3 transition"
                 />
               </div>
             </div>
@@ -102,7 +93,7 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border p-2"
+                  className="pl-10 block w-full border-gray-200 bg-gray-50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm border py-2.5 px-3 transition"
                 />
               </div>
             </div>
@@ -119,7 +110,7 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border p-2"
+                  className="pl-10 block w-full border-gray-200 bg-gray-50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm border py-2.5 px-3 transition"
                 />
               </div>
             </div>
@@ -127,13 +118,11 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 rounded-xl shadow-lg shadow-blue-600/25 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition"
             >
               {loading ? 'Mendaftar...' : 'Daftar Akun'}
             </button>
           </form>
-        </div>
-      </div>
-    </div>
+    </AdminAuthShell>
   );
 }

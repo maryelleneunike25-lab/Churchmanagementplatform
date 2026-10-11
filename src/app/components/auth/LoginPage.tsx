@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, AlertCircle, Clock } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import AdminAuthShell from './AdminAuthShell';
 
 interface NativeGoogleAuthPlugin {
   signIn(options?: { clientId?: string }): Promise<{ credential: string; email?: string; name?: string }>;
@@ -79,7 +80,6 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
       console.error('Native Google Sign-In error:', err);
       const errMsg = err.message || 'Gagal login dengan Google';
       setError(errMsg);
-      alert('Native Error: ' + errMsg);
       setLoading(false);
     }
   };
@@ -94,7 +94,6 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
       } else {
         const errMsg = result.error || 'Failed to sign in with Google';
         setError(errMsg);
-        alert('API Error: ' + errMsg);
       }
     }
     setLoading(false);
@@ -141,22 +140,12 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Login ke Dashboard
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Atau{' '}
-          <button onClick={onSwitchToSignup} className="font-medium text-blue-600 hover:text-blue-500">
-            daftar akun baru
-          </button>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          
+    <AdminAuthShell
+      title="Masuk ke Dashboard"
+      subtitle="Kelola jemaat, komsel, absensi, dan lainnya"
+      footer={<>Belum punya akun admin?{' '}<button onClick={onSwitchToSignup} className="font-semibold text-white underline underline-offset-2">Daftar akun baru</button></>}
+    >
+        <div>
           <div className="mb-6">
             {isNative ? (
               <button
@@ -206,8 +195,8 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border p-2"
-                  placeholder="admin@gbijeltim.com"
+                  className="pl-10 block w-full border-gray-200 bg-gray-50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm border py-2.5 px-3 transition"
+                  placeholder="nama@email.com"
                 />
               </div>
             </div>
@@ -223,7 +212,7 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 block w-full border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm border p-2"
+                  className="pl-10 block w-full border-gray-200 bg-gray-50 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm border py-2.5 px-3 transition"
                 />
               </div>
             </div>
@@ -231,13 +220,12 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full flex justify-center py-3 px-4 rounded-xl shadow-lg shadow-blue-600/25 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition"
             >
               {loading ? 'Masuk...' : 'Masuk'}
             </button>
           </form>
         </div>
-      </div>
-    </div>
+    </AdminAuthShell>
   );
 }
