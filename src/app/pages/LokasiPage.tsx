@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
-import { MapPin, ArrowRight, Navigation } from 'lucide-react';
+import { MapPin, ArrowRight, Navigation, Clock } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
+import { CHURCH } from '../../lib/church';
+import PublicFooter from '../components/public/PublicFooter';
 
 export default function LokasiPage() {
   return (
@@ -55,7 +57,7 @@ export default function LokasiPage() {
         />
         {/* Floating open-in-maps button */}
         <a
-          href="https://www.google.com/maps/place/Gereja+Bethel+Indonesia+Jelambar+Timur/@-6.1420644,106.7821437,17z"
+          href={CHURCH.mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg border border-gray-100 hover:shadow-xl transition-all hover:scale-105"
@@ -80,18 +82,43 @@ export default function LokasiPage() {
             </div>
             <div>
               <h3 className="font-bold text-gray-900">Alamat</h3>
-              <p className="text-gray-500 text-sm">Jl. Jelambar Timur, Jelambar, Grogol Petamburan, Jakarta Barat 11460</p>
+              <p className="text-gray-500 text-sm break-words">{CHURCH.address}</p>
             </div>
             <ArrowRight size={18} className="text-gray-300 ml-auto" />
+          </div>
+        </motion.div>
+
+        {/* Jam ibadah */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.33 }}
+          className="bg-gray-50 rounded-2xl p-6 border border-gray-100 mb-4"
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Clock size={18} className="text-white" />
+            </div>
+            <h3 className="font-bold text-gray-900">Jam Ibadah</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2 text-sm">
+            {[
+              ['Ibadah Umum', 'Minggu 07.00 · 09.30 · 17.00'],
+              ['Persekutuan Doa', 'Rabu 18.30 – 20.30'],
+              ['Sekolah Minggu', 'Minggu 07.00 · 09.30'],
+              ['Lihat semua program', ''],
+            ].map(([t, d]) => t === 'Lihat semua program'
+              ? <a key={t} href="/service" className="text-blue-600 font-semibold py-1">{t} →</a>
+              : <div key={t} className="flex justify-between gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100"><span className="font-semibold text-gray-800">{t}</span><span className="text-gray-500 text-right">{d}</span></div>)}
           </div>
         </motion.div>
 
         {/* Social / contact link cards */}
         <div className="space-y-3">
 
-          {/* WhatsApp */}
-          <motion.a
-            href="https://wa.me/6281234567890"
+          {/* WhatsApp (hidden until CHURCH.whatsappNumber is set) */}
+          {CHURCH.whatsappNumber && <motion.a
+            href={`https://wa.me/${CHURCH.whatsappNumber}`}
             target="_blank"
             rel="noopener noreferrer"
             initial={{ opacity: 0, y: 20 }}
@@ -109,11 +136,11 @@ export default function LokasiPage() {
               <p className="text-gray-500 text-sm">Chat langsung dengan tim gereja kami</p>
             </div>
             <ArrowRight size={18} className="text-green-400 ml-auto group-hover:translate-x-1 transition-transform" />
-          </motion.a>
+          </motion.a>}
 
           {/* YouTube */}
           <motion.a
-            href="https://www.youtube.com/@gbijeltim"
+            href={CHURCH.youtubeUrl}
             target="_blank"
             rel="noopener noreferrer"
             initial={{ opacity: 0, y: 20 }}
@@ -135,7 +162,7 @@ export default function LokasiPage() {
 
           {/* Instagram */}
           <motion.a
-            href="https://www.instagram.com/gbi_jeltim/"
+            href={CHURCH.instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
             initial={{ opacity: 0, y: 20 }}
@@ -149,7 +176,7 @@ export default function LokasiPage() {
               </svg>
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">@gbi_jeltim</h3>
+              <h3 className="font-bold text-gray-900">{CHURCH.instagramHandle}</h3>
               <p className="text-gray-500 text-sm">Follow Instagram kami untuk update ibadah, kegiatan, dan info terbaru</p>
             </div>
             <ArrowRight size={18} className="text-pink-400 ml-auto group-hover:translate-x-1 transition-transform" />
@@ -158,9 +185,7 @@ export default function LokasiPage() {
         </div>
       </section>
 
-      <footer className="bg-gray-950 text-gray-500 py-8 text-center text-sm">
-        <p>© 2026 GBI Jelambar Timur. All rights reserved.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

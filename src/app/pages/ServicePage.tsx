@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Clock, MapPin, ChevronRight, X, CheckCircle, Loader2 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
+import PublicFooter from '../components/public/PublicFooter';
 import { supabase } from '../../lib/supabaseClient';
 
 /* ─────────── TYPES ─────────── */
@@ -512,22 +513,22 @@ function InfoBlock({ m }: { m: Ministry }) {
     <div>
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: m.accent }}>{m.label}</p>
       <p className="text-2xl mb-1" style={{ fontFamily: 'Caveat, cursive', color: 'rgba(255,255,255,0.5)' }}>{m.greeting}</p>
-      <h2 className="text-xl md:text-2xl font-black text-white mb-4 leading-tight tracking-wide">{m.headline}</h2>
+      <h2 className="text-xl md:text-2xl font-black text-white mb-4 leading-tight tracking-wide break-words">{m.headline}</h2>
       <p className="text-white/55 text-sm leading-relaxed mb-6">{m.description}</p>
       <div className="rounded-xl border border-white/8 bg-white/[0.025] p-4 mb-4">
-        <p className="text-white/20 text-[10px] font-bold uppercase tracking-widest mb-3">Jadwal</p>
+        <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-3">Jadwal</p>
         <div className="space-y-2">
           {m.schedules.map((s, i) => (
-            <div key={i} className="flex items-center gap-2 text-white/50 text-sm">
-              <Clock size={11} className="flex-shrink-0 opacity-40" />
-              <span className="text-white/80 font-medium">{s.day}</span>
-              <span className="text-white/25">·</span>
-              <span>{s.time}</span>
+            <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-white/60 text-sm">
+              <Clock size={11} className="flex-shrink-0 opacity-50" />
+              <span className="text-white/85 font-medium">{s.day}</span>
+              <span className="text-white/30">·</span>
+              <span className="whitespace-nowrap">{s.time}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-1.5 text-white/22 text-xs">
+      <div className="flex items-center gap-1.5 text-white/50 text-xs">
         <MapPin size={10} /> {m.location}
       </div>
     </div>
@@ -642,7 +643,7 @@ export default function ServicePage() {
         <div className="max-w-5xl mx-auto px-6 flex overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => handleTab(t.id)}
-              className={`relative flex-shrink-0 flex-1 min-w-[90px] py-4 text-center transition-colors duration-200 ${activeTab === t.id ? 'text-white' : 'text-white/28 hover:text-white/55'}`}>
+              className={`relative flex-shrink-0 flex-1 min-w-[90px] py-4 text-center transition-colors duration-200 ${activeTab === t.id ? 'text-white' : 'text-white/45 hover:text-white/70'}`}>
               <span className="block text-sm font-bold">{t.label}</span>
               <span className="block text-[10px] mt-0.5 opacity-45 hidden sm:block">{t.sub}</span>
               {activeTab === t.id && (
@@ -659,13 +660,13 @@ export default function ServicePage() {
 
           {activeTab === 'adult' && (
             <motion.div key="adult" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-              className="flex gap-5 min-h-[520px]">
-              <div className="w-44 flex-shrink-0 border-r border-white/6 pr-3 space-y-0.5 pt-1">
+              className="flex flex-col md:flex-row gap-5 md:min-h-[520px]">
+              <div className="md:w-44 flex-shrink-0 md:border-r border-white/6 md:pr-3 md:space-y-0.5 md:pt-1 flex md:block gap-2 overflow-x-auto pb-2 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
                 {ADULT.map(m => {
                   const active = selected?.id === m.id;
                   return (
                     <button key={m.id} onClick={() => setSelected(m)}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${active ? 'text-white bg-white/7' : 'text-white/32 hover:text-white/60 hover:bg-white/[0.035]'}`}>
+                      className={`flex-shrink-0 md:w-full whitespace-nowrap text-left px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2.5 ${active ? 'text-white bg-white/10' : 'text-white/45 bg-white/[0.03] md:bg-transparent hover:text-white/70 hover:bg-white/[0.05]'}`}>
                       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-200" style={{
                         backgroundColor: active ? m.accent : 'transparent',
                         boxShadow: active ? `0 0 5px ${m.accent}` : 'none',
@@ -728,9 +729,7 @@ export default function ServicePage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/5 py-8 text-center text-white/15 text-xs">
-        © 2026 GBI Jelambar Timur. All rights reserved.
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

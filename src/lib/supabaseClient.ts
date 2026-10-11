@@ -13,13 +13,24 @@ export const supabase = {
     return {
       select: (cols?: string) => {
         return {
-          like: async (col: string, val: string) => {
-             try {
-                const res = await api.get(`/api/kv?pattern=${encodeURIComponent(val)}`);
-                return { data: res.data, error: null };
-             } catch (e: any) {
-                return { data: null, error: e };
-             }
+          // Returns a promise that also supports the chained .order() that legacy callers use.
+          like: (col: string, val: string) => {
+             const run = (async () => {
+                try {
+                   const res = await api.get(`/api/kv?pattern=${encodeURIComponent(val)}`);
+                   return { data: res.data as any[], error: null as any };
+                } catch (e: any) {
+                   return { data: null as any, error: e };
+                }
+             })();
+             return Object.assign(run, {
+                order: (orderCol: string, opts?: { ascending?: boolean }) => run.then(r => {
+                   if (!r.data) return r;
+                   const dir = opts?.ascending === false ? -1 : 1;
+                   const keyOf = (row: any) => orderCol === 'key' || orderCol === 'id' ? String(row.key) : String(row.value?.[orderCol] ?? '');
+                   return { ...r, data: [...r.data].sort((x, y) => keyOf(x).localeCompare(keyOf(y)) * dir) };
+                }),
+             });
           },
           // Sync + lazy: supports .eq().single() / .eq().maybeSingle() chaining, and awaiting the result.
           eq: (col: string, val: string) => {

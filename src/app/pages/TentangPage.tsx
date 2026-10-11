@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { Heart, Star, BookOpen, Users, ArrowRight, UserCircle } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
-import { publicAnonKey, projectId } from '/utils/supabase/info';
+import PublicFooter from '../components/public/PublicFooter';
 import gbiLogo from '../../imports/pngegg__1_-1.png';
 
 const API_URL = `${apiBase()}/api/content`;
@@ -110,7 +110,7 @@ export default function TentangPage() {
   const [teamLoading, setTeamLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_URL}/team`, { headers: { Authorization: `Bearer ${publicAnonKey}` } })
+    fetch(`${API_URL}/team`)
       .then(r => r.text()).then(t => { try { const d = JSON.parse(t); if (d.success) setTeamMembers(d.members || []); } catch {} })
       .catch(() => {}).finally(() => setTeamLoading(false));
   }, []);
@@ -304,9 +304,7 @@ export default function TentangPage() {
         </div>
       </section>
 
-      <footer className="bg-gray-950 text-gray-500 py-8 text-center text-sm">
-        <p>© 2026 GBI Jelambar Timur. All rights reserved.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

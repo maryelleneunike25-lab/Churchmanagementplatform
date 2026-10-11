@@ -18,18 +18,34 @@ export default async function handler(req, res) {
   if (!(await requireUser(req, res))) return;
 
   if (req.method === 'GET') {
-    const [members, komisiRows, komselRows, pendingUsers] = await Promise.all([
+    const [members, komisiRows, komselRows, pksConfig, absenRows, pendingUsers] = await Promise.all([
       sql`SELECT key, value FROM app_kv WHERE key LIKE 'congregation:member:%' OR key LIKE 'member:%'`,
       sql`SELECT value FROM app_kv WHERE key LIKE 'komisi:%:member:%'`,
-      sql`SELECT count(*) AS c FROM app_kv WHERE key LIKE 'komsel:%'`,
-      sql`SELECT count(*) AS c FROM users WHERE status = 'pending'`,
+      sql`SELECT value FROM app_kv WHERE key LIKE 'komsel:%'`,
+      sql`SELECT value FROM app_kv WHERE key = 'config:pks-names'`,
+      sql`SELECT value FROM app_kv WHERE key LIKE 'komisi:%:absen:%' OR key LIKE 'attendance_session:%'`,
+      sql`SELECT count(*) AS c FROM users WHERE status = 'pending' AND role <> 'jemaat'`,
     ]);
+
+    // A komsel is a PKS: count distinct PKS names from saved komsel, the configured list and members.
+    const normPks = (n) => String(n || '').toUpperCase().replace(/^PKS\s*/i, '').replace(/\s+/g, ' ').trim();
+    const pksSet = new Set();
+    for (const r of komselRows) { const n = normPks(r.value?.pksName || r.value?.name); if (n) pksSet.add(n); }
+    for (const n of Array.isArray(pksConfig[0]?.value) ? pksConfig[0].value : []) { const k = normPks(n); if (k) pksSet.add(k); }
+
+    // Today's attendance (Jakarta date): everyone marked present in any session held today.
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+    let todayAttendance = 0;
+    for (const r of absenRows) {
+      if (r.value?.date === today && Array.isArray(r.value.presentIds)) todayAttendance += r.value.presentIds.length;
+    }
 
     // Same member may exist under both key formats; count each id once.
     const byId = new Map();
     for (const r of members) {
       if (!r.value?.name) continue;
       byId.set(r.value.id || r.key, r.value);
+      const k = normPks(r.value.pksName); if (k) pksSet.add(k);
     }
 
     const monthStart = new Date();
@@ -55,9 +71,9 @@ export default async function handler(req, res) {
       stats: {
         totalMembers: byId.size,
         newRegistrations,
-        totalKomsel: parseInt(komselRows[0]?.c || 0),
+        totalKomsel: pksSet.size,
         pendingApprovals: parseInt(pendingUsers[0]?.c || 0),
-        todayAttendance: 0,
+        todayAttendance,
         attendanceTrends: [],
         komisiDemographics: [...perKomisi.entries()].map(([id, set]) => ({
           name: KOMISI_NAMES[id] || id,

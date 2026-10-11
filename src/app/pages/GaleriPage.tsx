@@ -3,7 +3,7 @@ import { apiBase } from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { FolderOpen, ImageIcon, ChevronLeft, ChevronRight, X, ZoomIn, Images } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
-import { publicAnonKey, projectId } from '/utils/supabase/info';
+import PublicFooter from '../components/public/PublicFooter';
 
 const API_URL = `${apiBase()}/api/content`;
 
@@ -34,7 +34,12 @@ function Lightbox({ photos, index, onClose }: { photos: Photo[]; index: number; 
   }, [photos.length, onClose]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center touch-pan-y" onClick={onClose}
+      onTouchStart={e => { (e.currentTarget as any)._x = e.touches[0].clientX; }}
+      onTouchEnd={e => {
+        const dx = e.changedTouches[0].clientX - ((e.currentTarget as any)._x ?? 0);
+        if (Math.abs(dx) > 50) setCur(c => (dx < 0 ? (c + 1) % photos.length : (c - 1 + photos.length) % photos.length));
+      }}>
       <button onClick={onClose} className="absolute top-5 right-5 text-white/70 hover:text-white z-10"><X size={30} /></button>
       {photos.length > 1 && (
         <>
@@ -62,12 +67,13 @@ export default function GaleriPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/gallery/albums`, { headers: { Authorization: `Bearer ${publicAnonKey}` } })
+    fetch(`${API_URL}/gallery/albums`)
       .then(r => r.json())
-      .then(d => { if (d.albums) setAlbums(d.albums); })
-      .catch(() => {})
+      .then(d => { if (d.albums) setAlbums(d.albums); else setLoadError(true); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -75,7 +81,7 @@ export default function GaleriPage() {
     setOpenAlbum(album);
     setPhotosLoading(true);
     try {
-      const res = await fetch(`${API_URL}/gallery/albums/${album.id}/photos`, { headers: { Authorization: `Bearer ${publicAnonKey}` } });
+      const res = await fetch(`${API_URL}/gallery/albums/${album.id}/photos`);
       const d = await res.json();
       setPhotos(d.photos || []);
     } catch {}
@@ -139,7 +145,13 @@ export default function GaleriPage() {
           )}
 
           {/* Albums grid */}
-          {!loading && !openAlbum && (
+          {!loading && !openAlbum && loadError && (
+            <div className="text-center py-16 text-gray-500">
+              <p className="font-medium">Galeri belum bisa dimuat.</p>
+              <button onClick={() => location.reload()} className="mt-3 text-blue-600 font-semibold text-sm">Coba lagi</button>
+            </div>
+          )}
+          {!loading && !openAlbum && !loadError && (
             albums.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-gray-400">
                 <Images size={52} className="mb-4 opacity-25" />
@@ -241,9 +253,7 @@ export default function GaleriPage() {
         <Lightbox photos={photos} index={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
 
-      <footer className="bg-gray-950 text-gray-500 py-8 text-center text-sm">
-        <p>© 2026 GBI Jelambar Timur. All rights reserved.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -255,7 +255,7 @@ export default function PublicNavbar() {
                     return (
                       <Link
                         key={item.tab}
-                        to="/service"
+                        to={item.to}
                         className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                       >
                         <Icon size={15} className={item.color} />

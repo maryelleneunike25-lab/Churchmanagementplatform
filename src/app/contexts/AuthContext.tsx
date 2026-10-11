@@ -77,8 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await api.post('/api/auth/register', data);
       if (res.success) {
         if (res.user.status === 'approved') {
-          // If approved instantly via allowlist, refresh session
-          await refreshSession();
+          // Approved instantly (allowlist / website account): registering issues no session, so sign in now.
+          await signIn(data.email, data.password);
         }
         return { success: true, status: res.user.status };
       }

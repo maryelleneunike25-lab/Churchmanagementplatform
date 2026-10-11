@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Loader2, AlertCircle, LogOut, CalendarHeart, Images, Users, LayoutDashboard } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
+import PublicFooter from '../components/public/PublicFooter';
 import { useAuth } from '../contexts/AuthContext';
 
 type Mode = 'masuk' | 'daftar';
@@ -127,6 +128,7 @@ export default function AkunPage() {
           </div>
         )}
       </main>
+      <PublicFooter />
     </div>
   );
 }
