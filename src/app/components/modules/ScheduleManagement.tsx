@@ -661,40 +661,9 @@ export default function ScheduleManagement() {
           <p className="text-gray-400 text-sm mt-0.5">Ibadah Umum GBI Jelambar Timur</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {gsheetsUrl && (
-            <a href={gsheetsUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl text-sm font-medium transition-colors">
-              <ExternalLink size={14} />Buka Google Sheets
-            </a>
-          )}
-          {scriptUrl ? (
-            <button
-              onClick={syncToGSheets}
-              disabled={syncing}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                syncSuccess
-                  ? 'bg-emerald-100 border border-emerald-300 text-emerald-700'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white border border-transparent'
-              }`}>
-              {syncing
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : syncSuccess
-                  ? <Check size={14} />
-                  : <Upload size={14} />}
-              {syncing ? 'Menyinkronkan...' : syncSuccess ? 'Tersinkron!' : 'Sync ke Google Sheets'}
-            </button>
-          ) : (
-            <button onClick={() => setShowSettings(true)}
-              className="flex items-center gap-1.5 border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50 px-3 py-2 rounded-xl text-sm transition-colors">
-              <Link2 size={14} />Setup Google Sheets
-            </button>
-          )}
           <button onClick={exportExcel}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
             <Download size={14} />Export Excel
-          </button>
-          <button onClick={() => setShowSettings(true)} className="p-2 text-gray-400 hover:text-gray-600" title="Pengaturan Google Sheets">
-            <Settings size={16} />
           </button>
           {canEdit && (
             <button onClick={previewCleanup} className="p-2 text-gray-400 hover:text-amber-600 transition-colors" title="Bersihkan nama lama">
@@ -848,53 +817,60 @@ export default function ScheduleManagement() {
         )}
       </div>
 
-      {/* ── Quick overview: all divisions for a selected week ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-bold text-gray-900 text-sm mb-4">Ringkasan Semua Divisi</h3>
-        <div className="space-y-3">
-          {sundays.map(s => {
-            const iso = isoDate(s);
-            const conflicts = conflictsForDate(iso);
-            const hasConflicts = Object.keys(conflicts).length > 0;
-            return (
-              <div key={iso} className={`border rounded-xl overflow-hidden ${hasConflicts ? 'border-amber-200' : 'border-gray-100'}`}>
-                <div className={`px-4 py-2 flex items-center justify-between ${hasConflicts ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                  <span className="font-semibold text-gray-900 text-sm">{displayDate(iso)}</span>
-                  {hasConflicts && (
-                    <span className="flex items-center gap-1 text-xs text-amber-700 font-semibold">
-                      <AlertTriangle size={11} />{Object.keys(conflicts).length} tabrakan
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y divide-gray-50">
-                  {DIVISIONS.map(div => {
+      {/* ── Ringkasan semua divisi: matrix divisi x minggu ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="font-bold text-gray-900 text-sm">Ringkasan Semua Divisi</h3>
+          <p className="text-[11px] text-gray-400">Nama merah = bertugas di lebih dari satu divisi pada hari yang sama</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left" style={{ minWidth: 160 + sundays.length * 170 }}>
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500 w-40 border-b border-r border-gray-100">Divisi</th>
+                {sundays.map(sd => {
+                  const iso = isoDate(sd);
+                  const nConf = Object.keys(conflictsForDate(iso)).length;
+                  return (
+                    <th key={iso} className="px-3 py-3 text-xs font-bold text-gray-800 border-b border-gray-100 align-bottom">
+                      <div>{displayDate(iso)}</div>
+                      {nConf > 0 && <div className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-amber-600"><AlertTriangle size={10} />{nConf} tabrakan</div>}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {DIVISIONS.map(div => (
+                <tr key={div.id} className="align-top">
+                  <th className="sticky left-0 z-10 bg-white px-4 py-3 border-b border-r border-gray-100">
+                    <span className={`inline-block text-[11px] font-bold px-2 py-1 rounded-md border leading-tight ${div.lightColor}`}>{div.label}</span>
+                  </th>
+                  {sundays.map(sd => {
+                    const iso = isoDate(sd);
+                    const conflicts = conflictsForDate(iso);
                     const divData = scheduleData[iso]?.divisions[div.id] || {};
-                    const names = Object.values(divData).filter(Boolean);
+                    const names = Object.values(divData).filter(Boolean) as string[];
                     return (
-                      <div key={div.id} className="px-3 py-2">
-                        <p className={`text-xs font-bold mb-1 ${div.lightColor} px-1.5 py-0.5 rounded-md inline-block border`}>{div.label}</p>
+                      <td key={iso} className="px-3 py-3 border-b border-gray-50">
                         {names.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 mt-1">
+                          <div className="flex flex-wrap gap-1">
                             {names.map((name, i) => {
-                              const nk = (name as string).toLowerCase().trim();
+                              const nk = name.toLowerCase().trim();
                               const isConflict = !!(conflicts[nk] && conflicts[nk].length > 1);
                               return (
-                                <span key={i} className={`text-xs px-1.5 py-0.5 rounded ${isConflict ? 'bg-red-100 text-red-700 font-semibold' : 'bg-gray-100 text-gray-700'}`}>
-                                  {name as string}
-                                </span>
+                                <span key={i} className={`text-xs px-2 py-0.5 rounded-full ${isConflict ? 'bg-red-100 text-red-700 font-semibold' : 'bg-gray-100 text-gray-700'}`}>{name}</span>
                               );
                             })}
                           </div>
-                        ) : (
-                          <p className="text-xs text-gray-300 mt-1">-</p>
-                        )}
-                      </div>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
                     );
                   })}
-                </div>
-              </div>
-            );
-          })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

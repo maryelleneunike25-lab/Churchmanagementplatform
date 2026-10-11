@@ -23,6 +23,12 @@ export async function requireUser(req, res, options = {}) {
 
     const user = users[0];
 
+    // Congregation (website) accounts can never use admin APIs.
+    if (user.role === 'jemaat' && !options.allowJemaat) {
+      sendError(res, 403, 'Akun jemaat tidak memiliki akses admin.');
+      return null;
+    }
+
     if (user.status !== 'approved') {
       sendError(res, 403, 'Account is not approved yet.');
       return null;

@@ -6,13 +6,15 @@ export default async function handler(req, res) {
   if (!(await requireUser(req, res))) return;
 
   if (req.method === 'GET') {
-    const { prefix } = req.query;
-    if (!prefix) return sendError(res, 400, 'Prefix required');
+    // `pattern` is a full SQL LIKE pattern (wildcards allowed anywhere); `prefix` is the legacy form.
+    const { prefix, pattern } = req.query;
+    if (!prefix && !pattern) return sendError(res, 400, 'Prefix required');
+    const like = pattern ? String(pattern) : prefix + '%';
 
     const records = await sql`
-      SELECT key, value 
-      FROM app_kv 
-      WHERE key LIKE ${prefix + '%'}
+      SELECT key, value
+      FROM app_kv
+      WHERE key LIKE ${like}
     `;
     return sendJson(res, 200, { data: records });
   }

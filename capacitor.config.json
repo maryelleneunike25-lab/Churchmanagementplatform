@@ -6,7 +6,7 @@
     "path": "d:\\Home\\Projects\\Users\\Acelbyte\\Categories\\Programmings\\projects\\applications\\GBI\\android"
   },
   "server": {
-    "url": "https://gbijeltim.vercel.app",
+    "url": "https://gbijeltim.vercel.app/admin",
     "cleartext": false
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X, ChevronDown, Users, Heart, Star, BookOpen, Sparkles } from 'lucide-react';
+import { Menu, X, ChevronDown, Users, Heart, Star, BookOpen, Sparkles, UserRound } from 'lucide-react';
 import gbiLogo from '../../../imports/pngegg__1_-1.png';
 
 /* ── Service sub-items ── */
@@ -181,6 +181,12 @@ export default function PublicNavbar() {
         {/* CTA + mobile toggle */}
         <div className="flex items-center gap-2 md:gap-3">
           <Link
+            to="/akun"
+            className={`hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full transition-all ${solid ? 'text-blue-700 hover:bg-blue-50' : 'text-white hover:bg-white/15'}`}
+          >
+            <UserRound size={15} /> Akun
+          </Link>
+          <Link
             to="/lokasi"
             className={`hidden md:inline-flex items-center gap-1.5 text-sm font-semibold px-5 py-2 rounded-full transition-all duration-200 ${
               solid
@@ -264,6 +270,9 @@ export default function PublicNavbar() {
               )}
             </AnimatePresence>
 
+            <Link to="/akun" className="flex items-center justify-center gap-2 mt-2 py-3 border border-blue-200 text-blue-700 rounded-xl font-semibold text-sm">
+              <UserRound size={15} /> Masuk / Daftar Akun
+            </Link>
             <Link to="/lokasi" className="flex items-center justify-center mt-2 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm">
               Hubungi Kami
             </Link>

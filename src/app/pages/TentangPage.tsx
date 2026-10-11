@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { apiBase } from '../../lib/api';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { Heart, Star, BookOpen, Users, ArrowRight, UserCircle } from 'lucide-react';
@@ -6,7 +7,7 @@ import PublicNavbar from '../components/public/PublicNavbar';
 import { publicAnonKey, projectId } from '/utils/supabase/info';
 import gbiLogo from '../../imports/pngegg__1_-1.png';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 
 interface TeamMember {
   id: string;

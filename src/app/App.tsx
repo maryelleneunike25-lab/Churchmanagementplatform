@@ -9,6 +9,12 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginPage from "./components/auth/LoginPage";
 import SignupPage from "./components/auth/SignupPage";
 import SuperAdminDashboard from "./components/dashboard/SuperAdminDashboard";
+import JemaatPage from "./pages/JemaatPage";
+import TentangPage from "./pages/TentangPage";
+import GaleriPage from "./pages/GaleriPage";
+import LokasiPage from "./pages/LokasiPage";
+import ServicePage from "./pages/ServicePage";
+import AkunPage from "./pages/AkunPage";
 
 // Protected Route — redirects to /login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -28,6 +34,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  if (user.role === 'jemaat') {
+    return <Navigate to="/akun" replace />;
+  }
 
   return <>{children}</>;
 }
@@ -38,7 +47,7 @@ function AdminRoute() {
   const [showSignup, setShowSignup] = useState(false);
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={user.role === 'jemaat' ? '/akun' : '/dashboard'} replace />;
   }
 
   return showSignup ? (
@@ -67,9 +76,16 @@ export default function App() {
             }
           />
 
-          {/* Default — open login screen */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Public church website (jemaat) */}
+          <Route path="/" element={<JemaatPage />} />
+          <Route path="/jemaat" element={<JemaatPage />} />
+          <Route path="/tentang" element={<TentangPage />} />
+          <Route path="/galeri" element={<GaleriPage />} />
+          <Route path="/lokasi" element={<LokasiPage />} />
+          <Route path="/service" element={<ServicePage />} />
+          <Route path="/akun" element={<AkunPage />} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

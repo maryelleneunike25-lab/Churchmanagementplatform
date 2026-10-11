@@ -14,7 +14,7 @@ type AuthContextType = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; status?: string }>;
   signInWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string; status?: string }>;
-  signUp: (data: { email: string; password: string; name: string }) => Promise<{ success: boolean; error?: string; message?: string; status?: string }>;
+  signUp: (data: { email: string; password: string; name: string; accountType?: 'jemaat' }) => Promise<{ success: boolean; error?: string; message?: string; status?: string }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 };
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (data: { email: string; password: string; name: string }) => {
+  const signUp = async (data: { email: string; password: string; name: string; accountType?: 'jemaat' }) => {
     try {
       const res = await api.post('/api/auth/register', data);
       if (res.success) {
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signUp, signOut, refreshSession }}>
+    <AuthContext.Provider value={{ user, accessToken: (typeof window !== 'undefined' ? localStorage.getItem('gjt_session_token') : null), loading, signIn, signInWithGoogle, signUp, signOut, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

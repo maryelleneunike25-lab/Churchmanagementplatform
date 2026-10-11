@@ -138,3 +138,16 @@ export async function deleteKomsel(id: string): Promise<void> {
   const { error } = await EdgeKV.from(KV).delete().eq('key', `komsel:${id}`);
   if (error) throw error;
 }
+
+/** Assigns (or clears, with an empty name) the PKS of one congregation member, in whichever key format it is stored. */
+export async function setMemberPks(memberId: string, pksName: string): Promise<void> {
+  for (const key of [`congregation:member:${memberId}`, `member:${memberId}`]) {
+    const { data } = await EdgeKV.from(KV).select('value').eq('key', key).maybeSingle();
+    if (!data?.value) continue;
+    const value = { ...data.value, pksName: pksName.trim() || undefined, updatedAt: new Date().toISOString() };
+    const { error } = await EdgeKV.from(KV).update({ value }).eq('key', key);
+    if (error) throw error;
+    return;
+  }
+  throw new Error('Data jemaat tidak ditemukan');
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiBase } from '../../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert } from '@mui/material';
@@ -6,7 +7,7 @@ import { Card, CardContent } from '../ui/card';
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { projectId } from '/utils/supabase/info';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 
 interface Transaction {
   id: string;

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { apiBase } from '../../lib/api';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Clock, MapPin, ChevronRight, X, CheckCircle, Loader2 } from 'lucide-react';
@@ -314,17 +315,14 @@ function RegistrationModal({ formType, title, onClose }: { formType: string; tit
         submittedAt: new Date().toISOString(),
         status: 'baru',
       };
-      const { error: insertErr } = await supabase
-        .from('kv_store_561004a0')
-        .insert({ key: `registration:${formType}:${id}`, value: record });
-      if (insertErr) {
-        if (insertErr.message.includes('row-level security') || insertErr.code === '42501') {
-          throw new Error(
-            'Service key belum ditambahkan. Tambahkan VITE_SUPABASE_SERVICE_KEY ke file .env.local — lihat instruksi di bawah.'
-          );
-        }
-        throw new Error(insertErr.message);
-      }
+      const res = await fetch(`${apiBase()}/api/content/registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: formType, title, data: form }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || 'Server error');
+      void record; void id;
       setDone(true);
     } catch (err: any) {
       setError('Gagal mengirim: ' + (err?.message || 'Coba lagi ya.'));

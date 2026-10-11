@@ -6,9 +6,11 @@ import { Plus, Edit, Trash2, Users, Search, SortAsc, SortDesc, Download, Chevron
 import { parseExcelFile, executeImport, ParsedMember, ImportPreview } from '../../../lib/congregationImport';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useKomsels } from '../../../lib/komsel';
-import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES } from '../../../lib/age';
+import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES, type AgeGroup } from '../../../lib/age';
 import { projectId } from '/utils/supabase/info';
 import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
+import ImagePicker from '../common/ImagePicker';
+import { MapPin, Phone, Mail, Cake, Heart, Baby } from 'lucide-react';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
 const KV = 'kv_store_561004a0';
@@ -25,28 +27,6 @@ const IBADAH_TO_KOMISI: Record<string, string[]> = {
 
 const DEFAULT_PKS_NAMES = ['Sisca', 'Sandy', 'Damli', 'Risan', 'Gina Jaya', 'Willis', 'Merry', 'Ping & Hadi', 'Christopher'];
 
-// ─── Age helpers ─────────────────────────────────────────────────────────────
-function getAge(birthDate: string): number {
-  if (!birthDate) return -1;
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-}
-
-
-function getAgeGroup(birthDate: string): AgeGroup {
-  const age = getAge(birthDate);
-  if (age < 0) return '-';
-  if (age <= 12) return 'Children';
-  if (age <= 17) return 'Teens';
-  if (age <= 30) return 'Youth';
-  if (age <= 59) return 'Adults';
-  return 'Seniors';
-}
-
 function formatDate(iso: string) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
@@ -54,7 +34,6 @@ function formatDate(iso: string) {
 }
 
 
-const AGE_GROUPS: AgeGroup[] = ['Children', 'Teens', 'Youth', 'Adults', 'Seniors'];
 
 // Divisions that link directly to Jadwal Pelayanan (matching ScheduleManagement)
 // These get a dot indicator in the form — only these keys sync to the schedule dropdowns
@@ -88,6 +67,9 @@ const PELAYAN_OPTIONS = [
 
 interface Member {
   id: string;
+  photoUrl?: string;
+  pksName?: string;
+  komselJoined?: boolean;
   _storeKey?: string; // actual kv_store key, used for delete/update
   name: string;
   nickname?: string;
@@ -120,6 +102,7 @@ interface Member {
 }
 
 const BLANK_FORM = {
+  photoUrl: '', pksName: '',
   name: '', nickname: '', email: '', phone: '', address: '', birthDate: '',
   birthPlace: '',
   gender: 'male' as 'male' | 'female',
@@ -198,6 +181,82 @@ function buildFamilyGroups(members: Member[]): FamilyGroup[] {
   }
 
   return Array.from(groups.values());
+}
+
+const STATUS_STYLE: Record<string, string> = {
+  active: 'bg-emerald-100 text-emerald-700',
+  new: 'bg-blue-100 text-blue-700',
+  inactive: 'bg-gray-100 text-gray-500',
+};
+const STATUS_LABEL: Record<string, string> = { active: 'Aktif', new: 'Jemaat Baru', inactive: 'Tidak Aktif' };
+
+function Avatar({ m, size = 56 }: { m: { name: string; photoUrl?: string }; size?: number }) {
+  const initials = m.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  return m.photoUrl ? (
+    <img src={m.photoUrl} alt={m.name} className="rounded-full object-cover flex-shrink-0 border border-gray-200" style={{ width: size, height: size }} />
+  ) : (
+    <div className="rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold flex items-center justify-center flex-shrink-0"
+      style={{ width: size, height: size, fontSize: size / 2.8 }}>{initials}</div>
+  );
+}
+
+/** One member, with every field fully visible (no truncation) so nothing is cut off on phones. */
+function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) => void; onDelete?: (id: string) => void }) {
+  const age = getAge(m.birthDate);
+  const ageGroup = getAgeGroup(m.birthDate);
+  const phones = m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : [];
+  const row = 'flex items-start gap-2 text-xs text-gray-600';
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 h-full">
+      <div className="flex items-start gap-3">
+        <Avatar m={m} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-900 leading-snug break-words">{m.name}</p>
+          {m.nickname && <p className="text-xs text-gray-400 break-words">({m.nickname})</p>}
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_STYLE[m.status] || STATUS_STYLE.inactive}`}>{STATUS_LABEL[m.status] || m.status}</span>
+            {age >= 0 && <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${AGE_GROUP_STYLES[ageGroup]}`}>{ageGroup} · {age} thn</span>}
+            {m._storeKey?.startsWith('member:') && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">Data Lama</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {phones.map((ph, i) => (
+          <div key={i} className={row}><Phone size={13} className="mt-0.5 text-emerald-500 flex-shrink-0" />
+            <a href={`https://wa.me/${ph.replace(/\D/g, '').replace(/^0/, '62')}`} target="_blank" rel="noopener noreferrer" className="text-emerald-600 font-medium break-all">{ph}</a>
+          </div>
+        ))}
+        {m.email && <div className={row}><Mail size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-all">{m.email}</span></div>}
+        {m.address && <div className={row}><MapPin size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-words">{m.address}</span></div>}
+        {m.birthDate && <div className={row}><Cake size={13} className="mt-0.5 text-pink-400 flex-shrink-0" /><span>{m.birthPlace ? `${m.birthPlace}, ` : ''}{formatDate(m.birthDate)}</span></div>}
+        {m.spouseName && <div className={row}><Heart size={13} className="mt-0.5 text-rose-400 flex-shrink-0" /><span className="break-words">{m.spouseName}</span></div>}
+        {m.children && m.children.length > 0 && <div className={row}><Baby size={13} className="mt-0.5 text-sky-400 flex-shrink-0" /><span className="break-words">{m.children.map(c => c.name).join(', ')}</span></div>}
+      </div>
+
+      {(m.pksName || (m.ibadah && m.ibadah.length > 0) || (m.pelayan && m.pelayan.length > 0)) && (
+        <div className="flex flex-wrap gap-1">
+          {m.pksName && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">PKS {m.pksName}</span>}
+          {(m.ibadah || []).map(code => (
+            <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">{IBADAH_LABEL[code] || code}</span>
+          ))}
+          {(m.pelayan || []).map((p, i) => {
+            const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
+            return div
+              ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
+              : <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">{p}</span>;
+          })}
+        </div>
+      )}
+
+      {(onEdit || onDelete) && (
+        <div className="flex gap-2 pt-3 mt-auto border-t border-gray-50">
+          {onEdit && <button onClick={() => onEdit(m)} className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"><Edit size={12} />Edit</button>}
+          {onDelete && <button onClick={() => onDelete(m.id)} className="flex-1 flex items-center justify-center gap-1 text-xs px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-medium"><Trash2 size={12} />Hapus</button>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onCreateChild }: FamilyViewProps) {
@@ -292,6 +351,7 @@ export default function CongregationManagement() {
   const { accessToken, user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const { komsels } = useKomsels();
+  const [pksNames, setPksNames] = useState<string[]>(DEFAULT_PKS_NAMES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -373,9 +433,7 @@ export default function CongregationManagement() {
   const seedPksNames = async () => {
     try {
       const { data } = await supabaseAdmin.from(KV).select('key').eq('key', 'config:pks-names').maybeSingle();
-      if (data) {
-        await supabaseAdmin.from(KV).update({ value: DEFAULT_PKS_NAMES }).eq('key', 'config:pks-names');
-      } else {
+      if (!data) {
         await supabaseAdmin.from(KV).insert({ key: 'config:pks-names', value: DEFAULT_PKS_NAMES });
       }
     } catch {}
@@ -483,14 +541,15 @@ export default function CongregationManagement() {
     if (member) {
       setEditingMember(member);
       setFormData({
+        photoUrl: member.photoUrl || '', pksName: member.pksName || '',
         name: member.name, nickname: member.nickname || '',
-        email: member.email, phone: member.phone,
-        address: member.address, birthDate: member.birthDate,
+        email: member.email || '', phone: member.phone || (member.phones || [])[0] || '',
+        address: member.address || '', birthDate: member.birthDate || '',
         birthPlace: member.birthPlace || '',
-        gender: member.gender, maritalStatus: member.maritalStatus,
+        gender: member.gender || 'male', maritalStatus: member.maritalStatus || 'single',
         baptismDate: member.baptismDate || '',
         baptismStatus: member.baptismStatus || 'belum',
-        status: member.status,
+        status: member.status || 'active',
         pelayan: member.pelayan || [], komselId: member.komselId || '',
         additionalPhones: (member.phones || []).slice(1),
         ibadah: member.ibadah || [],
@@ -518,8 +577,12 @@ export default function CongregationManagement() {
     try {
       const id = editingMember?.id || crypto.randomUUID();
       const now = new Date().toISOString();
+      const { _storeKey: _omit, ...preserved } = (editingMember || {}) as Member;
       const record: Member = {
+        ...preserved,
         id,
+        photoUrl: formData.photoUrl || undefined,
+        pksName: formData.pksName || undefined,
         name: formData.name.trim(),
         nickname: formData.nickname.trim() || undefined,
         email: formData.email.trim(),
@@ -794,7 +857,7 @@ export default function CongregationManagement() {
       'Alamat Domisili': m.address || '',
       'Status': m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif',
       'Pelayan': (m.pelayan || []).join(', '),
-      'Komsel/PKS': komsels.find(k => k.id === m.komselId)?.name || '',
+      'Komsel/PKS': m.pksName || komsels.find(k => k.id === m.komselId)?.name || '',
       'Ibadah': (m.ibadah || []).join(', '),
       'Pasangan': m.spouseName || '',
       'Anak': (m.children || []).map(c => c.name).join(', '),
@@ -1076,185 +1139,10 @@ export default function CongregationManagement() {
         </div>
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-            <table className="w-full bg-white text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  <th className="px-4 py-3 text-left">Nama</th>
-                  <th className="px-4 py-3 text-left">Usia</th>
-                  <th className="px-4 py-3 text-left">Telepon</th>
-                  <th className="px-4 py-3 text-left">Pelayanan</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Bergabung</th>
-                  {(canEdit || canDelete) && <th className="px-4 py-3 text-right">Aksi</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMembers.map(m => {
-                  const ageGroup = getAgeGroup(m.birthDate);
-                  const age = getAge(m.birthDate);
-                  return (
-                    <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-gray-900">{m.name}</p>
-                          {m._storeKey?.startsWith('member:') && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">Data Lama</span>
-                          )}
-                        </div>
-                        {m.nickname && <p className="text-xs text-gray-400">({m.nickname})</p>}
-                        {m.spouseName && <p className="text-xs text-gray-400">♥ {m.spouseName}</p>}
-                        {m.children && m.children.length > 0 && (
-                          <p className="text-xs text-gray-400">{m.children.length} anak</p>
-                        )}
-                        {m.pksName && <p className="text-xs text-purple-600 font-medium">PKS {m.pksName}</p>}
-                        {m.ibadah && m.ibadah.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {m.ibadah.map(code => (
-                              <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">
-                                {IBADAH_LABEL[code] || code}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {m.email && <p className="text-xs text-gray-400">{m.email}</p>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${AGE_GROUP_STYLES[ageGroup]}`}>{ageGroup}</span>
-                        {age >= 0 && <p className="text-xs text-gray-400 mt-0.5">{age} thn</p>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {(m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : []).map((ph, i) => (
-                          <a key={i} href={`https://wa.me/${ph.replace(/\D/g,'').replace(/^0/,'62')}`} target="_blank" rel="noopener noreferrer"
-                            className={`block text-emerald-600 hover:underline font-medium text-sm ${i > 0 ? 'text-xs text-gray-500 mt-0.5' : ''}`}>{ph}</a>
-                        ))}
-                        {!m.phone && !(m.phones?.length) && <span className="text-gray-300">-</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {(m.pelayan || []).length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {(m.pelayan || []).slice(0, 3).map((p, i) => {
-                              const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
-                              return div
-                                ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
-                                : <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{p}</span>;
-                            })}
-                            {(m.pelayan || []).length > 3 && (
-                              <span className="text-xs text-gray-400">+{(m.pelayan || []).length - 3}</span>
-                            )}
-                          </div>
-                        ) : <span className="text-gray-300 text-xs">-</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : m.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Tidak Aktif'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{m.joinDate ? formatDate(m.joinDate) : '-'}</td>
-                      {(canEdit || canDelete) && (
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1.5 justify-end">
-                            {canEdit && (
-                              <button onClick={() => handleOpenDialog(m)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
-                                <Edit size={12} />Edit
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button onClick={() => handleDelete(m.id)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg">
-                                <Trash2 size={12} />Hapus
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-3">
-            {filteredMembers.map(m => {
-              const ageGroup = getAgeGroup(m.birthDate);
-              const age = getAge(m.birthDate);
-              return (
-                <div key={m.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-semibold text-gray-900">{m.name}</p>
-                        {m._storeKey?.startsWith('member:') && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">Data Lama</span>
-                        )}
-                      </div>
-                      {m.nickname && <p className="text-xs text-gray-400">({m.nickname})</p>}
-                      {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
-                    </div>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${m.status === 'active' ? 'bg-emerald-100 text-emerald-700' : m.status === 'new' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Baru' : 'Non-aktif'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`px-2 py-0.5 rounded-full font-semibold ${AGE_GROUP_STYLES[ageGroup]}`}>{ageGroup}</span>
-                      {age >= 0 && <span className="text-gray-400">{age} thn</span>}
-                    </div>
-                    <div className="col-span-1 space-y-0.5">
-                      {(m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : []).map((ph, i) => (
-                        <a key={i} href={`https://wa.me/${ph.replace(/\D/g,'').replace(/^0/,'62')}`} target="_blank" rel="noopener noreferrer"
-                          className="block text-emerald-600 font-medium truncate text-xs">{ph}</a>
-                      ))}
-                    </div>
-                    {m.komselJoined && <span className="text-green-600">✓ Komsel</span>}
-                    {m.pksName && <span className="text-purple-600 font-medium truncate col-span-2">PKS {m.pksName}</span>}
-                  </div>
-                  {m.ibadah && m.ibadah.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {m.ibadah.map(code => (
-                        <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">
-                          {IBADAH_LABEL[code] || code}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {(m.pelayan || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {(m.pelayan || []).map((p, i) => {
-                        const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
-                        return div
-                          ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
-                          : <span key={i} className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{p}</span>;
-                      })}
-                    </div>
-                  )}
-                  {(m.spouseName || (m.children && m.children.length > 0)) && (
-                    <div className="text-xs text-gray-500 space-y-0.5 mb-2">
-                      {m.spouseName && <div>Pasangan: <span className="font-medium text-gray-700">{m.spouseName}</span></div>}
-                      {m.children && m.children.length > 0 && (
-                        <div>Anak: <span className="font-medium text-gray-700">{m.children.map(c => c.name).join(', ')}</span></div>
-                      )}
-                    </div>
-                  )}
-                  {(canEdit || canDelete) && (
-                    <div className="flex gap-2 pt-2 border-t border-gray-50">
-                      {canEdit && (
-                        <button onClick={() => handleOpenDialog(m)} className="flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
-                          <Edit size={12} />Edit
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => handleDelete(m.id)} className="flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg">
-                          <Trash2 size={12} />Hapus
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredMembers.map(m => (
+              <MemberCard key={m.id} m={m} onEdit={canEdit ? handleOpenDialog : undefined} onDelete={canDelete ? handleDelete : undefined} />
+            ))}
           </div>
         </>
       )}
@@ -1270,6 +1158,9 @@ export default function CongregationManagement() {
 
             <div className="overflow-y-auto flex-1 px-6 py-5">
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <ImagePicker label="Foto Jemaat" value={formData.photoUrl || null} onChange={url => setFormData(p => ({ ...p, photoUrl: url || '' }))} />
+                </div>
                 {/* Nama Lengkap */}
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Lengkap *</label>
@@ -1452,13 +1343,13 @@ export default function CongregationManagement() {
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Komsel/PKS</label>
                     <select 
-                      value={formData.komselId || ''} 
-                      onChange={e => setFormData(p => ({ ...p, komselId: e.target.value }))}
+                      value={formData.pksName || ''}
+                      onChange={e => setFormData(p => ({ ...p, pksName: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                     >
-                      <option value="">-- Pilih Komsel --</option>
-                      {komsels.map(k => (
-                        <option key={k.id} value={k.id}>{k.pksName || k.name}</option>
+                      <option value="">-- Pilih PKS --</option>
+                      {Array.from(new Set([...pksNames, ...komsels.map(k => k.pksName || k.name)].filter(Boolean))).map(n => (
+                        <option key={n} value={n}>{n}</option>
                       ))}
                     </select>
                   </div>

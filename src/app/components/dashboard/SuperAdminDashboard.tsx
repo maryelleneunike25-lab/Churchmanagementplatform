@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { loadAllMembers } from '../../../lib/komsel';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../../lib/api';
 import { Alert } from '@mui/material';
@@ -18,6 +18,7 @@ import TeamManagement from '../modules/TeamManagement';
 import RegistrationManagement from '../modules/RegistrationManagement';
 import KomisiManagement from '../modules/KomisiManagement';
 import ScheduleManagement from '../modules/ScheduleManagement';
+import ErrorBoundary from '../common/ErrorBoundary';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 // @ts-ignore
 import gbiLogo from '../../../imports/pngegg__1_-1.png';
@@ -68,7 +69,12 @@ const NAV_ICONS: Record<string, any> = {
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Tab lives in the URL so the phone's Back button steps through tabs instead of leaving the app.
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'dashboard';
+  const setActiveTab = (key: string) => {
+    if (key !== activeTab) navigate(key === 'dashboard' ? '/dashboard' : `/dashboard?tab=${key}`);
+  };
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [stats, setStats] = useState({
@@ -126,7 +132,7 @@ export default function SuperAdminDashboard() {
   const handleSignOut = async () => { await signOut(); navigate('/jemaat'); };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
 
       {/* ── Mobile overlay backdrop ── */}
       {mobileDrawerOpen && (
@@ -215,7 +221,7 @@ export default function SuperAdminDashboard() {
       </aside>
 
       {/* ── Main content ── */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-60' : 'md:ml-16'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-60' : 'md:ml-16'}`}>
 
         {/* Topbar */}
         <header className="bg-white border-b border-gray-200 px-4 md:px-6 pb-4 flex items-center justify-between sticky top-0 z-30 safe-header">
@@ -247,7 +253,8 @@ export default function SuperAdminDashboard() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 flex flex-col min-h-0 safe-bottom">
+        <main className="flex-1 min-w-0 flex flex-col min-h-0 safe-bottom">
+          <ErrorBoundary resetKey={activeTab}>
 
           {/* Dashboard overview */}
           {activeTab === 'dashboard' && (
@@ -400,6 +407,7 @@ export default function SuperAdminDashboard() {
           {activeTab === 'jadwal'           && <ScheduleManagement />}
           {activeTab === 'tim'              && <div className="overflow-y-auto"><div className="p-4 md:p-6"><TeamManagement /></div></div>}
           {activeTab === 'registrasi'       && <div className="overflow-y-auto"><div className="p-4 md:p-6"><RegistrationManagement /></div></div>}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

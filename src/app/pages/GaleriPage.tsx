@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { apiBase } from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { FolderOpen, ImageIcon, ChevronLeft, ChevronRight, X, ZoomIn, Images } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { publicAnonKey, projectId } from '/utils/supabase/info';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 
 interface Album {
   id: string;

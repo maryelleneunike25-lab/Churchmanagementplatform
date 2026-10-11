@@ -1,5 +1,23 @@
 // Unified frontend API client for Vercel/Neon backend
 
+export function apiBase(): string {
+  if (typeof window === 'undefined') return '';
+  const isLocalOrNative =
+    (window as any).Capacitor?.isNativePlatform?.() ||
+    window.location.origin.includes('localhost') ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:';
+  return isLocalOrNative ? 'https://gbijeltim.vercel.app' : '';
+}
+
+/** Unauthenticated JSON fetch for the public website. */
+export async function publicGet(url: string) {
+  const res = await fetch(`${apiBase()}${url}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP error ${res.status}`);
+  return data;
+}
+
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const isDev = import.meta.env.DEV;
   // In dev, assuming Vite proxies /api to the API server or we just hit it relatively

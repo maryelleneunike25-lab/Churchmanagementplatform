@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { uploadImage } from '../../../lib/upload';
+import { apiBase } from '../../../lib/api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -6,13 +8,13 @@ import {
   Plus, Pencil, Trash2, Eye, EyeOff, ImageIcon, X, Check, Loader2, AlertCircle
 } from 'lucide-react';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 
 interface Announcement {
   id: string;
   title: string;
   description: string;
-  imagePath: string | null;
+  imagePath?: string | null;
   imageUrl: string | null;
   active: boolean;
   createdAt: string;
@@ -48,6 +50,7 @@ export default function AnnouncementManagement() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -125,8 +128,9 @@ export default function AnnouncementManagement() {
       };
 
       if (form.imageFile) {
-        payload.imageBase64 = await toBase64(form.imageFile);
-        payload.imageMimeType = form.imageFile.type;
+        payload.imageUrl = await uploadImage(form.imageFile);
+      } else if (!form.imagePreview) {
+        payload.imageUrl = null;
       }
 
       const url = editId
@@ -246,6 +250,21 @@ export default function AnnouncementManagement() {
                   onChange={handleFileChange}
                   className="hidden"
                 />
+                <input
+                  ref={camRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => camRef.current?.click()}
+                  className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  📷 Ambil dengan kamera
+                </button>
                 {form.imagePreview && (
                   <button
                     onClick={() => setForm(f => ({ ...f, imageFile: null, imagePreview: null }))}

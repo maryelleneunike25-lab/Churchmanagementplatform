@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { apiBase } from '../../lib/api';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'motion/react';
 import {
   Clock, MapPin, Users, Heart, BookOpen, Star,
-  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images
+  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound
 } from 'lucide-react';
 import { publicAnonKey, projectId } from '/utils/supabase/info';
 import PublicNavbar from '../components/public/PublicNavbar';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 
 interface Announcement {
   id: string;
@@ -175,7 +176,7 @@ export default function JemaatPage() {
 
           {/* Sosmed */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.8 }}
-            className="flex items-center justify-center gap-4 mt-2">
+            className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-4">
             <span className="text-white/40 text-xs">Ikuti kami</span>
             <div className="w-px h-3 bg-white/20" />
             <a href="https://www.instagram.com/gbi_jeltim/" target="_blank" rel="noopener noreferrer"
@@ -203,9 +204,34 @@ export default function JemaatPage() {
         </motion.div>
       </section>
 
+      {/* ── Akses cepat ── */}
+      <section className="relative z-20 -mt-10 md:-mt-14 px-4">
+        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl shadow-blue-900/10 border border-gray-100 p-3 md:p-4 grid grid-cols-4 gap-1 md:gap-3">
+          {[
+            { href: '#jadwal', label: 'Jadwal', icon: Clock, color: 'from-blue-500 to-indigo-600' },
+            { to: '/lokasi', label: 'Lokasi', icon: MapPin, color: 'from-emerald-500 to-teal-600' },
+            { to: '/service', label: 'Daftar', icon: CalendarHeart, color: 'from-rose-500 to-orange-500' },
+            { to: '/akun', label: 'Akun', icon: UserRound, color: 'from-purple-500 to-pink-600' },
+          ].map(item => {
+            const inner = (
+              <>
+                <span className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:-translate-y-1 group-hover:rotate-3 transition-transform duration-300`}>
+                  <item.icon size={22} className="text-white" />
+                </span>
+                <span className="text-[11px] md:text-sm font-semibold text-gray-700 mt-2">{item.label}</span>
+              </>
+            );
+            const cls = 'group flex flex-col items-center py-2 rounded-2xl hover:bg-gray-50 transition-colors';
+            return item.to
+              ? <Link key={item.label} to={item.to} className={cls}>{inner}</Link>
+              : <a key={item.label} href={item.href} className={cls}>{inner}</a>;
+          })}
+        </div>
+      </section>
+
       {/* ── Stats bar ── */}
       <FadeInSection>
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-700">
+        <div className="bg-gradient-to-r from-blue-700 to-indigo-700 mt-10">
           <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-white">
             {[
               { n: '500+', label: 'Jemaat Aktif' },
@@ -250,7 +276,7 @@ export default function JemaatPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {schedules.map((s, i) => (
               <FadeInSection key={s.title} delay={i * 0.1}>
-                <div className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100">
+                <div className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100">
                   <div className={`h-2 bg-gradient-to-r ${s.color}`} />
                   <div className="p-7 flex items-start gap-5">
                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300`}>
@@ -359,6 +385,8 @@ export default function JemaatPage() {
                 { to: '/tentang', label: 'Tentang' },
                 { to: '/galeri', label: 'Galeri' },
                 { to: '/lokasi', label: 'Lokasi' },
+                { to: '/service', label: 'Program Ibadah' },
+                { to: '/akun', label: 'Akun Jemaat' },
               ].map(link => (
                 <Link key={link.to} to={link.to} className="hover:text-white transition-colors py-1">{link.label}</Link>
               ))}

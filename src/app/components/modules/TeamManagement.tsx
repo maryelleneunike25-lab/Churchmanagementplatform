@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiBase } from '../../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { supabase } from '../../../lib/supabaseClient';
@@ -7,7 +8,7 @@ import {
   ImageIcon, Users, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
 
-const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
+const API_URL = `${apiBase()}/api/content`;
 const BUCKET = 'make-561004a0-gallery';
 
 async function uploadPhotoToStorage(file: File, memberId: string): Promise<string | null> {

@@ -3,10 +3,11 @@ import * as XLSX from 'xlsx';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId } from '/utils/supabase/info';
+import KomisiReport from './KomisiReport';
 import {
   Users, Plus, Trash2, Edit2, X, Check, ChevronDown, AlertTriangle,
   ClipboardList, Download, Calendar, UserCheck, UserX, Link, Unlink,
-  Search, RefreshCw, ShieldAlert, Info,
+  Search, RefreshCw, ShieldAlert, Info, Activity,
 } from 'lucide-react';
 
 const KV = 'kv_store_561004a0';
@@ -23,7 +24,7 @@ export const KOMISI_LIST = [
 ] as const;
 
 export type KomisiId = typeof KOMISI_LIST[number]['id'];
-type Tab = 'anggota' | 'absensi';
+type Tab = 'anggota' | 'absensi' | 'laporan';
 
 export interface KomisiMember {
   id: string;
@@ -106,6 +107,19 @@ function formatDate(iso: string) {
   if (!iso) return '';
   try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
   catch { return iso; }
+}
+
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Every Sunday from 1 Jan of this year up to the latest Sunday that is not in the future. */
+function sundaysThisYear(): string[] {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), 0, 1);
+  while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
+  const out: string[] = [];
+  while (d <= now && d.getFullYear() === now.getFullYear()) { out.push(isoDate(d)); d.setDate(d.getDate() + 7); }
+  return out;
 }
 
 // ── Badge components ──────────────────────────────────────────────────────────
@@ -214,8 +228,32 @@ export default function KomisiManagement() {
         .like('key', `komisi:${activeKomisi}:absen:%`);
       if (err) throw err;
       const list = (data ?? []).map((r: any) => r.value as AbsenSession).filter(Boolean);
+
+      // Weekly sessions are automatic: one per Sunday, created the first time the list is opened.
+      const have = new Set(list.map(s => s.date));
+      const missing = sundaysThisYear().filter(d => !have.has(d));
+      if (missing.length > 0) {
+        const created = missing.map(date => {
+          const dt = new Date(date + 'T00:00:00');
+          const id = `week-${date}`;
+          return {
+            id, komisiId: activeKomisi, date,
+            title: `Ibadah Minggu ${dt.getDate()} ${MONTH_SHORT[dt.getMonth()]} ${dt.getFullYear()}`,
+            createdAt: new Date().toISOString(), presentIds: [], absentIds: [],
+          } as AbsenSession;
+        });
+        for (let i = 0; i < created.length; i += 10) {
+          await Promise.all(created.slice(i, i + 10).map(sess =>
+            supabaseAdmin.from(KV).insert({ key: `komisi:${activeKomisi}:absen:${sess.id}`, value: sess })));
+        }
+        list.push(...created);
+      }
+
       list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setSessions(list);
+      // Open the current week's session by default
+      const thisWeek = list.find(s => s.date <= isoDate(new Date()));
+      setActiveSession(prev => prev ?? thisWeek ?? null);
     } catch (e: any) { setError(e.message); }
     setLoadingSessions(false);
   }, [activeKomisi]);
@@ -469,12 +507,14 @@ export default function KomisiManagement() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
-        {(['anggota', 'absensi'] as Tab[]).map(t => (
+        {(['anggota', 'absensi', 'laporan'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
             {t === 'anggota'
               ? <span className="flex items-center gap-1.5"><Users size={13} />Data Anggota</span>
-              : <span className="flex items-center gap-1.5"><ClipboardList size={13} />Absensi</span>}
+              : t === 'absensi'
+                ? <span className="flex items-center gap-1.5"><ClipboardList size={13} />Absensi</span>
+                : <span className="flex items-center gap-1.5"><Calendar size={13} />Laporan</span>}
           </button>
         ))}
       </div>
@@ -550,16 +590,24 @@ export default function KomisiManagement() {
         </div>
       )}
 
+      {tab === 'laporan' && (
+        <KomisiReport
+          komisiLabel={KOMISI_LIST.find(k => k.id === activeKomisi)?.label || ''}
+          sessions={sessions}
+          members={members.map(m => ({ id: m.id, name: m.name }))}
+        />
+      )}
+
       {/* ── ABSENSI TAB ── */}
       {tab === 'absensi' && (
         <div className="grid md:grid-cols-3 gap-5">
           <div className="md:col-span-1">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 text-sm">Sesi Ibadah</h3>
+              <h3 className="font-semibold text-gray-900 text-sm">Absensi Mingguan <span className="text-[10px] font-normal text-gray-400">(otomatis tiap Minggu)</span></h3>
               {canEdit && (
                 <button onClick={() => setShowSessionForm(true)}
                   className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg">
-                  <Plus size={12} />Buat Sesi
+                  <Plus size={12} />Sesi Khusus
                 </button>
               )}
             </div>

@@ -7,14 +7,14 @@ export const EdgeKV = {
         return {
           like: async (col: string, prefix: string) => {
             try {
-              const cleanPrefix = prefix.replace('%', '');
-              const res = await api.get(`/api/kv?prefix=${encodeURIComponent(cleanPrefix)}`);
+              const res = await api.get(`/api/kv?pattern=${encodeURIComponent(prefix)}`);
               return { data: res.data, error: null };
             } catch (error: any) {
               return { data: null, error };
             }
           },
-          eq: async (col: string, key: string) => {
+          // Sync on purpose: callers chain .eq(...).maybeSingle() without awaiting in between.
+          eq: (col: string, key: string) => {
             const fetchSingle = async () => {
               try {
                 const value = await api.get(`/api/kv/${encodeURIComponent(key)}`);

@@ -12,6 +12,7 @@ export default async function handler(req, res) {
       const users = await sql`
         SELECT id, name, email, role, status, auth_provider, created_at, permissions
         FROM users
+        WHERE role <> 'jemaat'
         ORDER BY created_at DESC
       `;
       return sendJson(res, 200, { success: true, data: users });

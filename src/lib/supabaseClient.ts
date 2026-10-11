@@ -1,4 +1,7 @@
 import { api } from './api';
+import { uploadImage } from './upload';
+
+const uploadedUrls = new Map<string, string>();
 
 // Mock Supabase client that translates legacy Supabase queries into our new API calls
 export const supabase = {
@@ -11,29 +14,27 @@ export const supabase = {
       select: (cols?: string) => {
         return {
           like: async (col: string, val: string) => {
-             const prefix = val.replace('%', '');
              try {
-                const res = await api.get(`/api/kv?prefix=${encodeURIComponent(prefix)}`);
+                const res = await api.get(`/api/kv?pattern=${encodeURIComponent(val)}`);
                 return { data: res.data, error: null };
              } catch (e: any) {
                 return { data: null, error: e };
              }
           },
-          eq: async (col: string, val: string) => {
-             try {
-                const res = await api.get(`/api/kv/${val}`);
-                // Mock Supabase's format
-                const row = { key: val, value: res };
-                return { 
-                   single: async () => ({ data: row, error: null }),
-                   maybeSingle: async () => ({ data: res ? row : null, error: null })
-                };
-             } catch(e: any) {
-                return {
-                   single: async () => ({ data: null, error: e }),
-                   maybeSingle: async () => ({ data: null, error: null })
-                };
-             }
+          // Sync + lazy: supports .eq().single() / .eq().maybeSingle() chaining, and awaiting the result.
+          eq: (col: string, val: string) => {
+             const run = async () => {
+                try {
+                   const res = await api.get(`/api/kv/${encodeURIComponent(val)}`);
+                   return { data: res === null || res === undefined ? null : { key: val, value: res }, error: null };
+                } catch (e: any) {
+                   return { data: null, error: e };
+                }
+             };
+             return {
+                single: async () => { const r = await run(); return r.error ? { data: null, error: r.error } : { data: r.data, error: null }; },
+                maybeSingle: async () => { const r = await run(); return { data: r.data, error: null }; },
+             };
           }
         };
       },
@@ -66,29 +67,21 @@ export const supabase = {
     };
   },
   storage: {
-    from: (bucket: string) => ({
-      createSignedUrl: async (path: string, expiresIn?: number) => {
-         // Vercel Blob URLs are public, but we don't know the exact domain prefix here.
-         // However, the upload endpoint returns the full URL. If we only have the path (e.g. from DB),
-         // we should just return the path assuming it IS the full URL now.
-         // In the new system, we save the full Vercel Blob URL to the database!
-         return { data: { signedUrl: path }, error: null };
+    from: (_bucket: string) => ({
+      // Callers upload with a logical path and then ask for a URL by that path, so remember the mapping.
+      createSignedUrl: async (path: string, _expiresIn?: number) => ({ data: { signedUrl: uploadedUrls.get(path) ?? path }, error: null }),
+      getPublicUrl: (path: string) => ({ data: { publicUrl: uploadedUrls.get(path) ?? path } }),
+      upload: async (path: string, file: File, _options?: any) => {
+        try {
+          const url = await uploadImage(file);
+          uploadedUrls.set(path, url);
+          return { data: { path }, error: null };
+        } catch (e: any) {
+          return { data: null, error: e };
+        }
       },
-      upload: async (path: string, file: File, options?: any) => {
-         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await api.post('/api/upload', formData);
-            // Return the full URL so the frontend saves it directly to DB
-            return { data: { path: res.url }, error: null };
-         } catch(e: any) {
-            return { error: e };
-         }
-      },
-      remove: async (paths: string[]) => {
-         // Not fully implemented on backend, but mocked to prevent crashes
-         return { error: null };
-      }
+      list: async (_prefix?: string) => ({ data: [], error: null }),
+      remove: async (_paths: string[]) => ({ error: null }),
     })
   }
 };

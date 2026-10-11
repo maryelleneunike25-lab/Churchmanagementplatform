@@ -1,17 +1,9 @@
 {
   "framework": "vite",
   "rewrites": [
-    {
-      "source": "/api/admin/:route/:id",
-      "destination": "/api/admin?route=:route&id=:id"
-    },
-    {
-      "source": "/api/admin/:route",
-      "destination": "/api/admin?route=:route"
-    },
-    {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/admin/:route/:id", "destination": "/api/admin?route=:route&id=:id" },
+    { "source": "/api/admin/:route", "destination": "/api/admin?route=:route" },
+    { "source": "/api/content/:path*", "destination": "/api/content?path=:path*" },
+    { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
