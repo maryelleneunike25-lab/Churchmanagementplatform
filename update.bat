@@ -6,6 +6,20 @@ echo =========================================
 
 echo Building GBI Jeltim Website...
 call npm run build
+if %errorlevel% neq 0 (
+    echo [ERROR] Build failed! Aborting.
+    pause
+    exit /b %errorlevel%
+)
+
+echo.
+echo Syncing Capacitor to Android project...
+call npx cap sync android
+if %errorlevel% neq 0 (
+    echo [ERROR] Capacitor sync failed! Aborting.
+    pause
+    exit /b %errorlevel%
+)
 
 REM Add git safe directory exception in case of ownership mismatched environment
 git config --global --add safe.directory D:/Home/Projects/Users/Acelbyte/Categories/Programmings/projects/websites/Churchmanagementplatform >nul 2>&1
