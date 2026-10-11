@@ -316,7 +316,7 @@ function FamilyView({ members, expandedFamilies, onToggle, onEdit, onDelete, onC
                       ))}
                       {nameOnlyChildren.map((c, i) => {
                         const birthYear = c.birthDate ? new Date(c.birthDate).getFullYear() : null;
-                        const childAge = birthYear ? new Date().getFullYear() - birthYear : null;
+                        const childAge = c.birthDate && getAge(c.birthDate) >= 0 ? getAge(c.birthDate) : null;
                         return (
                           <div key={i} className="flex items-center gap-2.5 py-2 px-3 bg-gray-50 rounded-lg">
                             <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 flex-shrink-0">

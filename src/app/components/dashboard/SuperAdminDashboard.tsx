@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { loadAllMembers } from '../../../lib/komsel';
+import { getAge } from '../../../lib/age';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../../lib/api';
@@ -34,17 +35,17 @@ function getDayOfYear(date: Date) {
   return Math.floor((date.getTime() - start.getTime()) / 86400000);
 }
 
+/** Days until the next birthday and the age as of today (completed years; it goes up on the birthday itself). */
 function birthdayInfo(birthDate: string): { daysUntil: number; age: number } | null {
   if (!birthDate) return null;
+  const age = getAge(birthDate);
+  if (age < 0) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const birth = new Date(birthDate);
-  const thisYear = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-  let daysUntil = Math.round((thisYear.getTime() - today.getTime()) / 86400000);
-  if (daysUntil < 0) daysUntil += 365;
-  // Age = years already completed as of today
-  // If birthday hasn't happened yet this year, subtract 1
-  const age = today.getFullYear() - birth.getFullYear() - (daysUntil > 0 ? 1 : 0);
+  let next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
+  if (next < today) next = new Date(today.getFullYear() + 1, birth.getMonth(), birth.getDate());
+  const daysUntil = Math.round((next.getTime() - today.getTime()) / 86400000);
   return { daysUntil, age };
 }
 

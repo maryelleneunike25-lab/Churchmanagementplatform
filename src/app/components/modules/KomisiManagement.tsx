@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId } from '/utils/supabase/info';
+import { getAge, getAgeGroup, AGE_GROUP_STYLES } from '../../../lib/age';
 import KomisiReport from './KomisiReport';
 import {
   Users, Plus, Trash2, Edit2, X, Check, ChevronDown, AlertTriangle,
@@ -112,15 +113,15 @@ function formatDate(iso: string) {
 const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Every Sunday from 1 Jan of this year up to the latest Sunday that is not in the future. */
-function sundaysThisYear(): string[] {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), 0, 1);
-  while (d.getDay() !== 0) d.setDate(d.getDate() + 1);
-  const out: string[] = [];
-  while (d <= now && d.getFullYear() === now.getFullYear()) { out.push(isoDate(d)); d.setDate(d.getDate() + 7); }
-  return out;
+/** The Sunday that ends the current Mon–Sun week (today if it is Sunday). Attendance resets every Monday. */
+function currentWeekSunday(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  return isoDate(d);
 }
+
+/** Age bands of the age-based komisi; used to flag members who have outgrown theirs. */
+const KOMISI_AGE_RANGE: Record<string, [number, number]> = { 'sekolah-minggu': [0, 12], teens: [13, 17], vessel: [18, 30] };
 
 // ── Badge components ──────────────────────────────────────────────────────────
 export function KomisiBadge({ id }: { id: string }) {
@@ -229,31 +230,32 @@ export default function KomisiManagement() {
       if (err) throw err;
       const list = (data ?? []).map((r: any) => r.value as AbsenSession).filter(Boolean);
 
-      // Weekly sessions are automatic: one per Sunday, created the first time the list is opened.
-      const have = new Set(list.map(s => s.date));
-      const missing = sundaysThisYear().filter(d => !have.has(d));
-      if (missing.length > 0) {
-        const created = missing.map(date => {
-          const dt = new Date(date + 'T00:00:00');
-          const id = `week-${date}`;
-          return {
-            id, komisiId: activeKomisi, date,
-            title: `Ibadah Minggu ${dt.getDate()} ${MONTH_SHORT[dt.getMonth()]} ${dt.getFullYear()}`,
-            createdAt: new Date().toISOString(), presentIds: [], absentIds: [],
-          } as AbsenSession;
-        });
-        for (let i = 0; i < created.length; i += 10) {
-          await Promise.all(created.slice(i, i + 10).map(sess =>
-            supabaseAdmin.from(KV).insert({ key: `komisi:${activeKomisi}:absen:${sess.id}`, value: sess })));
-        }
-        list.push(...created);
+      // One session per week, created automatically. Last weeks' sessions stay saved and feed the Laporan tab.
+      const weekDate = currentWeekSunday();
+      let current = list.find(x => x.date === weekDate);
+      if (!current) {
+        const dt = new Date(weekDate + 'T00:00:00');
+        current = {
+          id: `week-${weekDate}`, komisiId: activeKomisi, date: weekDate,
+          title: `Ibadah Minggu ${dt.getDate()} ${MONTH_SHORT[dt.getMonth()]} ${dt.getFullYear()}`,
+          createdAt: new Date().toISOString(), presentIds: [], absentIds: [],
+        } as AbsenSession;
+        await supabaseAdmin.from(KV).insert({ key: `komisi:${activeKomisi}:absen:${current.id}`, value: current });
+        list.push(current);
       }
 
-      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setSessions(list);
-      // Open the current week's session by default
-      const thisWeek = list.find(s => s.date <= isoDate(new Date()));
-      setActiveSession(prev => prev ?? thisWeek ?? null);
+      // Tidy up: earlier versions pre-created a blank session for every Sunday of the year.
+      const blanks = list.filter(x => x.id.startsWith('week-') && x.date !== weekDate && x.presentIds.length + x.absentIds.length === 0);
+      if (blanks.length > 0) {
+        for (let i = 0; i < blanks.length; i += 10) {
+          await Promise.all(blanks.slice(i, i + 10).map(x => supabaseAdmin.from(KV).delete().eq('key', `komisi:${activeKomisi}:absen:${x.id}`)));
+        }
+      }
+      const kept = list.filter(x => !blanks.includes(x));
+
+      kept.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setSessions(kept);
+      setActiveSession(kept.find(x => x.date === weekDate) ?? null);
     } catch (e: any) { setError(e.message); }
     setLoadingSessions(false);
   }, [activeKomisi]);
@@ -388,19 +390,25 @@ export default function KomisiManagement() {
     setSavingSession(false);
   };
 
-  const toggleAttendance = async (session: AbsenSession, memberId: string, present: boolean) => {
-    const updated: AbsenSession = {
-      ...session,
-      presentIds: present
-        ? [...session.presentIds.filter(id => id !== memberId), memberId]
-        : session.presentIds.filter(id => id !== memberId),
-      absentIds: !present
-        ? [...session.absentIds.filter(id => id !== memberId), memberId]
-        : session.absentIds.filter(id => id !== memberId),
-    };
-    await supabaseAdmin.from(KV).update({ value: updated }).eq('key', `komisi:${activeKomisi}:absen:${session.id}`);
-    setSessions(prev => prev.map(s => s.id === session.id ? updated : s));
+  const saveSession = async (updated: AbsenSession) => {
+    await supabaseAdmin.from(KV).update({ value: updated }).eq('key', `komisi:${activeKomisi}:absen:${updated.id}`);
+    setSessions(prev => prev.map(x => x.id === updated.id ? updated : x));
     setActiveSession(updated);
+  };
+
+  // Hadir / Absen are toggles: tapping the active one again clears the mark.
+  const toggleAttendance = async (session: AbsenSession, memberId: string, present: boolean) => {
+    const wasPresent = session.presentIds.includes(memberId);
+    const wasAbsent = session.absentIds.includes(memberId);
+    const presentIds = session.presentIds.filter(id => id !== memberId);
+    const absentIds = session.absentIds.filter(id => id !== memberId);
+    if (present && !wasPresent) presentIds.push(memberId);
+    if (!present && !wasAbsent) absentIds.push(memberId);
+    await saveSession({ ...session, presentIds, absentIds });
+  };
+
+  const markAll = async (session: AbsenSession, present: boolean) => {
+    await saveSession({ ...session, presentIds: present ? members.map(m => m.id) : [], absentIds: [] });
   };
 
   const [deletingSession, setDeletingSession] = useState<AbsenSession | null>(null);
@@ -552,6 +560,11 @@ export default function KomisiManagement() {
               {filteredMembers.map(m => {
                 const linked = m.jemaatId ? jemaatMap[m.jemaatId] : null;
                 const notInDb = !linked;
+                // Linked members always follow Data Jemaat; the age is computed today, so it rolls over on each birthday.
+                const birthDate = linked?.birthDate || m.birthDate || '';
+                const age = birthDate ? getAge(birthDate) : -1;
+                const range = KOMISI_AGE_RANGE[activeKomisi];
+                const outOfRange = !!range && age >= 0 && (age < range[0] || age > range[1]);
                 return (
                   <div key={m.id} className={`bg-white border rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm ${notInDb ? 'border-amber-200' : 'border-gray-100'}`}>
                     <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
@@ -572,7 +585,9 @@ export default function KomisiManagement() {
                       </div>
                       <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 flex-wrap">
                         {m.phone && <span>{m.phone}</span>}
-                        {m.birthDate && <span>· {formatDate(m.birthDate)}</span>}
+                        {birthDate && <span>· {formatDate(birthDate)}</span>}
+                        {age >= 0 && <span className={`px-1.5 py-0.5 rounded-full font-semibold ${AGE_GROUP_STYLES[getAgeGroup(birthDate)]}`}>{age} thn</span>}
+                        {outOfRange && <span className="px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">usia di luar rentang komisi</span>}
                         {m.address && <span>· {m.address}</span>}
                       </div>
                     </div>
@@ -598,112 +613,77 @@ export default function KomisiManagement() {
         />
       )}
 
-      {/* ── ABSENSI TAB ── */}
+      {/* ── ABSENSI TAB: this week only ── */}
       {tab === 'absensi' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="md:col-span-1">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 text-sm">Absensi Mingguan <span className="text-[10px] font-normal text-gray-400">(otomatis tiap Minggu)</span></h3>
-              {canEdit && (
-                <button onClick={() => setShowSessionForm(true)}
-                  className="flex items-center gap-1 text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg">
-                  <Plus size={12} />Sesi Khusus
-                </button>
-              )}
-            </div>
-            {loadingSessions ? (
-              <div className="text-center py-8 text-gray-400 text-sm">Memuat...</div>
-            ) : sessions.length === 0 ? (
-              <div className="text-center py-10 text-gray-400">
-                <Calendar size={32} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Belum ada sesi</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {sessions.map(s => {
-                  const pct = members.length > 0 ? Math.round(s.presentIds.length / members.length * 100) : 0;
-                  return (
-                    <button key={s.id} onClick={() => setActiveSession(s)}
-                      className={`w-full text-left border rounded-xl p-3.5 transition-all ${activeSession?.id === s.id ? 'border-blue-400 bg-blue-50' : 'border-gray-100 bg-white hover:bg-gray-50'}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">{s.title}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatDate(s.date)}</p>
-                        </div>
-                        {canEdit && (
-                          <button onClick={e => { e.stopPropagation(); handleDeleteSession(s); }} className="text-gray-300 hover:text-red-400 p-0.5 flex-shrink-0"><Trash2 size={12} /></button>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                          <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xs text-gray-500">{s.presentIds.length}/{members.length}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            {!activeSession ? (
-              <div className="flex items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-2xl py-16">
-                <div className="text-center">
-                  <ClipboardList size={40} className="mx-auto mb-3 opacity-40" />
-                  <p className="text-sm font-medium">Pilih sesi untuk mengisi absensi</p>
+        <div>
+          {loadingSessions || !activeSession ? (
+            <div className="text-center py-16 text-gray-400 text-sm">Memuat absensi minggu ini...</div>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+                <div>
+                  <span className="inline-block text-[11px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 rounded-full px-2.5 py-1 mb-2">Minggu ini</span>
+                  <h3 className="font-bold text-gray-900 text-lg leading-tight">{activeSession.title}</h3>
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {activeSession.presentIds.length} hadir · {activeSession.absentIds.length} absen · {Math.max(0, members.length - activeSession.presentIds.length - activeSession.absentIds.length)} belum dicatat
+                  </p>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-bold text-gray-900">{activeSession.title}</h3>
-                    <p className="text-sm text-gray-400">{formatDate(activeSession.date)} · {activeSession.presentIds.length} hadir dari {members.length}</p>
-                  </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {canEdit && (
+                    <>
+                      <button onClick={() => markAll(activeSession, true)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50">Hadir Semua</button>
+                      <button onClick={() => markAll(activeSession, false)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Reset</button>
+                    </>
+                  )}
                   <button onClick={() => exportAttendance(activeSession)}
-                    className="flex items-center gap-1.5 text-sm border border-gray-200 text-gray-700 px-3 py-1.5 rounded-xl hover:bg-gray-50">
+                    className="flex items-center gap-1.5 text-xs font-semibold border border-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50">
                     <Download size={13} />Export
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {members.map(m => {
-                    const isPresent = activeSession.presentIds.includes(m.id);
-                    const isAbsent = activeSession.absentIds.includes(m.id);
-                    return (
-                      <div key={m.id} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
-                          {m.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
-                          {m.phone && <p className="text-xs text-gray-400">{m.phone}</p>}
-                        </div>
-                        {canEdit && (
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <button onClick={() => toggleAttendance(activeSession, m.id, true)}
-                              className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${isPresent ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600'}`}>
-                              <UserCheck size={12} />Hadir
-                            </button>
-                            <button onClick={() => toggleAttendance(activeSession, m.id, false)}
-                              className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${isAbsent ? 'bg-red-400 border-red-400 text-white' : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}>
-                              <UserX size={12} />Absen
-                            </button>
-                          </div>
-                        )}
-                        {!canEdit && (
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isPresent ? 'bg-emerald-100 text-emerald-700' : isAbsent ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
-                            {isPresent ? 'Hadir' : isAbsent ? 'Absen' : '-'}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
-            )}
-          </div>
+
+              <div className="bg-blue-50/60 border border-blue-100 text-blue-700 text-xs rounded-xl px-3.5 py-2.5 mb-4">
+                Absensi berganti otomatis setiap Senin. Data minggu-minggu sebelumnya tersimpan dan bisa dilihat di tab <strong>Laporan</strong>. Tekan tombol yang sama sekali lagi untuk membatalkan.
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                {members.map(m => {
+                  const isPresent = activeSession.presentIds.includes(m.id);
+                  const isAbsent = activeSession.absentIds.includes(m.id);
+                  return (
+                    <div key={m.id} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
+                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 break-words">{m.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {m.phone}
+                          {(() => { const bd = (m.jemaatId && jemaatMap[m.jemaatId]?.birthDate) || m.birthDate; const a = bd ? getAge(bd) : -1; return a >= 0 ? `${m.phone ? ' · ' : ''}${a} thn` : ''; })()}
+                        </p>
+                      </div>
+                      {canEdit ? (
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => toggleAttendance(activeSession, m.id, true)} aria-pressed={isPresent}
+                            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-all ${isPresent ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600'}`}>
+                            <UserCheck size={12} />Hadir
+                          </button>
+                          <button onClick={() => toggleAttendance(activeSession, m.id, false)} aria-pressed={isAbsent}
+                            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-all ${isAbsent ? 'bg-red-400 border-red-400 text-white' : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}>
+                            <UserX size={12} />Absen
+                          </button>
+                        </div>
+                      ) : (
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isPresent ? 'bg-emerald-100 text-emerald-700' : isAbsent ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
+                          {isPresent ? 'Hadir' : isAbsent ? 'Absen' : '-'}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
 
