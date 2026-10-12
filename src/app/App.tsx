@@ -16,6 +16,7 @@ import LokasiPage from "./pages/LokasiPage";
 import ServicePage from "./pages/ServicePage";
 import AkunPage from "./pages/AkunPage";
 import NativeBackHandler from "./components/common/NativeBackHandler";
+import AdminPinGate from "./components/auth/AdminPinGate";
 
 // Protected Route — redirects to /login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,13 +43,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Login/Signup route — redirects to /dashboard if already logged in
+// Login/Signup route — redirects to /dashboard if already logged in, protected by PIN gate
 function AdminRoute() {
   const { user } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return sessionStorage.getItem('gjt_admin_portal_unlocked') === 'true';
+  });
 
   if (user) {
     return <Navigate to={user.role === 'jemaat' ? '/akun' : '/dashboard'} replace />;
+  }
+
+  if (!isUnlocked) {
+    return <AdminPinGate onUnlocked={() => setIsUnlocked(true)} />;
   }
 
   return showSignup ? (

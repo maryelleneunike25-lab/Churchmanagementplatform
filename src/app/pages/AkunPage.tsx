@@ -4,6 +4,7 @@ import { Mail, Lock, User, Loader2, AlertCircle, LogOut, CalendarHeart, Images, 
 import PublicNavbar from '../components/public/PublicNavbar';
 import PublicFooter from '../components/public/PublicFooter';
 import { useAuth } from '../contexts/AuthContext';
+import AdminPinModal from '../components/auth/AdminPinModal';
 
 type Mode = 'masuk' | 'daftar';
 
@@ -18,6 +19,7 @@ export default function AkunPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,10 +125,30 @@ export default function AkunPage() {
             </form>
 
             <p className="text-xs text-gray-400 text-center mt-5">
-              Admin gereja? <Link to="/admin" className="text-blue-600 font-semibold">Masuk ke portal admin</Link>
+              Admin gereja?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  const isUnlocked = typeof window !== 'undefined' && sessionStorage.getItem('gjt_admin_portal_unlocked') === 'true';
+                  if (isUnlocked) {
+                    navigate('/admin');
+                  } else {
+                    setShowPinModal(true);
+                  }
+                }}
+                className="text-blue-600 font-semibold hover:underline cursor-pointer bg-transparent border-0 p-0"
+              >
+                Masuk ke portal admin
+              </button>
             </p>
           </div>
         )}
+
+        <AdminPinModal
+          isOpen={showPinModal}
+          onClose={() => setShowPinModal(false)}
+          onSuccess={() => navigate('/admin')}
+        />
       </main>
       <PublicFooter />
     </div>

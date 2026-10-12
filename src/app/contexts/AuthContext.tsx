@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (data: { email: string; password: string; name: string; accountType?: 'jemaat' }) => {
+  const signUp = async (data: { email: string; password: string; name: string; accountType?: 'jemaat'; pin?: string }) => {
     try {
       const res = await api.post('/api/auth/register', data);
       if (res.success) {

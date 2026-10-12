@@ -18,7 +18,8 @@ export default function SignupPage({ onSwitchToLogin }: { onSwitchToLogin?: () =
     setError('');
     setLoading(true);
 
-    const result = await signUp({ email, password, name });
+    const pin = typeof window !== 'undefined' ? sessionStorage.getItem('gjt_admin_portal_pin') || undefined : undefined;
+    const result = await signUp({ email, password, name, pin });
     if (result.success) {
       if (result.status !== 'approved') {
         setSuccess(true);
