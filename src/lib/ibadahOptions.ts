@@ -5,7 +5,8 @@ export const IBADAH_OPTIONS = [
   { code: 'RBI',    label: 'Remaja Bethel Indonesia' },
   { code: 'PBI',    label: 'Vessel Youth Community' },
   { code: 'KOMPAS', label: 'Komunitas Pasutri' },
-  { code: 'KOWARI', label: 'Komunitas Wanita Mandiri & Koemas' },
+  { code: 'KOWARI', label: 'Komunitas Wanita Mandiri' },
+  { code: 'KOEMAS', label: 'Koemas' },
 ];
 
 export const IBADAH_LABEL: Record<string, string> = Object.fromEntries(

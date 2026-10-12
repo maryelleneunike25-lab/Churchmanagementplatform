@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { Users, Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, Search, SortAsc, SortDesc, UserPlus, UserMinus, Phone } from 'lucide-react';
@@ -15,6 +16,8 @@ function MemberAvatar({ m }: { m: any }) {
 }
 
 export default function KomselManagement() {
+  const [searchParams] = useSearchParams();
+  const pksParam = searchParams.get('pks') || searchParams.get('search') || '';
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
   const canEdit = isSuperAdmin || (user?.permissions as any)?.editKomsel || false;
@@ -27,9 +30,21 @@ export default function KomselManagement() {
   const [expandedPks, setExpandedPks] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({ ...BLANK_FORM });
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => pksParam);
   const [sortKey, setSortKey] = useState<'name' | 'count'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  useEffect(() => {
+    if (pksParam) {
+      setSearch(pksParam);
+      const match = komsels.find(k =>
+        (k.pksName || k.name).toLowerCase().includes(pksParam.toLowerCase())
+      );
+      if (match) {
+        setExpandedPks(prev => new Set(prev).add(match.id));
+      }
+    }
+  }, [pksParam, komsels]);
 
   // Add-member picker
   const [pickerFor, setPickerFor] = useState<Komsel | null>(null);

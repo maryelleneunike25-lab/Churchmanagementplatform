@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../contexts/AuthContext';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
@@ -22,7 +23,8 @@ const IBADAH_TO_KOMISI: Record<string, string[]> = {
   RBI:    ['teens'],
   PBI:    ['vessel'],
   KOMPAS: ['kompas'],
-  KOWARI: ['kowari', 'koemas'],
+  KOWARI: ['kowari'],
+  KOEMAS: ['koemas'],
 };
 
 const DEFAULT_PKS_NAMES = ['Sisca', 'Sandy', 'Damli', 'Risan', 'Gina Jaya', 'Willis', 'Merry', 'Ping & Hadi', 'Christopher'];
@@ -202,6 +204,7 @@ function Avatar({ m, size = 56 }: { m: { name: string; photoUrl?: string }; size
 
 /** One member, with every field fully visible (no truncation) so nothing is cut off on phones. */
 function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) => void; onDelete?: (id: string) => void }) {
+  const navigate = useNavigate();
   const age = getAge(m.birthDate);
   const ageGroup = getAgeGroup(m.birthDate);
   const phones = m.phones && m.phones.length > 0 ? m.phones : m.phone ? [m.phone] : [];
@@ -235,16 +238,63 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
       </div>
 
       {(m.pksName || (m.ibadah && m.ibadah.length > 0) || (m.pelayan && m.pelayan.length > 0)) && (
-        <div className="flex flex-wrap gap-1">
-          {m.pksName && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700">PKS {m.pksName}</span>}
-          {(m.ibadah || []).map(code => (
-            <span key={code} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100">{IBADAH_LABEL[code] || code}</span>
-          ))}
+        <div className="flex flex-wrap gap-1 items-center">
+          {m.pksName && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/dashboard?tab=komsel&pks=${encodeURIComponent(m.pksName!)}`);
+              }}
+              title={`Klik untuk membuka Komsel PKS ${m.pksName}`}
+              className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 hover:bg-purple-200 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1"
+            >
+              <span>PKS {m.pksName}</span>
+            </button>
+          )}
+          {(m.ibadah || []).map(code => {
+            const komId = IBADAH_TO_KOMISI[code]?.[0];
+            return (
+              <button
+                type="button"
+                key={code}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (komId) {
+                    navigate(`/dashboard?tab=komisi&komisi=${encodeURIComponent(komId)}`);
+                  } else if (code === 'IR') {
+                    navigate('/dashboard?tab=absensi');
+                  } else {
+                    navigate('/dashboard?tab=komisi');
+                  }
+                }}
+                title={`Klik untuk membuka Komisi / Ibadah ${IBADAH_LABEL[code] || code}`}
+                className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer"
+              >
+                {IBADAH_LABEL[code] || code}
+              </button>
+            );
+          })}
           {(m.pelayan || []).map((p, i) => {
             const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
-            return div
-              ? <span key={i} className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${div.light}`}>{div.label}</span>
-              : <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">{p}</span>;
+            return (
+              <button
+                type="button"
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/dashboard?tab=pelayan&bidang=${encodeURIComponent(p)}`);
+                }}
+                title={`Klik untuk membuka Pelayan bidang ${p}`}
+                className={`px-1.5 py-0.5 text-[10px] active:scale-95 transition-all cursor-pointer ${
+                  div
+                    ? `rounded-full border font-bold ${div.light} hover:opacity-80`
+                    : 'rounded bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {div ? div.label : p}
+              </button>
+            );
           })}
         </div>
       )}
@@ -371,12 +421,20 @@ export default function CongregationManagement() {
     [members]
   );
 
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('search') || '');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [sortKey, setSortKey] = useState<'name' | 'age'>('name');
   const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroup | 'All'>('All');
   const [ibadahFilter, setIbadahFilter] = useState<string>('All');
   const [exportDropdown, setExportDropdown] = useState(false);
+
+  useEffect(() => {
+    const s = searchParams.get('search');
+    if (s !== null && s !== undefined) {
+      setSearch(s);
+    }
+  }, [searchParams]);
   const [importing, setImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importProgress, setImportProgress] = useState<{ done: number; total: number; label: string } | null>(null);

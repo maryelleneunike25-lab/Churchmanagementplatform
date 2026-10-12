@@ -4,12 +4,16 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
-  Save, Download, Calendar, Users, TrendingDown, ChevronLeft, ChevronRight,
-  BarChart3, ClipboardList, AlertTriangle, Loader2
+  Save, Download, Calendar as CalendarIcon, Users, TrendingDown, TrendingUp,
+  ChevronLeft, ChevronRight, BarChart3, ClipboardList, AlertTriangle,
+  Loader2, X, Sparkles, Filter
 } from 'lucide-react';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
+  CartesianGrid, ReferenceLine, Cell
+} from 'recharts';
 
 const KV = 'kv_store_561004a0';
-
 const SERVICE_TYPE = 'Ibadah Umum';
 
 function toMember(r: { key: string; value: unknown }): Member | null {
@@ -34,7 +38,7 @@ interface Session {
   savedAt: string;
 }
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const fmt = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const monthLabel = (y: number, m: number) =>
@@ -65,7 +69,37 @@ function getInactiveMembers(members: Member[], sessions: Session[]): string[] {
     .map(m => m.id);
 }
 
-// ─── sub-components ──────────────────────────────────────────────────────────
+// Week calculations (Monday - Sunday)
+function getWeekInfo(dateStr: string) {
+  const parts = dateStr.split('-').map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  const day = d.getDay(); // 0 is Sunday, 1 is Monday
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + i);
+    dates.push(fmt(cur));
+  }
+
+  return {
+    monday: fmt(monday),
+    sunday: fmt(sunday),
+    dates,
+    sundayDate: fmt(sunday),
+    label: `${monday.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    shortLabel: `${monday.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${sunday.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`,
+  };
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
 function Avatar({ name, present }: { name: string; present: boolean }) {
   const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
   return (
@@ -73,6 +107,195 @@ function Avatar({ name, present }: { name: string; present: boolean }) {
       {initials}
     </div>
   );
+}
+
+// ─── Calendar Picker Modal ──────────────────────────────────────────────────
+function CalendarModal({
+  isOpen,
+  onClose,
+  selectedDate,
+  onSelectDate,
+  sessions,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+  sessions: Session[];
+}) {
+  const initialDate = selectedDate ? new Date(selectedDate) : new Date();
+  const [viewYear, setViewYear] = useState(initialDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initialDate.getMonth() + 1);
+
+  if (!isOpen) return null;
+
+  const prevMonth = () => {
+    if (viewMonth === 1) { setViewMonth(12); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 12) { setViewMonth(1); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  // Build days grid for viewMonth & viewYear
+  const firstDayOfMonth = new Date(viewYear, viewMonth - 1, 1);
+  const startDay = firstDayOfMonth.getDay(); // 0 is Sun, 1 is Mon
+  const offset = startDay === 0 ? 6 : startDay - 1; // Mon = 0, Sun = 6
+
+  const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
+  const days: { dateStr: string; dayNum: number; isCurrentMonth: boolean; isSunday: boolean }[] = [];
+
+  // Current month days
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = new Date(viewYear, viewMonth - 1, i);
+    const dateStr = fmt(d);
+    days.push({
+      dateStr,
+      dayNum: i,
+      isCurrentMonth: true,
+      isSunday: d.getDay() === 0,
+    });
+  }
+
+  const selectedWeek = getWeekInfo(selectedDate);
+  const todayStr = fmt(new Date());
+
+  // Quick map of sessions by date
+  const sessionMap = new Map<string, number>();
+  sessions.forEach(s => {
+    sessionMap.set(s.date, (s.presentIds || []).length);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/80">
+          <div className="flex items-center gap-2">
+            <CalendarIcon size={18} className="text-blue-600" />
+            <h3 className="font-bold text-gray-900 text-sm">Kalender Kehadiran & Sesi</h3>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Month Selector */}
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-bold text-gray-800 text-sm">{monthLabel(viewYear, viewMonth)}</span>
+            <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Day Names */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-400 mb-2">
+            <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span className="text-rose-500 font-bold">Min</span>
+          </div>
+
+          {/* Day Cells */}
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: offset }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="h-14 rounded-xl opacity-0" />
+            ))}
+
+            {days.map(d => {
+              const count = sessionMap.get(d.dateStr);
+              const inSelectedWeek = selectedWeek.dates.includes(d.dateStr);
+              const isSelectedDate = selectedDate === d.dateStr;
+              const isToday = d.dateStr === todayStr;
+
+              return (
+                <button
+                  key={d.dateStr}
+                  type="button"
+                  onClick={() => {
+                    onSelectDate(d.dateStr);
+                    onClose();
+                  }}
+                  className={`h-14 rounded-xl p-1 flex flex-col items-center justify-between transition-all cursor-pointer border ${
+                    isSelectedDate
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md font-bold'
+                      : inSelectedWeek
+                      ? 'bg-blue-50 border-blue-200 text-blue-900 font-medium'
+                      : d.isSunday
+                      ? 'bg-rose-50/50 border-rose-100 text-rose-700 hover:bg-rose-50'
+                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50 text-gray-700'
+                  } ${isToday && !isSelectedDate ? 'ring-2 ring-blue-400' : ''}`}
+                >
+                  <span className="text-xs leading-none">{d.dayNum}</span>
+                  {count !== undefined ? (
+                    <span
+                      className={`text-[9px] px-1 py-0.5 rounded-full font-bold leading-none ${
+                        isSelectedDate
+                          ? 'bg-white text-blue-700'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                      title={`${count} jemaat hadir`}
+                    >
+                      {count}
+                    </span>
+                  ) : d.isSunday ? (
+                    <span className="text-[8px] text-gray-300">ibadah</span>
+                  ) : (
+                    <span className="h-2" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+              <span>Ada Data Absen</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectDate(todayStr);
+                onClose();
+              }}
+              className="text-blue-600 font-semibold hover:underline cursor-pointer"
+            >
+              Pilih Hari Ini
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Custom Tooltip for Chart ────────────────────────────────────────────────
+function CustomChartTooltip({ active, payload }: any) {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-gray-900/95 backdrop-blur-xs text-white p-3 rounded-xl shadow-xl text-xs space-y-1 border border-gray-800 min-w-40 animate-in fade-in zoom-in-95">
+        <p className="font-semibold text-gray-100">{data.fullLabel || data.label}</p>
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-800">
+          <span className="text-gray-400">Total Hadir:</span>
+          <span className="font-bold text-emerald-400 text-sm">{data.hadir} orang</span>
+        </div>
+        {data.totalMembers > 0 && (
+          <div className="flex items-center justify-between gap-3 text-[11px] text-gray-400">
+            <span>Persentase:</span>
+            <span className="font-semibold text-blue-300">
+              {Math.round((data.hadir / data.totalMembers) * 100)}%
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 // ─── Daily Input Tab ─────────────────────────────────────────────────────────
@@ -125,7 +348,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       const session: Session = {
         id: sessionId,
         date,
-      serviceType: SERVICE_TYPE,
+        serviceType: SERVICE_TYPE,
         presentIds: [...present],
         savedAt: new Date().toISOString(),
       };
@@ -151,12 +374,21 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       {/* Controls row */}
       <div className="flex flex-wrap gap-3 items-end">
         <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Tanggal</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <label className="text-xs text-gray-500 font-medium block mb-1">Tanggal Absensi</label>
+          <div className="flex items-center gap-2">
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+            <button
+              type="button"
+              onClick={() => setDate(today)}
+              className="text-xs px-2.5 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 font-medium cursor-pointer"
+            >
+              Hari Ini
+            </button>
+          </div>
         </div>
         <button onClick={handleSave} disabled={saving || !canEdit}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto cursor-pointer ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           {saving ? 'Menyimpan...' : saved ? 'Tersimpan ✓' : 'Simpan Absensi'}
         </button>
@@ -182,10 +414,10 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       {inactiveIds.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
           <div className="flex items-start gap-3">
-          <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-amber-800">Jemaat Jarang Aktif ({inactiveIds.length} orang)</p>
-          </div>
+            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-800">Jemaat Jarang Aktif ({inactiveIds.length} orang)</p>
+            </div>
           </div>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
             {members.filter(m => inactiveIds.includes(m.id)).map(m => (
@@ -204,25 +436,25 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Cari nama jemaat..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
         </div>
         <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-          className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+          className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 bg-white cursor-pointer">
           {sortDir === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />}
           {sortDir === 'asc' ? 'Asc' : 'Desc'}
         </button>
         {(['all', 'hadir', 'absen'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${filter === f ? 'bg-blue-700 text-white border-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${filter === f ? 'bg-blue-700 text-white border-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50 bg-white'}`}>
             {f === 'all' ? 'Semua' : f === 'hadir' ? 'Hadir' : 'Absen'}
           </button>
         ))}
         {canEdit && (
           <div className="flex items-center gap-2 ml-auto">
-            <button onClick={markAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-50">
+            <button onClick={markAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-emerald-200 text-emerald-700 rounded-xl hover:bg-emerald-50 bg-white cursor-pointer">
               <CheckSquare size={14} /> Semua Hadir
             </button>
-            <button onClick={clearAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50">
+            <button onClick={clearAll} className="flex items-center gap-1.5 text-xs px-3 py-2 border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 bg-white cursor-pointer">
               <Square size={14} /> Clear
             </button>
           </div>
@@ -268,42 +500,179 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 // ─── Report Tab ──────────────────────────────────────────────────────────────
 function ReportSummary({ members, sessions }: { members: Member[]; sessions: Session[] }) {
   const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
-  const [search, setSearch] = useState('');
+  const todayStr = fmt(now);
 
-  const sundays = sundaysInMonth(year, month);
+  const [view, setView] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    // If sessions exist, default to the latest session date, else today
+    if (sessions.length > 0) {
+      const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+      return sorted[0].date;
+    }
+    return todayStr;
+  });
+
+  const [year, setYear] = useState(() => {
+    if (sessions.length > 0) {
+      const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+      return Number(sorted[0].date.slice(0, 4));
+    }
+    return now.getFullYear();
+  });
+
+  const [month, setMonth] = useState(() => {
+    if (sessions.length > 0) {
+      const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+      return Number(sorted[0].date.slice(5, 7));
+    }
+    return now.getMonth() + 1;
+  });
+
+  const [search, setSearch] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const currentWeek = useMemo(() => getWeekInfo(selectedDate), [selectedDate]);
+  const sundays = useMemo(() => sundaysInMonth(year, month), [year, month]);
+
+  // Navigate weeks
+  const prevWeek = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 7);
+    setSelectedDate(fmt(d));
+  };
+
+  const nextWeek = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 7);
+    setSelectedDate(fmt(d));
+  };
+
+  const prevMonth = () => {
+    if (month === 1) { setMonth(12); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (month === 12) { setMonth(1); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
 
   // Sessions matching current filter
   const relevantSessions = useMemo(() => {
-    if (view === 'monthly') {
+    if (view === 'weekly') {
+      return sessions.filter(s => currentWeek.dates.includes(s.date));
+    } else if (view === 'monthly') {
       const prefix = `${year}-${pad2(month)}`;
       return sessions.filter(s => s.date.startsWith(prefix));
     } else {
       return sessions.filter(s => s.date.startsWith(String(year)));
     }
-  }, [sessions, year, month, view]);
+  }, [sessions, view, currentWeek, year, month]);
 
   // Dates (columns) for the table
   const dateCols = useMemo(() => {
-    if (view === 'monthly') return sundays;
-    // yearly: collect all unique dates in sessions
-    const all = relevantSessions.map(s => s.date);
-    return [...new Set(all)].sort();
-  }, [view, sundays, relevantSessions]);
+    if (view === 'weekly') {
+      // Show session dates in that week, or at least the Sunday date
+      const sessionDatesInWeek = relevantSessions.map(s => s.date);
+      const combined = [...new Set([currentWeek.sundayDate, ...sessionDatesInWeek])];
+      return combined.sort();
+    } else if (view === 'monthly') {
+      const allDates = [...new Set([...sundays, ...relevantSessions.map(s => s.date)])];
+      return allDates.sort();
+    } else {
+      // yearly
+      const all = relevantSessions.map(s => s.date);
+      return [...new Set(all)].sort();
+    }
+  }, [view, currentWeek, sundays, relevantSessions]);
+
+  const getPresentSet = (date: string) =>
+    sessions.find(s => s.date === date)?.presentIds || [];
+
+  const totalByDate = (date: string) => getPresentSet(date).length;
+  const totalByMember = (memberId: string) =>
+    dateCols.filter(d => getPresentSet(d).includes(memberId)).length;
 
   const filteredMembers = useMemo(() =>
     members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => a.name.localeCompare(b.name)),
     [members, search]);
 
-  const getPresentSet = (date: string) =>
-    relevantSessions.find(s => s.date === date)?.presentIds || [];
+  // ─── Chart Data Preparation ──────────────────────────────────────────────
+  const chartData = useMemo(() => {
+    if (view === 'weekly') {
+      // Recent 8 weeks trend ending at or around currentWeek
+      const weeksData = [];
+      const baseDate = new Date(currentWeek.sundayDate);
+      
+      // Look back 6 weeks and ahead 1 week
+      for (let i = -5; i <= 1; i++) {
+        const target = new Date(baseDate);
+        target.setDate(baseDate.getDate() + (i * 7));
+        const wInfo = getWeekInfo(fmt(target));
+        const count = sessions
+          .filter(s => wInfo.dates.includes(s.date))
+          .reduce((sum, s) => sum + s.presentIds.length, 0);
 
-  const totalByDate = (date: string) => getPresentSet(date).length;
-  const totalByMember = (memberId: string) =>
-    dateCols.filter(d => getPresentSet(d).includes(memberId)).length;
+        const isCurrent = wInfo.sundayDate === currentWeek.sundayDate;
+
+        weeksData.push({
+          key: wInfo.sundayDate,
+          label: wInfo.shortLabel,
+          fullLabel: `Minggu: ${wInfo.label}`,
+          hadir: count,
+          isCurrent,
+          totalMembers: members.length,
+          dateStr: wInfo.sundayDate,
+        });
+      }
+      return weeksData;
+    } else if (view === 'monthly') {
+      // All Sundays in that month
+      return dateCols.map(d => {
+        const count = totalByDate(d);
+        const parts = d.split('-');
+        const dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        return {
+          key: d,
+          label: `${parts[2]}/${parts[1]}`,
+          fullLabel: dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+          hadir: count,
+          isCurrent: d === selectedDate,
+          totalMembers: members.length,
+          dateStr: d,
+        };
+      });
+    } else {
+      // Yearly: 12 months
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return months.map((mName, idx) => {
+        const mPrefix = `${year}-${pad2(idx + 1)}`;
+        const mSessions = sessions.filter(s => s.date.startsWith(mPrefix));
+        const total = mSessions.reduce((sum, s) => sum + s.presentIds.length, 0);
+        const avg = mSessions.length > 0 ? Math.round(total / mSessions.length) : 0;
+        return {
+          key: mPrefix,
+          label: mName,
+          fullLabel: `Bulan ${monthLabel(year, idx + 1)}`,
+          hadir: avg,
+          sessionsCount: mSessions.length,
+          totalMembers: members.length,
+          dateStr: `${mPrefix}-01`,
+        };
+      });
+    }
+  }, [view, currentWeek, sessions, dateCols, members, year, month, selectedDate]);
+
+  const avgAttendance = useMemo(() => {
+    const valid = chartData.filter(d => d.hadir > 0);
+    if (valid.length === 0) return 0;
+    return Math.round(valid.reduce((sum, d) => sum + d.hadir, 0) / valid.length);
+  }, [chartData]);
+
+  const maxAttendance = useMemo(() => {
+    return chartData.reduce((max, d) => (d.hadir > max ? d.hadir : max), 0);
+  }, [chartData]);
 
   const exportCSV = () => {
     const header = ['No', 'Nama', ...dateCols.map(d => d.slice(5)), 'Total'];
@@ -321,73 +690,233 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const exportName = view === 'monthly'
-      ? `Ibadah Umum.${pad2(month)}.${year}`
-      : `Ibadah Umum.${year}`;
+    const exportName = view === 'weekly'
+      ? `Ibadah_Umum_Minggu_${currentWeek.sundayDate}`
+      : view === 'monthly'
+      ? `Ibadah_Umum_${year}_${pad2(month)}`
+      : `Ibadah_Umum_${year}`;
     a.download = `${exportName}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
   return (
     <div className="space-y-4">
       {/* Top controls */}
       <div className="flex flex-wrap gap-3 items-center">
         {/* View toggle */}
-        <div className="flex bg-gray-100 rounded-xl p-1">
-          {(['monthly', 'yearly'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${view === v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              {v === 'monthly' ? 'Per Bulan' : 'Per Tahun'}
+        <div className="flex bg-gray-100 rounded-xl p-1 shadow-inner">
+          {(['weekly', 'monthly', 'yearly'] as const).map(v => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                view === v
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {v === 'weekly' ? 'Per Minggu' : v === 'monthly' ? 'Per Bulan' : 'Per Tahun'}
             </button>
           ))}
         </div>
 
-        {/* Month/year picker and calendar date shortcut */}
-        {view === 'monthly' ? (
-          <div className="flex items-center gap-2">
-            <input aria-label="Pilih bulan laporan" type="month" value={`${year}-${pad2(month)}`}
-              onChange={e => { if (!e.target.value) return; const [y, m] = e.target.value.split('-').map(Number); setYear(y); setMonth(m); }}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white" />
-            <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft size={16} /></button>
-            <span className="text-sm font-semibold min-w-32 text-center">{monthLabel(year, month)}</span>
-            <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronRight size={16} /></button>
+        {/* Dynamic Period Navigator */}
+        {view === 'weekly' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={prevWeek} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer" title="Minggu Sebelumnya">
+              <ChevronLeft size={16} />
+            </button>
+            <div className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-800">
+              {currentWeek.label}
+            </div>
+            <button onClick={nextWeek} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer" title="Minggu Selanjutnya">
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDate(todayStr)}
+              className="text-xs px-2.5 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 bg-white text-gray-700 font-medium cursor-pointer"
+            >
+              Minggu Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              <CalendarIcon size={14} /> Pilih dari Kalender
+            </button>
           </div>
-        ) : (
+        )}
+
+        {view === 'monthly' && (
           <div className="flex items-center gap-2">
-            <input aria-label="Pilih tahun laporan" type="number" min="2000" max="2100" value={year}
+            <input
+              aria-label="Pilih bulan laporan"
+              type="month"
+              value={`${year}-${pad2(month)}`}
+              onChange={e => {
+                if (!e.target.value) return;
+                const [y, m] = e.target.value.split('-').map(Number);
+                setYear(y); setMonth(m);
+              }}
+              className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm bg-white"
+            />
+            <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm font-semibold min-w-28 text-center text-gray-800">{monthLabel(year, month)}</span>
+            <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer">
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              <CalendarIcon size={14} /> Kalender
+            </button>
+          </div>
+        )}
+
+        {view === 'yearly' && (
+          <div className="flex items-center gap-2">
+            <input
+              aria-label="Pilih tahun laporan"
+              type="number"
+              min="2000"
+              max="2100"
+              value={year}
               onChange={e => setYear(Number(e.target.value) || now.getFullYear())}
-              className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white" />
-            <button onClick={() => setYear(y => y - 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft size={16} /></button>
+              className="w-24 border border-gray-200 rounded-xl px-3 py-1.5 text-sm bg-white"
+            />
+            <button onClick={() => setYear(y => y - 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer">
+              <ChevronLeft size={16} />
+            </button>
             <span className="text-sm font-semibold">{year}</span>
-            <button onClick={() => setYear(y => y + 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronRight size={16} /></button>
+            <button onClick={() => setYear(y => y + 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer">
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
 
         <button onClick={exportCSV}
-          className="flex items-center gap-2 ml-auto bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm">
+          className="flex items-center gap-2 ml-auto bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm cursor-pointer transition-colors">
           <Download size={16} /> Export Excel (CSV)
         </button>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div><p className="text-sm font-semibold text-gray-800">Kehadiran per minggu</p><p className="text-xs text-gray-400">Jumlah jemaat hadir pada setiap tanggal</p></div>
-          <BarChart3 size={18} className="text-blue-600" />
+      {/* ─── ENHANCED VISUALIZATION CHART ─── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm space-y-4">
+        {/* Chart Header + KPI Pills */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <BarChart3 size={20} className="text-blue-600" />
+              <h3 className="font-bold text-gray-900 text-base">
+                {view === 'weekly' ? 'Tren Kehadiran Mingguan' : view === 'monthly' ? `Kehadiran per Minggu (${monthLabel(year, month)})` : `Rata-rata Kehadiran per Bulan (${year})`}
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {view === 'weekly'
+                ? 'Perbandingan kehadiran dengan minggu-minggu sebelumnya (klik bar untuk memilih)'
+                : 'Grafik interaktif jemaat hadir per sesi ibadah'}
+            </p>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 text-emerald-800">
+              <TrendingUp size={14} className="text-emerald-600" />
+              <span>Tertinggi: <strong>{maxAttendance}</strong></span>
+            </div>
+            <div className="bg-blue-50 border border-blue-100 px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 text-blue-800">
+              <Users size={14} className="text-blue-600" />
+              <span>Rata-rata: <strong>{avgAttendance}</strong></span>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 items-end min-h-28">
-          {dateCols.map(d => {
-            const count = totalByDate(d); const height = Math.max(8, Math.round(count / Math.max(1, members.length) * 84));
-            return <div key={d} className="flex flex-col items-center justify-end gap-1 min-w-0">
-              <span className="text-xs font-semibold text-blue-700">{count}</span>
-              <div className="w-full max-w-12 rounded-t-lg bg-blue-500" style={{ height }} />
-              <span className="text-[10px] text-gray-500">{d.slice(5)}</span>
-            </div>;
-          })}
-          {dateCols.length === 0 && <p className="col-span-full text-sm text-gray-400 text-center py-6">Belum ada sesi tersimpan untuk periode ini.</p>}
+
+        {/* Recharts Bar Container */}
+        <div className="w-full h-64 pt-2">
+          {chartData.length === 0 || chartData.every(d => d.hadir === 0) ? (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2 border-2 border-dashed border-gray-100 rounded-xl">
+              <BarChart3 size={32} className="opacity-30" />
+              <p className="text-sm">Belum ada data kehadiran pada periode ini.</p>
+              <button
+                type="button"
+                onClick={() => setCalendarOpen(true)}
+                className="text-xs text-blue-600 font-semibold hover:underline cursor-pointer"
+              >
+                Buka kalender untuk melihat tanggal yang tersedia
+              </button>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
+                onClick={(e: any) => {
+                  if (e && e.activePayload && e.activePayload[0]) {
+                    const d = e.activePayload[0].payload;
+                    if (d.dateStr) {
+                      setSelectedDate(d.dateStr);
+                    }
+                  }
+                }}
+              >
+                <defs>
+                  <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.85} />
+                  </linearGradient>
+                  <linearGradient id="barActive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#6d28d9" stopOpacity={0.9} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip content={<CustomChartTooltip />} />
+                {avgAttendance > 0 && (
+                  <ReferenceLine
+                    y={avgAttendance}
+                    stroke="#10b981"
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `Rata-rata: ${avgAttendance}`,
+                      position: 'top',
+                      fill: '#059669',
+                      fontSize: 10,
+                      fontWeight: 600,
+                    }}
+                  />
+                )}
+                <Bar dataKey="hadir" radius={[6, 6, 0, 0]} maxBarSize={48}>
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.isCurrent ? 'url(#barActive)' : 'url(#barBlue)'}
+                      cursor="pointer"
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -396,16 +925,16 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Cari nama..."
-          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
       </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-blue-50 rounded-xl p-4 text-center">
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-blue-700">{relevantSessions.length}</div>
           <div className="text-xs text-blue-600 mt-1">Sesi Tersimpan</div>
         </div>
-        <div className="bg-emerald-50 rounded-xl p-4 text-center">
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-emerald-700">
             {relevantSessions.length > 0
               ? Math.round(relevantSessions.reduce((s, sess) => s + sess.presentIds.length, 0) / relevantSessions.length)
@@ -413,7 +942,7 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
           </div>
           <div className="text-xs text-emerald-600 mt-1">Rata-rata Hadir/Minggu</div>
         </div>
-        <div className="bg-purple-50 rounded-xl p-4 text-center">
+        <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-purple-700">
             {relevantSessions.reduce((s, sess) => s + sess.presentIds.length, 0)}
           </div>
@@ -422,7 +951,7 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
       </div>
 
       {/* Table */}
-      <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-200 shadow-sm bg-white">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -489,6 +1018,8 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
           )}
         </table>
       </div>
+
+      {/* Mobile Table */}
       <div className="md:hidden space-y-2">
         {filteredMembers.length === 0 ? <div className="text-center text-sm text-gray-400 py-8">Belum ada data</div> : filteredMembers.map(m => {
           const total = totalByMember(m.id);
@@ -498,6 +1029,20 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
           </article>;
         })}
       </div>
+
+      {/* Calendar Picker Modal */}
+      <CalendarModal
+        isOpen={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        selectedDate={selectedDate}
+        onSelectDate={date => {
+          setSelectedDate(date);
+          const parts = date.split('-').map(Number);
+          setYear(parts[0]);
+          setMonth(parts[1]);
+        }}
+        sessions={sessions}
+      />
     </div>
   );
 }
@@ -559,15 +1104,15 @@ export default function AttendanceManagement() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Absensi Jemaat</h2>
-          <p className="text-sm text-gray-500 mt-1">Catat kehadiran dan lihat laporan per bulan / tahun</p>
+          <p className="text-sm text-gray-500 mt-1">Catat kehadiran dan lihat laporan per minggu / bulan / tahun</p>
         </div>
         <div className="flex bg-gray-100 rounded-xl p-1">
           <button onClick={() => setTab('input')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'input' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${tab === 'input' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <ClipboardList size={16} /> Input Absensi
           </button>
           <button onClick={() => setTab('report')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'report' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${tab === 'report' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             <BarChart3 size={16} /> Laporan
           </button>
         </div>

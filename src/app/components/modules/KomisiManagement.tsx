@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
 import { useAuth } from '../../contexts/AuthContext';
@@ -145,9 +146,26 @@ export default function KomisiManagement() {
     return visible;
   }, [isSuperAdmin, permissions]);
 
-  const [activeKomisi, setActiveKomisi] = useState<KomisiId>(
-    (visibleKomisi[0]?.id as KomisiId) ?? 'sekolah-minggu'
-  );
+  const [searchParams] = useSearchParams();
+  const komisiParam = searchParams.get('komisi');
+
+  const [activeKomisi, setActiveKomisi] = useState<KomisiId>(() => {
+    if (komisiParam) {
+      const match = KOMISI_LIST.find(k => k.id === komisiParam || k.label.toLowerCase() === komisiParam.toLowerCase());
+      if (match) return match.id as KomisiId;
+    }
+    return (visibleKomisi[0]?.id as KomisiId) ?? 'sekolah-minggu';
+  });
+
+  useEffect(() => {
+    if (komisiParam) {
+      const match = KOMISI_LIST.find(k => k.id === komisiParam || k.label.toLowerCase() === komisiParam.toLowerCase());
+      if (match) {
+        setActiveKomisi(match.id as KomisiId);
+      }
+    }
+  }, [komisiParam]);
+
   const [tab, setTab] = useState<Tab>('anggota');
 
   const canEdit = isSuperAdmin || permissions?.editKomisi ||
