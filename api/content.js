@@ -57,7 +57,7 @@ export default async function handler(req, res) {
       const out = await Promise.all(albums.map(async (al) => {
         const photos = (await byPrefix(`gallery:photo:${al.id}:`)).filter((p) => p.id);
         const cover = photos.find((p) => p.id === al.coverPhotoId) || photos[0];
-        return { ...al, photoCount: photos.length, coverUrl: cover?.imageUrl || null };
+        return { ...al, photoCount: photos.length, coverUrl: al.coverUrl || cover?.imageUrl || null };
       }));
       return sendJson(res, 200, { success: true, albums: out });
     }

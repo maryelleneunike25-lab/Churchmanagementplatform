@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { uploadImage } from '../../../lib/upload';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   Plus, Trash2, Edit2, X, FolderOpen, Image, Upload,
@@ -45,6 +46,8 @@ export default function GalleryManagement() {
   const [showAlbumModal, setShowAlbumModal] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
   const [albumForm, setAlbumForm] = useState({ name: '', description: '' });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState('');
   const [savingAlbum, setSavingAlbum] = useState(false);
 
   const [deleteAlbum, setDeleteAlbum] = useState<Album | null>(null);
@@ -104,8 +107,8 @@ export default function GalleryManagement() {
   const closeFolder = () => { setOpenAlbum(null); setPhotos([]); setUploadFile(null); setUploadPreview(null); setUploadCaption(''); loadAlbums(); };
 
   // ── Album CRUD ─────────────────────────────────────────────────────────────
-  const openNewAlbum = () => { setEditingAlbum(null); setAlbumForm({ name: '', description: '' }); setShowAlbumModal(true); };
-  const openEditAlbum = (album: Album, e: React.MouseEvent) => { e.stopPropagation(); setEditingAlbum(album); setAlbumForm({ name: album.name, description: album.description }); setShowAlbumModal(true); };
+  const openNewAlbum = () => { setEditingAlbum(null); setAlbumForm({ name: '', description: '' }); setCoverFile(null); setCoverPreview(''); setShowAlbumModal(true); };
+  const openEditAlbum = (album: Album, e: React.MouseEvent) => { e.stopPropagation(); setEditingAlbum(album); setAlbumForm({ name: album.name, description: album.description }); setCoverFile(null); setCoverPreview(album.coverUrl || ''); setShowAlbumModal(true); };
 
   const handleSaveAlbum = async () => {
     if (!albumForm.name.trim()) return;
@@ -113,11 +116,11 @@ export default function GalleryManagement() {
     setError('');
     try {
       if (editingAlbum) {
-        const updated = { ...editingAlbum, ...albumForm };
+        const updated = { ...editingAlbum, ...albumForm, coverUrl: coverFile ? await uploadImage(coverFile) : editingAlbum.coverUrl };
         await supabase.from(KV).update({ value: updated }).eq('key', `gallery:album:${editingAlbum.id}`);
       } else {
         const id = crypto.randomUUID();
-        const album: Album = { id, ...albumForm, coverUrl: null, photoCount: 0, createdAt: new Date().toISOString() };
+        const album: Album = { id, ...albumForm, coverUrl: coverFile ? await uploadImage(coverFile) : null, photoCount: 0, createdAt: new Date().toISOString() };
         await supabase.from(KV).insert({ key: `gallery:album:${id}`, value: album });
       }
       setShowAlbumModal(false);
@@ -336,6 +339,7 @@ export default function GalleryManagement() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
               {photos.map(photo => (
                 <div key={photo.id} className="group relative aspect-square bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                  {canEdit && <button onClick={() => { if (!openAlbum) return; const updated = { ...openAlbum, coverUrl: photo.imageUrl }; supabase.from(KV).update({ value: updated }).eq('key', `gallery:album:${openAlbum.id}`).then(({ error: err }) => { if (err) setError(err.message); else { setOpenAlbum(updated); setAlbums(old => old.map(album => album.id === updated.id ? updated : album)); } }); }} className={'absolute top-2 left-2 z-10 px-2 py-1 rounded-lg text-[10px] font-semibold shadow ' + (openAlbum?.coverUrl === photo.imageUrl ? 'bg-blue-600 text-white' : 'bg-white/90 text-gray-700')}>{openAlbum?.coverUrl === photo.imageUrl ? 'Sampul' : 'Jadikan sampul'}</button>}
                   {photo.imageUrl ? (
                     <img src={photo.imageUrl} alt={photo.caption || 'foto'}
                       className="w-full h-full object-cover cursor-zoom-in group-hover:scale-105 transition-transform duration-300"
@@ -379,6 +383,12 @@ export default function GalleryManagement() {
               <button onClick={() => setShowAlbumModal(false)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
             </div>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Foto Sampul Album</label>
+                {coverPreview && <img src={coverPreview} alt="Pratinjau sampul album" className="w-full h-36 object-cover rounded-xl mb-2" />}
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">Pilih foto sampul<input type="file" accept="image/*" capture="environment" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); } }} /></label>
+                <p className="text-xs text-gray-400 mt-1">Sampul ini bisa berbeda dari foto-foto di dalam album.</p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Album *</label>
                 <input type="text" value={albumForm.name} onChange={e => setAlbumForm({ ...albumForm, name: e.target.value })}

@@ -10,7 +10,7 @@ import {
 
 const KV = 'kv_store_561004a0';
 
-const SERVICE_TYPES = ['Ibadah Minggu', 'Ibadah Pemuda', 'Persekutuan Doa', 'Sekolah Minggu'];
+const SERVICE_TYPE = 'Ibadah Umum';
 
 function toMember(r: { key: string; value: unknown }): Member | null {
   const m = r.value as any;
@@ -84,7 +84,6 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 }) {
   const today = fmt(new Date());
   const [date, setDate] = useState(today);
-  const [serviceType, setServiceType] = useState(SERVICE_TYPES[0]);
   const [present, setPresent] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -92,7 +91,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const sessionId = `sess_${date}_${serviceType.replace(/\s+/g, '_')}`;
+  const sessionId = `sess_${date}_Ibadah_Umum`;
   const inactiveIds = useMemo(() => getInactiveMembers(members, sessions), [members, sessions]);
 
   // Load existing session for selected date + service
@@ -126,7 +125,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       const session: Session = {
         id: sessionId,
         date,
-        serviceType,
+      serviceType: SERVICE_TYPE,
         presentIds: [...present],
         savedAt: new Date().toISOString(),
       };
@@ -156,13 +155,6 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        <div>
-          <label className="text-xs text-gray-500 font-medium block mb-1">Jenis Ibadah</label>
-          <select value={serviceType} onChange={e => setServiceType(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {SERVICE_TYPES.map(s => <option key={s}>{s}</option>)}
-          </select>
-        </div>
         <button onClick={handleSave} disabled={saving || !canEdit}
           className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -188,13 +180,20 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 
       {/* Inactive alert */}
       {inactiveIds.length > 0 && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
+          <div className="flex items-start gap-3">
           <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-amber-800">Jemaat Jarang Aktif ({inactiveIds.length} orang)</p>
-            <p className="text-xs text-amber-600 mt-1">
-              {members.filter(m => inactiveIds.includes(m.id)).map(m => m.name).join(', ')}
-            </p>
+          </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+            {members.filter(m => inactiveIds.includes(m.id)).map(m => (
+              <div key={m.id} className="flex items-center gap-2 min-w-0 rounded-xl bg-white/80 border border-amber-100 px-3 py-2 text-xs text-amber-900">
+                <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-semibold flex-shrink-0">{m.name.slice(0, 1).toUpperCase()}</span>
+                <span className="truncate">{m.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -273,7 +272,6 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [view, setView] = useState<'monthly' | 'yearly'>('monthly');
   const [search, setSearch] = useState('');
-  const [serviceFilter, setServiceFilter] = useState('Ibadah Minggu');
 
   const sundays = sundaysInMonth(year, month);
 
@@ -281,11 +279,11 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
   const relevantSessions = useMemo(() => {
     if (view === 'monthly') {
       const prefix = `${year}-${pad2(month)}`;
-      return sessions.filter(s => s.date.startsWith(prefix) && s.serviceType === serviceFilter);
+      return sessions.filter(s => s.date.startsWith(prefix));
     } else {
-      return sessions.filter(s => s.date.startsWith(String(year)) && s.serviceType === serviceFilter);
+      return sessions.filter(s => s.date.startsWith(String(year)));
     }
-  }, [sessions, year, month, view, serviceFilter]);
+  }, [sessions, year, month, view]);
 
   // Dates (columns) for the table
   const dateCols = useMemo(() => {
@@ -348,21 +346,21 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
           ))}
         </div>
 
-        {/* Service filter */}
-        <select value={serviceFilter} onChange={e => setServiceFilter(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          {SERVICE_TYPES.map(s => <option key={s}>{s}</option>)}
-        </select>
-
-        {/* Month/Year nav */}
+        {/* Month/year picker and calendar date shortcut */}
         {view === 'monthly' ? (
           <div className="flex items-center gap-2">
+            <input aria-label="Pilih bulan laporan" type="month" value={`${year}-${pad2(month)}`}
+              onChange={e => { if (!e.target.value) return; const [y, m] = e.target.value.split('-').map(Number); setYear(y); setMonth(m); }}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white" />
             <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft size={16} /></button>
             <span className="text-sm font-semibold min-w-32 text-center">{monthLabel(year, month)}</span>
             <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronRight size={16} /></button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
+            <input aria-label="Pilih tahun laporan" type="number" min="2000" max="2100" value={year}
+              onChange={e => setYear(Number(e.target.value) || now.getFullYear())}
+              className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white" />
             <button onClick={() => setYear(y => y - 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronLeft size={16} /></button>
             <span className="text-sm font-semibold">{year}</span>
             <button onClick={() => setYear(y => y + 1)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"><ChevronRight size={16} /></button>
@@ -373,6 +371,24 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
           className="flex items-center gap-2 ml-auto bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 shadow-sm">
           <Download size={16} /> Export Excel (CSV)
         </button>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div><p className="text-sm font-semibold text-gray-800">Kehadiran per minggu</p><p className="text-xs text-gray-400">Jumlah jemaat hadir pada setiap tanggal</p></div>
+          <BarChart3 size={18} className="text-blue-600" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 items-end min-h-28">
+          {dateCols.map(d => {
+            const count = totalByDate(d); const height = Math.max(8, Math.round(count / Math.max(1, members.length) * 84));
+            return <div key={d} className="flex flex-col items-center justify-end gap-1 min-w-0">
+              <span className="text-xs font-semibold text-blue-700">{count}</span>
+              <div className="w-full max-w-12 rounded-t-lg bg-blue-500" style={{ height }} />
+              <span className="text-[10px] text-gray-500">{d.slice(5)}</span>
+            </div>;
+          })}
+          {dateCols.length === 0 && <p className="col-span-full text-sm text-gray-400 text-center py-6">Belum ada sesi tersimpan untuk periode ini.</p>}
+        </div>
       </div>
 
       {/* Search */}
@@ -406,7 +422,7 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
@@ -472,6 +488,15 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
             </tfoot>
           )}
         </table>
+      </div>
+      <div className="md:hidden space-y-2">
+        {filteredMembers.length === 0 ? <div className="text-center text-sm text-gray-400 py-8">Belum ada data</div> : filteredMembers.map(m => {
+          const total = totalByMember(m.id);
+          return <article key={m.id} className="bg-white border border-gray-200 rounded-xl p-3">
+            <div className="flex items-center justify-between gap-3"><p className="font-semibold text-sm text-gray-900 break-words">{m.name}</p><span className="text-sm font-bold text-blue-700 flex-shrink-0">{total} hadir</span></div>
+            <div className="flex gap-2 mt-2 overflow-x-auto pb-1">{dateCols.map(d => <div key={d} className="min-w-14 text-center rounded-lg bg-gray-50 px-2 py-1.5"><p className="text-[10px] text-gray-400">{d.slice(5)}</p><p className={getPresentSet(d).includes(m.id) ? 'text-emerald-600 font-bold' : 'text-gray-300'}>{getPresentSet(d).includes(m.id) ? '✓' : '–'}</p></div>)}</div>
+          </article>;
+        })}
       </div>
     </div>
   );

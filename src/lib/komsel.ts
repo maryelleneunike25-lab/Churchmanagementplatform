@@ -49,13 +49,25 @@ export async function loadAllMembers(): Promise<any[]> {
 export async function loadPksNames(members?: any[]): Promise<string[]> {
   const { data } = await EdgeKV.from(KV).select('value').eq('key', 'config:pks-names').maybeSingle();
   const configured: string[] = Array.isArray(data?.value) ? data.value : DEFAULT_PKS_NAMES;
-  const seen = new Set(configured.map(normalizePksName));
-  const names = [...configured];
-  for (const m of members || []) {
-    const n = normalizePksName(m.pksName || '');
-    if (n && !seen.has(n)) { seen.add(n); names.push(m.pksName.trim()); }
+  const names = new Map<string, string>();
+  for (const name of configured) {
+    const key = normalizePksName(name);
+    if (key && !names.has(key)) names.set(key, String(name).replace(/^PKS\s*/i, '').trim());
   }
-  return names;
+  // Include explicitly-created PKS groups, but keep member spellings/casing from
+  // silently creating duplicate select entries such as Sandy and SANDY.
+  const { data: rows } = await EdgeKV.from(KV).select('value').like('key', 'komsel:%');
+  for (const row of rows || []) {
+    const name = String(row.value?.pksName || row.value?.name || '').trim();
+    const key = normalizePksName(name);
+    if (key && !names.has(key)) names.set(key, name.replace(/^PKS\s*/i, '').trim());
+  }
+  for (const member of members || []) {
+    const name = String(member.pksName || '').trim();
+    const key = normalizePksName(name);
+    if (key && !names.has(key)) names.set(key, name.replace(/^PKS\s*/i, '').trim());
+  }
+  return [...names.values()].sort((a, b) => a.localeCompare(b, 'id'));
 }
 
 export function useKomsels() {
@@ -134,9 +146,20 @@ export async function saveKomsel(
   if (error) throw error;
 }
 
-export async function deleteKomsel(id: string): Promise<void> {
+export async function deleteKomsel(id: string, pksName?: string): Promise<void> {
   const { error } = await EdgeKV.from(KV).delete().eq('key', `komsel:${id}`);
   if (error) throw error;
+  if (!pksName) return;
+  const normalized = normalizePksName(pksName);
+  const members = await loadAllMembers();
+  for (const member of members.filter(m => normalizePksName(m.pksName || '') === normalized)) {
+    await setMemberPks(member.id, '');
+  }
+  const { data } = await EdgeKV.from(KV).select('value').eq('key', 'config:pks-names').maybeSingle();
+  if (Array.isArray(data?.value)) {
+    const remaining = data.value.filter((name: string) => normalizePksName(name) !== normalized);
+    await EdgeKV.from(KV).update({ value: remaining }).eq('key', 'config:pks-names');
+  }
 }
 
 /** Assigns (or clears, with an empty name) the PKS of one congregation member, in whichever key format it is stored. */

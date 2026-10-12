@@ -33,6 +33,8 @@ const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
   broken:       { label: 'Rusak',           color: 'bg-red-100 text-red-700' },
 };
 
+const INVENTORY_UNITS = ['pcs', 'unit', 'buah', 'set', 'pasang', 'box', 'pak', 'pack', 'dus', 'botol', 'kaleng', 'liter', 'ml', 'kg', 'gram', 'meter', 'cm', 'roll', 'lembar', 'rim', 'lusin', 'batang', 'karung', 'ikat', 'ekor', 'jam', 'hari'];
+
 const DEFAULT_CATEGORIES = [
   'Sound System', 'Proyektor & Layar', 'Kursi & Meja', 'Alat Musik',
   'Elektronik', 'Perlengkapan Ibadah', 'Kebersihan', 'Lainnya',
@@ -649,9 +651,13 @@ export default function InventoryManagement() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                  <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                    placeholder="Unit, Pcs, Set..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <select value={INVENTORY_UNITS.includes(form.unit.toLocaleLowerCase('id')) ? form.unit.toLocaleLowerCase('id') : 'lainnya'}
+                    onChange={e => setForm(f => ({ ...f, unit: e.target.value === 'lainnya' ? (INVENTORY_UNITS.includes(f.unit.toLocaleLowerCase('id')) ? '' : f.unit) : e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    {INVENTORY_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                    <option value="lainnya">Lainnya</option>
+                  </select>
+                  {!INVENTORY_UNITS.includes(form.unit.toLocaleLowerCase('id')) && <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="Tulis satuan" className="w-full mt-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />}
                 </div>
               </div>
 

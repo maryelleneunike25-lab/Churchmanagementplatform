@@ -89,10 +89,10 @@ export default function KomselManagement() {
   };
 
   const handleDelete = async (komsel: Komsel) => {
-    if (!confirm(`Hapus komsel ${komsel.pksName || komsel.name}? Anggota tidak dihapus dari Data Jemaat, hanya dilepas dari PKS.`)) return;
+    const pksName = komsel.pksName || komsel.name;
+    if (!confirm(`Hapus PKS ${pksName}? Anggota tetap ada di Data Jemaat dan hanya dilepas dari PKS ini.`)) return;
     try {
-      for (const m of komsel.memberDetails || []) await setMemberPks(m.id, '');
-      await deleteKomsel(komsel.id);
+      await deleteKomsel(komsel.virtual ? '' : komsel.id, pksName);
       await loadKomsels();
     } catch (e: any) {
       setError(e.message || 'Gagal menghapus');
@@ -224,11 +224,9 @@ export default function KomselManagement() {
                       <button onClick={() => handleOpenDialog(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg">
                         <Edit2 size={13} /> Edit
                       </button>
-                      {!komsel.virtual && (
-                        <button onClick={() => handleDelete(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg">
-                          <Trash2 size={13} /> Hapus
-                        </button>
-                      )}
+                      <button onClick={() => handleDelete(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg">
+                        <Trash2 size={13} /> Hapus PKS
+                      </button>
                     </div>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">

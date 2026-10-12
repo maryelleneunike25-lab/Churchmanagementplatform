@@ -132,7 +132,7 @@ function buildFamilyGroups(members: Member[]): FamilyGroup[] {
   for (const m of members) byName.set(m.name.toLowerCase().trim(), m);
 
   // Group by familyId first
-  for (const m of members) {
+  for (const m of members.filter(member => member.maritalStatus && member.maritalStatus !== 'single')) {
     if (m.familyId) {
       if (!groups.has(m.familyId)) {
         groups.set(m.familyId, { key: m.familyId, parent: m, dbChildren: [], nameOnlyChildren: [] });
@@ -151,7 +151,7 @@ function buildFamilyGroups(members: Member[]): FamilyGroup[] {
 
   // Fallback for members without familyId but with children defined
   const processedCoParents = new Set<string>();
-  for (const parent of members) {
+  for (const parent of members.filter(member => member.maritalStatus && member.maritalStatus !== 'single')) {
     if (parent.familyId) continue;
     if ((parent.children || []).length === 0) continue; 
     if (processedCoParents.has(parent.id)) continue;    
@@ -230,8 +230,8 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
         {m.email && <div className={row}><Mail size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-all">{m.email}</span></div>}
         {m.address && <div className={row}><MapPin size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-words">{m.address}</span></div>}
         {m.birthDate && <div className={row}><Cake size={13} className="mt-0.5 text-pink-400 flex-shrink-0" /><span>{m.birthPlace ? `${m.birthPlace}, ` : ''}{formatDate(m.birthDate)}</span></div>}
-        {m.spouseName && <div className={row}><Heart size={13} className="mt-0.5 text-rose-400 flex-shrink-0" /><span className="break-words">{m.spouseName}</span></div>}
-        {m.children && m.children.length > 0 && <div className={row}><Baby size={13} className="mt-0.5 text-sky-400 flex-shrink-0" /><span className="break-words">{m.children.map(c => c.name).join(', ')}</span></div>}
+        {m.maritalStatus && m.maritalStatus !== 'single' && m.spouseName && <div className={row}><Heart size={13} className="mt-0.5 text-rose-400 flex-shrink-0" /><span className="break-words">{m.spouseName}</span></div>}
+        {m.maritalStatus && m.maritalStatus !== 'single' && m.children && m.children.length > 0 && <div className={row}><Baby size={13} className="mt-0.5 text-sky-400 flex-shrink-0" /><span className="break-words">{m.children.map(c => c.name).join(', ')}</span></div>}
       </div>
 
       {(m.pksName || (m.ibadah && m.ibadah.length > 0) || (m.pelayan && m.pelayan.length > 0)) && (
@@ -420,7 +420,13 @@ export default function CongregationManagement() {
     try {
       const { data } = await supabaseAdmin.from(KV).select('value').eq('key', 'config:pks-names').maybeSingle();
       if (data?.value && Array.isArray(data.value)) {
-        setPksNames(data.value as string[]);
+        const unique = new Map<string, string>();
+        for (const raw of data.value as string[]) {
+          const name = String(raw || '').replace(/^PKS\s*/i, '').trim();
+          const key = name.toLocaleLowerCase('id').replace(/\s+/g, ' ');
+          if (key && !unique.has(key)) unique.set(key, name);
+        }
+        setPksNames([...unique.values()].sort((a, b) => a.localeCompare(b, 'id')));
       } else {
         setPksNames(DEFAULT_PKS_NAMES);
       }
@@ -598,8 +604,8 @@ export default function CongregationManagement() {
         birthPlace: formData.birthPlace.trim() || undefined,
         baptismStatus: formData.baptismStatus,
         ibadah: formData.ibadah.length > 0 ? formData.ibadah : undefined,
-        spouseName: formData.spouseName.trim() || undefined,
-        children: formData.children.filter(c => c.name.trim()).map(c => ({ name: c.name.trim(), birthDate: c.birthDate || undefined })),
+        spouseName: formData.maritalStatus !== 'single' ? formData.spouseName.trim() || undefined : undefined,
+        children: formData.maritalStatus !== 'single' ? formData.children.filter(c => c.name.trim()).map(c => ({ name: c.name.trim(), birthDate: c.birthDate || undefined })) : [],
         phones: [formData.phone.trim(), ...formData.additionalPhones.filter(p => p.trim())].filter(Boolean),
         joinDate: editingMember?.joinDate || now,
         createdAt: editingMember?.createdAt || now,
@@ -1288,7 +1294,7 @@ export default function CongregationManagement() {
                   </div>
                 </div>
                 {/* Keluarga Section */}
-                <div className="col-span-2 border border-gray-100 rounded-xl p-4 bg-gray-50/60">
+                {formData.maritalStatus !== 'single' && <div className="col-span-2 border border-gray-100 rounded-xl p-4 bg-gray-50/60">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                     <Users size={14} className="text-blue-500" />
                     Data Keluarga
@@ -1337,7 +1343,7 @@ export default function CongregationManagement() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </div>}
 
                 {/* Komsel */}
                   <div className="col-span-2">
@@ -1348,7 +1354,7 @@ export default function CongregationManagement() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                     >
                       <option value="">-- Pilih PKS --</option>
-                      {Array.from(new Set([...pksNames, ...komsels.map(k => k.pksName || k.name)].filter(Boolean))).map(n => (
+                      {Array.from(new Map([...pksNames, ...komsels.map(k => k.pksName || k.name)].filter(Boolean).map(n => [String(n).toLocaleLowerCase('id').replace(/\s+/g, ' ').trim(), n])).values()).sort((a, b) => String(a).localeCompare(String(b), 'id')).map(n => (
                         <option key={n} value={n}>{n}</option>
                       ))}
                     </select>

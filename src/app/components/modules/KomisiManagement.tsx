@@ -8,7 +8,7 @@ import KomisiReport from './KomisiReport';
 import {
   Users, Plus, Trash2, Edit2, X, Check, ChevronDown, AlertTriangle,
   ClipboardList, Download, Calendar, UserCheck, UserX, Link, Unlink,
-  Search, RefreshCw, ShieldAlert, Info, Activity,
+  Search, RefreshCw, ShieldAlert, Info, Activity, Circle, ArrowUpToLine, ArrowDownToLine, Save,
 } from 'lucide-react';
 
 const KV = 'kv_store_561004a0';
@@ -116,7 +116,8 @@ const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padS
 /** The Sunday that ends the current Mon–Sun week (today if it is Sunday). Attendance resets every Monday. */
 function currentWeekSunday(): string {
   const d = new Date();
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  if (d.getDay() === 0 && d.getHours() < 8) d.setDate(d.getDate() - 7);
+  else d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
   return isoDate(d);
 }
 
@@ -159,6 +160,9 @@ export default function KomisiManagement() {
   const [sessions, setSessions] = useState<AbsenSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [activeSession, setActiveSession] = useState<AbsenSession | null>(null);
+  const [draftPresentIds, setDraftPresentIds] = useState<Set<string>>(new Set());
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [attendanceSaved, setAttendanceSaved] = useState(true);
 
   // Member form
   const [showMemberForm, setShowMemberForm] = useState(false);
@@ -262,9 +266,10 @@ export default function KomisiManagement() {
 
   useEffect(() => { loadJemaat(); }, [loadJemaat]);
   useEffect(() => {
-    setActiveSession(null); setSearch('');
+    setActiveSession(null); setDraftPresentIds(new Set()); setAttendanceSaved(true); setSearch('');
     loadMembers(); loadSessions();
   }, [activeKomisi]);
+  useEffect(() => { setDraftPresentIds(new Set(activeSession?.presentIds || [])); setAttendanceSaved(true); }, [activeSession?.id]);
 
   // ── Jemaat lookup map ─────────────────────────────────────────────────────
   const jemaatMap = useMemo(() => {
@@ -390,26 +395,9 @@ export default function KomisiManagement() {
     setSavingSession(false);
   };
 
-  const saveSession = async (updated: AbsenSession) => {
-    await supabaseAdmin.from(KV).update({ value: updated }).eq('key', `komisi:${activeKomisi}:absen:${updated.id}`);
-    setSessions(prev => prev.map(x => x.id === updated.id ? updated : x));
-    setActiveSession(updated);
-  };
-
-  // Hadir / Absen are toggles: tapping the active one again clears the mark.
-  const toggleAttendance = async (session: AbsenSession, memberId: string, present: boolean) => {
-    const wasPresent = session.presentIds.includes(memberId);
-    const wasAbsent = session.absentIds.includes(memberId);
-    const presentIds = session.presentIds.filter(id => id !== memberId);
-    const absentIds = session.absentIds.filter(id => id !== memberId);
-    if (present && !wasPresent) presentIds.push(memberId);
-    if (!present && !wasAbsent) absentIds.push(memberId);
-    await saveSession({ ...session, presentIds, absentIds });
-  };
-
-  const markAll = async (session: AbsenSession, present: boolean) => {
-    await saveSession({ ...session, presentIds: present ? members.map(m => m.id) : [], absentIds: [] });
-  };
+  const toggleAttendance = (id: string) => { if (!canEdit) return; setDraftPresentIds(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next; }); setAttendanceSaved(false); };
+  const markAll = (present: boolean) => { if (!canEdit) return; setDraftPresentIds(new Set(present ? members.map(m => m.id) : [])); setAttendanceSaved(false); };
+  const saveAttendance = async () => { if (!activeSession || !canEdit) return; setSavingAttendance(true); try { const presentIds = [...draftPresentIds]; const updated = { ...activeSession, presentIds, absentIds: members.map(m => m.id).filter(id => !draftPresentIds.has(id)), updatedAt: new Date().toISOString() }; const result = await supabaseAdmin.from(KV).update({ value: updated }).eq('key', 'komisi:' + activeKomisi + ':absen:' + activeSession.id); if (result.error) throw result.error; setActiveSession(updated); setSessions(old => old.map(x => x.id === updated.id ? updated : x)); setAttendanceSaved(true); } catch (e: any) { setError(e.message || 'Gagal menyimpan absensi'); } finally { setSavingAttendance(false); } };
 
   const [deletingSession, setDeletingSession] = useState<AbsenSession | null>(null);
 
@@ -467,6 +455,10 @@ export default function KomisiManagement() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      <div className="fixed right-3 bottom-24 z-30 flex flex-col gap-2">
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Ke atas" className="w-10 h-10 rounded-full bg-white border border-gray-200 text-gray-600 shadow-md flex items-center justify-center"><ArrowUpToLine size={17} /></button>
+        <button onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })} aria-label="Ke bawah" className="w-10 h-10 rounded-full bg-white border border-gray-200 text-gray-600 shadow-md flex items-center justify-center"><ArrowDownToLine size={17} /></button>
+      </div>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
@@ -631,8 +623,8 @@ export default function KomisiManagement() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {canEdit && (
                     <>
-                      <button onClick={() => markAll(activeSession, true)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50">Hadir Semua</button>
-                      <button onClick={() => markAll(activeSession, false)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Reset</button>
+                      <button onClick={() => markAll(true)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50">Hadir Semua</button>
+                      <button onClick={() => markAll(false)} className="text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">Reset</button>
                     </>
                   )}
                   <button onClick={() => exportAttendance(activeSession)}
@@ -643,13 +635,12 @@ export default function KomisiManagement() {
               </div>
 
               <div className="bg-blue-50/60 border border-blue-100 text-blue-700 text-xs rounded-xl px-3.5 py-2.5 mb-4">
-                Absensi berganti otomatis setiap Senin. Data minggu-minggu sebelumnya tersimpan dan bisa dilihat di tab <strong>Laporan</strong>. Tekan tombol yang sama sekali lagi untuk membatalkan.
+                Absensi minggu ini tersimpan setelah tombol <strong>Simpan Absensi</strong> ditekan. Minggu sebelumnya tetap tersedia di tab <strong>Laporan</strong>.
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                 {members.map(m => {
-                  const isPresent = activeSession.presentIds.includes(m.id);
-                  const isAbsent = activeSession.absentIds.includes(m.id);
+                  const isPresent = draftPresentIds.has(m.id);
                   return (
                     <div key={m.id} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm">
                       <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
@@ -662,26 +653,12 @@ export default function KomisiManagement() {
                           {(() => { const bd = (m.jemaatId && jemaatMap[m.jemaatId]?.birthDate) || m.birthDate; const a = bd ? getAge(bd) : -1; return a >= 0 ? `${m.phone ? ' · ' : ''}${a} thn` : ''; })()}
                         </p>
                       </div>
-                      {canEdit ? (
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button onClick={() => toggleAttendance(activeSession, m.id, true)} aria-pressed={isPresent}
-                            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-all ${isPresent ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-200 text-gray-500 hover:border-emerald-300 hover:text-emerald-600'}`}>
-                            <UserCheck size={12} />Hadir
-                          </button>
-                          <button onClick={() => toggleAttendance(activeSession, m.id, false)} aria-pressed={isAbsent}
-                            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-2 rounded-lg border transition-all ${isAbsent ? 'bg-red-400 border-red-400 text-white' : 'border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-500'}`}>
-                            <UserX size={12} />Absen
-                          </button>
-                        </div>
-                      ) : (
-                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${isPresent ? 'bg-emerald-100 text-emerald-700' : isAbsent ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
-                          {isPresent ? 'Hadir' : isAbsent ? 'Absen' : '-'}
-                        </span>
-                      )}
+                      {canEdit ? <button type="button" onClick={() => toggleAttendance(m.id)} aria-label={'Tandai kehadiran: ' + m.name} aria-pressed={isPresent} className={'w-11 h-11 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' + (isPresent ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 text-gray-300')} >{isPresent ? <Check size={20} /> : <Circle size={20} />}</button> : <span className={'text-xs font-semibold px-2 py-1 rounded-full ' + (isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400')}>{isPresent ? 'Hadir' : 'Absen'}</span>}
                     </div>
                   );
                 })}
               </div>
+              {canEdit && <div className="sticky bottom-2 z-20 mt-4 flex justify-center px-2"><button onClick={saveAttendance} disabled={savingAttendance || attendanceSaved} className="flex items-center gap-2 rounded-xl px-6 py-3 font-semibold text-white shadow-lg bg-blue-600 disabled:bg-emerald-600">{savingAttendance ? <RefreshCw size={17} className="animate-spin" /> : attendanceSaved ? <Check size={17} /> : <Save size={17} />}{savingAttendance ? 'Menyimpan...' : attendanceSaved ? 'Absensi Tersimpan' : 'Simpan Absensi'}</button></div>}
             </>
           )}
         </div>
