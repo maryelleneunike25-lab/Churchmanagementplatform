@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'motion/react';
 import {
   Clock, MapPin, Users, Heart, BookOpen, Star,
-  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound
+  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound, Sparkles
 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { getMinistry, formatSchedules, ALL_MINISTRIES } from '../../lib/ministries';
@@ -122,16 +122,18 @@ export default function JemaatPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       {/* ── Hero ── */}
-      <section className="relative h-screen flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #1e1b4b 100%)' }}>
-
-        {/* Navbar floats on top of video */}
+      <section
+        className="relative min-h-[85vh] sm:min-h-[90vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 sm:py-24"
+        style={{
+          background: 'radial-gradient(ellipse 90% 70% at 50% 15%, #1e3a8a 0%, #0f172a 55%, #050814 100%)'
+        }}
+      >
+        {/* Navbar floats on top */}
         <div className="absolute top-0 left-0 right-0 z-50">
           <PublicNavbar />
         </div>
 
-        {/* Background video — covers full section including navbar area */}
-        {/* Background video: put the file at public/hero.mp4. If it is missing or fails, the animated gradient below shows instead. */}
+        {/* Background video (if exists) */}
         {!videoFailed && (
           <video
             autoPlay
@@ -142,83 +144,142 @@ export default function JemaatPage() {
             controls={false}
             disablePictureInPicture
             onError={() => setVideoFailed(true)}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            style={{ opacity: 0.5 }}
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-40 mix-blend-screen"
           >
             <source src="/hero.mp4" type="video/mp4" onError={() => setVideoFailed(true)} />
           </video>
         )}
-        <div className="absolute inset-0 hero-aurora pointer-events-none" />
+        <div className="absolute inset-0 hero-aurora pointer-events-none opacity-60" />
 
-        {/* Gradient overlay on top of video */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, #1e3a8aCC 0%, #312e81CC 50%, #1e1b4bCC 100%)' }} />
-
+        {/* Ambient celestial lighting layers */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] max-w-full h-[320px] bg-gradient-to-b from-amber-300/10 via-sky-400/10 to-transparent blur-3xl pointer-events-none" />
         <motion.div style={{ y: heroY }} className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-400/10 blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-indigo-400/10 blur-3xl" />
-          <div className="absolute top-1/3 right-1/3 w-64 h-64 rounded-full bg-purple-400/10 blur-2xl" />
+          <div className="absolute top-1/4 left-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-blue-500/15 blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-indigo-500/15 blur-3xl" />
+          <div className="absolute top-1/3 right-1/4 w-60 h-60 rounded-full bg-purple-500/10 blur-2xl" />
         </motion.div>
-        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
-        <motion.div style={{ y: heroContentY, opacity: heroOpacity }} className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }}
-            className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-2 mb-8 text-white/90 text-sm font-medium">
-            <Heart size={14} className="text-rose-400" />
-            Melayani dengan Kasih, Membangun dalam Iman
+        {/* Subtle dot pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.035] pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+        />
+
+        {/* Hero Content */}
+        <motion.div
+          style={{ y: heroContentY, opacity: heroOpacity }}
+          className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center"
+        >
+          {/* Welcome Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 mb-4 sm:mb-6 text-white text-xs sm:text-sm font-medium shadow-sm transition-all"
+          >
+            <Sparkles size={14} className="text-amber-300 animate-pulse flex-shrink-0" />
+            <span className="text-blue-100 font-semibold tracking-wide">Selamat Datang di Rumah Tuhan</span>
+            <span className="text-white/40">•</span>
+            <span className="text-amber-200/90 text-[11px] sm:text-xs">Welcome Home</span>
           </motion.div>
 
-          <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-            Gereja Jelambar
-            <span className="block text-blue-300">Timur</span>
-          </motion.h1>
+          {/* Main Title */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="mb-3.5 sm:mb-5"
+          >
+            <span className="block text-xs sm:text-sm font-bold tracking-widest uppercase text-sky-300/90 mb-1.5 sm:mb-2">
+              Gereja Bethel Indonesia
+            </span>
+            <h1 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.14]">
+              Selamat Datang di <br className="hidden sm:inline" />
+              <span className="bg-gradient-to-r from-sky-200 via-blue-100 to-amber-200 bg-clip-text text-transparent drop-shadow-sm">
+                GBI Jelambar Timur
+              </span>
+            </h1>
+          </motion.div>
 
-          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.5 }}
-            className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Komunitas iman yang berdedikasi untuk melayani Tuhan dan sesama,
-            hadir di tengah-tengah Jakarta Barat sejak puluhan tahun.
+          {/* Subtitle / Church Mission */}
+          <motion.p
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.38 }}
+            className="text-xs sm:text-base md:text-lg text-blue-100/85 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed font-normal px-2"
+          >
+            Komunitas iman yang hangat dan melayani dengan kasih. Kami menyambut Anda dan keluarga untuk bersekutu, beribadah, dan bertumbuh bersama dalam hadirat Tuhan.
           </motion.p>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.65 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="#jadwal" className="inline-flex items-center gap-2 bg-white text-blue-900 font-semibold px-8 py-3.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">
-              Lihat Jadwal Ibadah <ArrowRight size={18} />
+          {/* Action CTA Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.48 }}
+            className="flex flex-row flex-wrap items-center justify-center gap-2.5 sm:gap-4 w-full sm:w-auto"
+          >
+            <a
+              href="#jadwal"
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-600 text-white font-semibold text-xs sm:text-sm px-5 py-3 sm:px-7 sm:py-3.5 rounded-full shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+            >
+              <span>Lihat Jadwal Ibadah</span>
+              <ArrowRight size={16} />
             </a>
-            <Link to="/galeri" className="inline-flex items-center gap-2 border border-white/30 text-white font-medium px-8 py-3.5 rounded-full hover:bg-white/10 transition-all duration-200">
-              <Images size={18} /> Lihat Galeri
+            <Link
+              to="/galeri"
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 text-white font-medium text-xs sm:text-sm px-5 py-3 sm:px-7 sm:py-3.5 rounded-full hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+            >
+              <Images size={16} />
+              <span>Lihat Galeri</span>
             </Link>
           </motion.div>
 
-          {/* Sosmed */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.8 }}
-            className="flex flex-wrap items-center justify-center gap-3 mt-8">
-            <a href={CHURCH.instagramUrl} target="_blank" rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white transition-all duration-200 hover:-translate-y-0.5">
-              <span className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-rose-500 to-orange-400 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          {/* Social Media Links */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.58 }}
+            className="flex items-center justify-center gap-2 sm:gap-3 mt-5 sm:mt-7 flex-wrap"
+          >
+            <a
+              href={CHURCH.instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white text-xs sm:text-sm font-medium transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-pink-500 via-rose-500 to-amber-400 flex items-center justify-center text-white flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 sm:w-3.5 sm:h-3.5"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
               </span>
-              <span className="text-sm font-semibold">{CHURCH.instagramHandle}</span>
+              <span>Instagram</span>
             </a>
-            <a href={CHURCH.youtubeUrl} target="_blank" rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white transition-all duration-200 hover:-translate-y-0.5">
-              <span className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+
+            <a
+              href={CHURCH.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-md text-white text-xs sm:text-sm font-medium transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-red-600 flex items-center justify-center text-white flex-shrink-0">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 sm:w-3.5 sm:h-3.5"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               </span>
-              <span className="text-sm font-semibold">YouTube</span>
+              <span>YouTube</span>
             </a>
           </motion.div>
-
         </motion.div>
 
-        <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/40">
-          <ChevronDown size={28} />
+        {/* Scroll down indicator */}
+        <motion.div
+          animate={{ y: [0, 8, 0] }}
+          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/40 pointer-events-none hidden sm:block"
+        >
+          <ChevronDown size={24} />
         </motion.div>
       </section>
 
       {/* ── Akses cepat ── */}
-      <section className="relative z-20 -mt-10 md:-mt-14 px-4">
-        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl shadow-blue-900/10 border border-gray-100 p-3 md:p-4 grid grid-cols-4 gap-1 md:gap-3">
+      <section className="relative z-20 -mt-6 sm:-mt-8 md:-mt-12 px-3 sm:px-4">
+        <div className="max-w-4xl mx-auto bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-950/10 border border-gray-100 p-2 sm:p-4 grid grid-cols-4 gap-1 sm:gap-3">
           {[
             { href: '#jadwal', label: 'Jadwal', icon: Clock, color: 'from-blue-500 to-indigo-600' },
             { to: '/lokasi', label: 'Lokasi', icon: MapPin, color: 'from-emerald-500 to-teal-600' },
@@ -227,13 +288,13 @@ export default function JemaatPage() {
           ].map(item => {
             const inner = (
               <>
-                <span className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:-translate-y-1 group-hover:rotate-3 transition-transform duration-300`}>
-                  <item.icon size={22} className="text-white" />
+                <span className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:-translate-y-1 group-hover:scale-105 transition-all duration-300`}>
+                  <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </span>
-                <span className="text-[11px] md:text-sm font-semibold text-gray-700 mt-2">{item.label}</span>
+                <span className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-700 mt-1.5 sm:mt-2 group-hover:text-blue-600 transition-colors">{item.label}</span>
               </>
             );
-            const cls = 'group flex flex-col items-center py-2 rounded-2xl hover:bg-gray-50 transition-colors';
+            const cls = 'group flex flex-col items-center py-1.5 sm:py-2 rounded-2xl hover:bg-gray-50/80 transition-colors cursor-pointer';
             return item.to
               ? <Link key={item.label} to={item.to} className={cls}>{inner}</Link>
               : <a key={item.label} href={item.href} className={cls}>{inner}</a>;
@@ -243,17 +304,17 @@ export default function JemaatPage() {
 
       {/* ── Stats bar ── */}
       <FadeInSection>
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-700 mt-10">
-          <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-white">
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 mt-8 sm:mt-12 shadow-inner">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center text-white">
             {[
-              { n: stats ? String(stats.members) : '–', label: 'Jemaat' },
+              { n: stats ? String(stats.members) : '–', label: 'Jemaat Terdaftar' },
               { n: String(ALL_MINISTRIES.length), label: 'Komunitas & Ibadah' },
               { n: stats ? String(stats.komsel) : '–', label: 'Kelompok Komsel' },
               { n: `${yearsServing()}+`, label: 'Tahun Melayani' },
             ].map(item => (
-              <div key={item.label}>
-                <div className="text-3xl font-bold">{item.n}</div>
-                <div className="text-blue-200 text-sm mt-1">{item.label}</div>
+              <div key={item.label} className="p-2">
+                <div className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white">{item.n}</div>
+                <div className="text-blue-200 text-xs sm:text-sm font-medium mt-1">{item.label}</div>
               </div>
             ))}
           </div>
@@ -267,7 +328,7 @@ export default function JemaatPage() {
             <FadeInSection>
               <div className="text-center mb-8">
                 <span className="inline-block text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">Pengumuman</span>
-                <h2 className="text-3xl font-bold text-gray-900">Info & Event Terkini</h2>
+                <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900">Info & Event Terkini</h2>
               </div>
             </FadeInSection>
             <FadeInSection delay={0.1}><FlyerCarousel items={announcements} /></FadeInSection>
@@ -281,7 +342,7 @@ export default function JemaatPage() {
           <FadeInSection>
             <div className="text-center mb-14">
               <span className="inline-block text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">Jadwal</span>
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Ibadah & Kegiatan</h2>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Ibadah & Kegiatan</h2>
               <p className="text-gray-500 max-w-xl mx-auto">Bergabunglah bersama kami dalam berbagai kegiatan ibadah yang tersedia setiap minggu.</p>
             </div>
           </FadeInSection>
@@ -317,7 +378,7 @@ export default function JemaatPage() {
           <FadeInSection>
             <div className="text-center mb-12">
               <span className="inline-block text-blue-300 text-sm font-semibold uppercase tracking-widest mb-3">Komsel</span>
-              <h2 className="text-4xl font-bold text-white mb-4">Kelompok Sel</h2>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-4">Kelompok Sel</h2>
               <p className="text-blue-200 max-w-xl mx-auto leading-relaxed">
                 Bergabunglah dengan kelompok kecil kami di mana Anda dapat belajar firman Tuhan, berdoa bersama, dan saling mendukung.
               </p>
@@ -355,7 +416,7 @@ export default function JemaatPage() {
         <div className="max-w-5xl mx-auto px-6">
           <FadeInSection>
             <div className="text-center mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Jelajahi Lebih Lanjut</h2>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Jelajahi Lebih Lanjut</h2>
               <p className="text-gray-500">Kenali kami lebih dekat melalui halaman-halaman berikut</p>
             </div>
           </FadeInSection>
