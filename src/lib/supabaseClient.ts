@@ -51,7 +51,7 @@ export const supabase = {
       },
       insert: async (payload: {key: string, value: any}) => {
          try {
-            await api.post(`/api/kv/${payload.key}`, payload.value);
+            await api.post(`/api/kv/${encodeURIComponent(payload.key)}`, payload.value);
             return { error: null };
          } catch(e: any) { return { error: e }; }
       },
@@ -59,7 +59,7 @@ export const supabase = {
          return {
             eq: async (col: string, val: string) => {
                try {
-                  await api.post(`/api/kv/${val}`, payload.value);
+                  await api.post(`/api/kv/${encodeURIComponent(val)}`, payload.value);
                   return { error: null };
                } catch(e: any) { return { error: e }; }
             }
@@ -69,7 +69,7 @@ export const supabase = {
          return {
             eq: async (col: string, val: string) => {
                try {
-                  await api.del(`/api/kv/${val}`);
+                  await api.del(`/api/kv/${encodeURIComponent(val)}`);
                   return { error: null };
                } catch(e: any) { return { error: e }; }
             }

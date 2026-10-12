@@ -12,6 +12,7 @@ const KV = 'kv_store_561004a0';
 
 interface InventoryItem {
   id: string;
+  _storeKey?: string;
   name: string;
   category: string;
   quantity: number;
@@ -33,7 +34,20 @@ const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
   broken:       { label: 'Rusak',           color: 'bg-red-100 text-red-700' },
 };
 
-const INVENTORY_UNITS = ['pcs', 'unit', 'buah', 'set', 'pasang', 'box', 'pak', 'pack', 'dus', 'botol', 'kaleng', 'liter', 'ml', 'kg', 'gram', 'meter', 'cm', 'roll', 'lembar', 'rim', 'lusin', 'batang', 'karung', 'ikat', 'ekor', 'jam', 'hari'];
+// Sesuai permintaan: pcs, unit, set, box, pack, botol, liter, ml, kg, gram, lembar
+const INVENTORY_UNITS = [
+  'pcs',
+  'unit',
+  'set',
+  'box',
+  'pack',
+  'botol',
+  'liter',
+  'ml',
+  'kg',
+  'gram',
+  'lembar',
+];
 
 const DEFAULT_CATEGORIES = [
   'Sound System', 'Proyektor & Layar', 'Kursi & Meja', 'Alat Musik',
@@ -50,8 +64,14 @@ const SORT_OPTIONS = [
 ];
 
 const emptyForm = () => ({
-  name: '', category: '', quantity: '', unit: '',
-  location: '', condition: 'good' as const, purchaseDate: '', notes: '',
+  name: '',
+  category: '',
+  quantity: '',
+  unit: 'pcs',
+  location: '',
+  condition: 'good' as const,
+  purchaseDate: '',
+  notes: '',
 });
 
 // ── Upload a single photo to storage ─────────────────────────────────────────
@@ -82,11 +102,11 @@ function Lightbox({ urls, start, onClose }: { urls: string[]; start: number; onC
       <button onClick={onClose} className="absolute top-4 right-4 text-white/60 hover:text-white z-10"><X size={28} /></button>
       {urls.length > 1 && <>
         <button onClick={e => { e.stopPropagation(); setCur(c => (c - 1 + urls.length) % urls.length); }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10">
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10 cursor-pointer">
           <ChevronLeft size={20} />
         </button>
         <button onClick={e => { e.stopPropagation(); setCur(c => (c + 1) % urls.length); }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10">
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10 cursor-pointer">
           <ChevronRight size={20} />
         </button>
       </>}
@@ -107,94 +127,16 @@ function PhotoStrip({ urls, onOpen }: { urls: string[]; onOpen: (i: number) => v
     <div className="flex gap-1 items-center">
       {show.map((u, i) => (
         <button key={i} onClick={e => { e.stopPropagation(); onOpen(i); }}
-          className="w-9 h-9 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 hover:opacity-80 transition-opacity">
+          className="w-9 h-9 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer">
           <img src={u} alt="" className="w-full h-full object-cover" />
         </button>
       ))}
       {extra > 0 && (
         <button onClick={e => { e.stopPropagation(); onOpen(show.length); }}
-          className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 hover:bg-gray-200 transition-colors">
+          className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 hover:bg-gray-200 transition-colors cursor-pointer">
           +{extra}
         </button>
       )}
-    </div>
-  );
-}
-
-// ── Photo picker in form ──────────────────────────────────────────────────────
-function PhotoPicker({ photos, onAdd, onRemove }: {
-  photos: PhotoEntry[];
-  onAdd: (files: FileList) => void;
-  onRemove: (i: number) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const openCamera = () => {
-    // Create a temporary input with capture attribute and trigger it
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.setAttribute('capture', 'environment');
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files?.length) onAdd(files);
-    };
-    input.click();
-  };
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Foto Dokumentasi
-        <span className="text-gray-400 font-normal ml-1">({photos.length}/5, maks 5)</span>
-      </label>
-
-      {/* Photo grid */}
-      {photos.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {photos.map((p, i) => (
-            <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
-              <img src={p.preview} alt="" className="w-full h-full object-cover" />
-              {p.uploaded === undefined && (
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <Loader2 size={14} className="animate-spin text-white" />
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(i)}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <X size={10} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {photos.length < 5 && (
-        <div className="flex gap-2">
-          {/* Camera — opens native camera directly */}
-          <button
-            type="button"
-            onClick={openCamera}
-            className="flex-1 flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-200 hover:border-emerald-300 text-emerald-700 py-3 rounded-xl text-sm font-semibold transition-all"
-          >
-            <Camera size={16} /> Ambil Foto
-          </button>
-          {/* Gallery */}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-500 hover:text-blue-600 py-3 rounded-xl text-sm font-medium transition-all"
-          >
-            <ImagePlus size={16} /> Pilih dari Galeri
-          </button>
-        </div>
-      )}
-
-      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
-        onChange={e => { if (e.target.files?.length) { onAdd(e.target.files); e.target.value = ''; } }} />
     </div>
   );
 }
@@ -208,6 +150,7 @@ export default function InventoryManagement() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   const [categories, setCategories] = useState<string[]>(() => {
@@ -226,11 +169,21 @@ export default function InventoryManagement() {
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]); // URLs already saved
   const [newPhotos, setNewPhotos] = useState<PhotoEntry[]>([]);       // newly picked files
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; key: string } | null>(null);
   const [lightbox, setLightbox] = useState<{ urls: string[]; idx: number } | null>(null);
+
+  const modalScrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top whenever form opens
+  useEffect(() => {
+    if (showForm && modalScrollRef.current) {
+      modalScrollRef.current.scrollTop = 0;
+    }
+  }, [showForm]);
 
   const saveCategories = (cats: string[]) => {
     setCategories(cats);
@@ -243,8 +196,17 @@ export default function InventoryManagement() {
       const { data, error: err } = await supabase
         .from(KV).select('key, value').like('key', 'inventory:%').order('key', { ascending: false });
       if (err) throw err;
-      const list: InventoryItem[] = (data ?? []).map((r: any) => r.value as InventoryItem).filter(Boolean);
-      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      const list: InventoryItem[] = (data ?? []).map((r: any) => {
+        const val = r.value || {};
+        return {
+          ...val,
+          id: val.id || r.key.replace(/^inventory:/, ''),
+          _storeKey: r.key,
+        };
+      }).filter(Boolean);
+
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setItems(list);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -253,22 +215,38 @@ export default function InventoryManagement() {
   useEffect(() => { loadItems(); }, []);
 
   const openCreate = () => {
-    setEditId(null); setForm(emptyForm());
-    setExistingPhotos([]); setNewPhotos([]);
-    setShowForm(true); setError('');
+    setEditId(null);
+    setEditKey(null);
+    setForm(emptyForm());
+    setExistingPhotos([]);
+    setNewPhotos([]);
+    setShowForm(true);
+    setError('');
+    setTimeout(() => {
+      if (modalScrollRef.current) modalScrollRef.current.scrollTop = 0;
+    }, 50);
   };
 
   const openEdit = (item: InventoryItem) => {
     setEditId(item.id);
+    setEditKey(item._storeKey || (item.id.startsWith('inventory:') ? item.id : `inventory:${item.id}`));
     setForm({
-      name: item.name, category: item.category,
-      quantity: String(item.quantity), unit: item.unit,
-      location: item.location, condition: item.condition,
-      purchaseDate: item.purchaseDate || '', notes: item.notes || '',
+      name: item.name || '',
+      category: item.category || '',
+      quantity: String(item.quantity ?? ''),
+      unit: item.unit ? (INVENTORY_UNITS.includes(item.unit.toLowerCase()) ? item.unit.toLowerCase() : item.unit) : 'pcs',
+      location: item.location || '',
+      condition: item.condition || 'good',
+      purchaseDate: item.purchaseDate || '',
+      notes: item.notes || '',
     });
     setExistingPhotos(item.photoUrls || []);
     setNewPhotos([]);
-    setShowForm(true); setError('');
+    setShowForm(true);
+    setError('');
+    setTimeout(() => {
+      if (modalScrollRef.current) modalScrollRef.current.scrollTop = 0;
+    }, 50);
   };
 
   const handleAddPhotos = (files: FileList) => {
@@ -284,9 +262,11 @@ export default function InventoryManagement() {
   const handleSubmit = async () => {
     if (!form.name.trim()) { setError('Nama item tidak boleh kosong'); return; }
     if (!form.quantity || isNaN(Number(form.quantity))) { setError('Jumlah harus berupa angka'); return; }
-    setSaving(true); setError('');
+    setSaving(true);
+    setError('');
     try {
       const itemId = editId || crypto.randomUUID();
+      const targetKey = editKey || `inventory:${itemId}`;
 
       // Upload new photos directly to storage
       const uploadedUrls: string[] = [];
@@ -297,35 +277,59 @@ export default function InventoryManagement() {
       }
 
       const allPhotoUrls = [...existingPhotos, ...uploadedUrls];
-
       const now = new Date().toISOString();
+
       const item: InventoryItem = {
-        id: itemId, ...form,
+        id: itemId,
+        _storeKey: targetKey,
+        ...form,
         quantity: parseInt(form.quantity),
         photoUrls: allPhotoUrls,
         createdAt: editId ? (items.find(i => i.id === editId)?.createdAt ?? now) : now,
         updatedAt: now,
       };
+
       if (editId) {
-        const { error: err } = await supabase.from(KV).update({ value: item }).eq('key', `inventory:${editId}`);
+        const { error: err } = await supabase.from(KV).update({ value: item }).eq('key', targetKey);
         if (err) throw err;
       } else {
-        const { error: err } = await supabase.from(KV).insert({ key: `inventory:${itemId}`, value: item });
+        const { error: err } = await supabase.from(KV).insert({ key: targetKey, value: item });
         if (err) throw err;
       }
+
       setShowForm(false);
       await loadItems();
-    } catch (e: any) { setError(e.message); }
-    finally { setSaving(false); }
+    } catch (e: any) {
+      setError(e.message || 'Gagal menyimpan item');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  // ── FIX DELETE LOGIC ────────────────────────────────────────────────────────
+  const handleDelete = async (target: { id: string; key: string }) => {
+    setDeleting(true);
     try {
-      const { error: err } = await supabase.from(KV).delete().eq('key', `inventory:${id}`);
+      // 1. Delete by actual KV store key
+      const { error: err } = await supabase.from(KV).delete().eq('key', target.key);
       if (err) throw err;
+
+      // 2. Also attempt deleting by key fallback if it was different
+      if (target.id && `inventory:${target.id}` !== target.key) {
+        await supabase.from(KV).delete().eq('key', `inventory:${target.id}`).catch(() => {});
+      }
+
+      // 3. Immediately remove from local state so UI updates without waiting
+      setItems(prev => prev.filter(i => i.id !== target.id && i._storeKey !== target.key));
       setDeleteConfirm(null);
+
+      // 4. Reload from database to ensure sync
       await loadItems();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) {
+      alert(`Gagal menghapus item: ${e.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Category manager
@@ -353,41 +357,39 @@ export default function InventoryManagement() {
       return true;
     })
     .sort((a, b) => {
-      switch (sortBy) {
-        case 'name-asc':  return a.name.localeCompare(b.name);
-        case 'name-desc': return b.name.localeCompare(a.name);
-        case 'qty-asc':   return a.quantity - b.quantity;
-        case 'qty-desc':  return b.quantity - a.quantity;
-        case 'date-asc':  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        default:          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
+      if (sortBy === 'name-asc')  return a.name.localeCompare(b.name, 'id');
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'id');
+      if (sortBy === 'qty-asc')   return a.quantity - b.quantity;
+      if (sortBy === 'qty-desc')  return b.quantity - a.quantity;
+      if (sortBy === 'date-asc')  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
   const usedCategories = [...new Set(items.map(i => i.category).filter(Boolean))];
 
-  // All photos in form (existing + new previews)
-  const formPhotoCount = existingPhotos.length + newPhotos.length;
+  // For form photo previews
   const formPhotoPreviews = [
     ...existingPhotos.map(u => ({ src: u, isNew: false })),
-    ...newPhotos.map((p, i) => ({ src: p.preview, isNew: true, idx: i })),
+    ...newPhotos.map((p, idx) => ({ src: p.preview, isNew: true, idx })),
   ];
+  const formPhotoCount = formPhotoPreviews.length;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Inventaris Gereja</h2>
           <p className="text-sm text-gray-500 mt-1">{items.length} item terdaftar</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowCatManager(true)}
-            className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
+            className="flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer bg-white">
             <Settings2 size={16} /> Kelola Kategori
           </button>
           {canEdit && (
             <button onClick={openCreate}
-              className="flex items-center gap-2 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm">
+              className="flex items-center gap-2 bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer">
               <Plus size={18} /> Tambah Item
             </button>
           )}
@@ -409,13 +411,13 @@ export default function InventoryManagement() {
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Cari nama, kategori, lokasi..."
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
         </div>
         <div className="relative">
-          <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
             className="pl-8 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer">
             <option value="">Semua Kategori</option>
@@ -434,7 +436,7 @@ export default function InventoryManagement() {
           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         </div>
         <div className="relative">
-          <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="pl-8 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none cursor-pointer">
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -449,54 +451,38 @@ export default function InventoryManagement() {
           <Loader2 size={28} className="animate-spin mr-3" /> Memuat data...
         </div>
       ) : displayed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-            <Package size={28} className="text-gray-400" />
-          </div>
-          <p className="font-medium text-gray-600 mb-1">
-            {items.length === 0 ? 'Belum ada data inventaris' : 'Tidak ada item yang cocok'}
-          </p>
-          <p className="text-sm text-gray-400">
-            {items.length === 0 ? 'Klik "Tambah Item" untuk mulai mencatat' : 'Coba ubah filter atau kata pencarian'}
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-gray-100 text-gray-400">
+          <Package size={40} className="mb-3 text-gray-300" />
+          <p className="font-semibold text-gray-600">Tidak ada item inventaris</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {search || filterCat || filterCondition ? 'Coba ubah filter pencarian' : 'Mulai dengan menambahkan item baru'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {displayed.map(item => {
-            const photos = item.photoUrls ?? [];
-            const hasPhoto = photos.length > 0;
+            const hasPhotos = item.photoUrls && item.photoUrls.length > 0;
+            const primaryPhoto = hasPhotos ? item.photoUrls![0] : null;
+
             return (
-              <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-                {/* Photo area — always shown, placeholder if none */}
-                <div
-                  className="relative w-full bg-gray-100 cursor-pointer"
-                  style={{ aspectRatio: '16/9' }}
-                  onClick={() => hasPhoto && setLightbox({ urls: photos, idx: 0 })}
-                >
-                  {hasPhoto ? (
+              <div key={item.id}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                {/* Photo banner */}
+                <div className="relative w-full h-44 bg-gray-100 overflow-hidden group">
+                  {primaryPhoto ? (
                     <>
-                      <img
-                        src={photos[0]}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      {photos.length > 1 && (
-                        <div className="absolute bottom-2 right-2 flex gap-1">
-                          {photos.slice(1, 4).map((u, i) => (
-                            <div key={i} className="w-8 h-8 rounded-lg overflow-hidden border-2 border-white shadow-sm">
-                              <img src={u} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          ))}
-                          {photos.length > 4 && (
-                            <div className="w-8 h-8 rounded-lg bg-black/60 border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
-                              +{photos.length - 4}
-                            </div>
-                          )}
-                        </div>
+                      <img src={primaryPhoto} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <button onClick={() => setLightbox({ urls: item.photoUrls!, idx: 0 })}
+                        className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-1.5 text-xs font-semibold cursor-pointer">
+                        <ZoomIn size={16} /> Lihat Foto
+                      </button>
+                      {item.photoUrls!.length > 1 && (
+                        <span className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Images size={10} /> {item.photoUrls!.length}
+                        </span>
                       )}
-                      <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Images size={10} /> {photos.length}
+                      <div className="absolute top-2 left-2">
+                        <PhotoStrip urls={item.photoUrls!} onOpen={i => setLightbox({ urls: item.photoUrls!, idx: i })} />
                       </div>
                     </>
                   ) : (
@@ -510,7 +496,7 @@ export default function InventoryManagement() {
                 {/* Info */}
                 <div className="p-4 flex flex-col flex-1">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="font-semibold text-gray-900 text-sm leading-snug">{item.name}</p>
+                    <p className="font-semibold text-gray-900 text-sm leading-snug break-words">{item.name}</p>
                     <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${CONDITION_LABELS[item.condition]?.color}`}>
                       {CONDITION_LABELS[item.condition]?.label}
                     </span>
@@ -534,11 +520,18 @@ export default function InventoryManagement() {
                   {canEdit && (
                     <div className="flex gap-2 mt-auto pt-3 border-t border-gray-50">
                       <button onClick={() => openEdit(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors font-medium">
+                        className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2 rounded-xl border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors font-medium cursor-pointer">
                         <Pencil size={12} /> Edit
                       </button>
-                      <button onClick={() => setDeleteConfirm(item.id)}
-                        className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirm({
+                          id: item.id,
+                          name: item.name,
+                          key: item._storeKey || (item.id.startsWith('inventory:') ? item.id : `inventory:${item.id}`)
+                        })}
+                        className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="Hapus Item">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -559,16 +552,16 @@ export default function InventoryManagement() {
                 <h3 className="font-bold text-gray-900">Kelola Kategori</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Tambah, edit, atau hapus kategori barang</p>
               </div>
-              <button onClick={() => setShowCatManager(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              <button onClick={() => setShowCatManager(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="flex gap-2">
                 <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addCategory()}
                   placeholder="Nama kategori baru..."
-                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                 <button onClick={addCategory}
-                  className="flex items-center gap-1.5 bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors">
+                  className="flex items-center gap-1.5 bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 transition-colors cursor-pointer">
                   <Plus size={16} /> Tambah
                 </button>
               </div>
@@ -580,9 +573,9 @@ export default function InventoryManagement() {
                       <>
                         <input value={editCatVal} onChange={e => setEditCatVal(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveEditCategory(idx)} autoFocus
-                          className="flex-1 border border-blue-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <button onClick={() => saveEditCategory(idx)} className="text-emerald-600 hover:text-emerald-700 p-1"><Check size={15} /></button>
-                        <button onClick={() => setEditCatIdx(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={15} /></button>
+                          className="flex-1 border border-blue-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        <button onClick={() => saveEditCategory(idx)} className="text-emerald-600 hover:text-emerald-700 p-1 cursor-pointer"><Check size={15} /></button>
+                        <button onClick={() => setEditCatIdx(null)} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"><X size={15} /></button>
                       </>
                     ) : (
                       <>
@@ -592,8 +585,8 @@ export default function InventoryManagement() {
                             {items.filter(i => i.category === cat).length} item
                           </span>
                         )}
-                        <button onClick={() => { setEditCatIdx(idx); setEditCatVal(cat); }} className="text-blue-500 hover:text-blue-700 p-1"><Pencil size={14} /></button>
-                        <button onClick={() => deleteCategory(idx)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={14} /></button>
+                        <button onClick={() => { setEditCatIdx(idx); setEditCatVal(cat); }} className="text-blue-500 hover:text-blue-700 p-1 cursor-pointer"><Pencil size={14} /></button>
+                        <button onClick={() => deleteCategory(idx)} className="text-red-400 hover:text-red-600 p-1 cursor-pointer"><Trash2 size={14} /></button>
                       </>
                     )}
                   </div>
@@ -602,7 +595,7 @@ export default function InventoryManagement() {
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
               <button onClick={() => setShowCatManager(false)}
-                className="w-full bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800">
+                className="w-full bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 cursor-pointer">
                 Selesai
               </button>
             </div>
@@ -612,28 +605,38 @@ export default function InventoryManagement() {
 
       {/* ── Add / Edit Form Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <h3 className="font-bold text-gray-900">{editId ? 'Edit Item' : 'Tambah Item Baru'}</h3>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity"
+          onClick={() => setShowForm(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] sm:max-h-[92vh] overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Mobile handle indicator */}
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-gray-50/70">
+              <h3 className="font-bold text-gray-900 text-base">{editId ? 'Edit Item Inventaris' : 'Tambah Item Baru'}</h3>
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer p-1"><X size={20} /></button>
             </div>
 
-            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+            {/* Form scroll container that starts cleanly at top */}
+            <div ref={modalScrollRef} className="p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nama Item *</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="Contoh: Speaker TOA, Kursi Plastik..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
               </div>
 
-              {/* Category */}
+              {/* Category Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
                 <div className="relative">
                   <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white pr-9">
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white pr-9 cursor-pointer">
                     <option value="">— Pilih Kategori —</option>
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -641,23 +644,31 @@ export default function InventoryManagement() {
                 </div>
               </div>
 
-              {/* Qty + Unit */}
+              {/* Qty + Unit Dropdown */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah *</label>
                   <input type="number" min="0" value={form.quantity}
                     onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                  <select value={INVENTORY_UNITS.includes(form.unit.toLocaleLowerCase('id')) ? form.unit.toLocaleLowerCase('id') : 'lainnya'}
-                    onChange={e => setForm(f => ({ ...f, unit: e.target.value === 'lainnya' ? (INVENTORY_UNITS.includes(f.unit.toLocaleLowerCase('id')) ? '' : f.unit) : e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    {INVENTORY_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
-                    <option value="lainnya">Lainnya</option>
-                  </select>
-                  {!INVENTORY_UNITS.includes(form.unit.toLocaleLowerCase('id')) && <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="Tulis satuan" className="w-full mt-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Satuan *</label>
+                  <div className="relative">
+                    <select
+                      value={form.unit || 'pcs'}
+                      onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white appearance-none pr-9 cursor-pointer">
+                      {/* If current item has legacy unit, keep it visible */}
+                      {form.unit && !INVENTORY_UNITS.includes(form.unit.toLowerCase()) && (
+                        <option value={form.unit}>{form.unit}</option>
+                      )}
+                      {INVENTORY_UNITS.map(unit => (
+                        <option key={unit} value={unit}>{unit}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
@@ -665,8 +676,8 @@ export default function InventoryManagement() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
                 <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                  placeholder="Ruang Ibadah, Gudang, Kantor..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  placeholder="Ruang Ibadah, Gudang, Pastori, Kantor..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
               </div>
 
               {/* Condition */}
@@ -674,8 +685,8 @@ export default function InventoryManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Kondisi</label>
                 <div className="flex gap-2">
                   {(['good', 'needs_repair', 'broken'] as const).map(c => (
-                    <button key={c} onClick={() => setForm(f => ({ ...f, condition: c }))}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${form.condition === c ? CONDITION_LABELS[c].color + ' border-current' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
+                    <button key={c} type="button" onClick={() => setForm(f => ({ ...f, condition: c }))}
+                      className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${form.condition === c ? CONDITION_LABELS[c].color + ' border-current shadow-xs' : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'}`}>
                       {CONDITION_LABELS[c].label}
                     </button>
                   ))}
@@ -687,7 +698,7 @@ export default function InventoryManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembelian</label>
                 <input type="date" value={form.purchaseDate}
                   onChange={e => setForm(f => ({ ...f, purchaseDate: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
               </div>
 
               {/* Notes */}
@@ -695,26 +706,27 @@ export default function InventoryManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                   rows={2} placeholder="Catatan tambahan tentang item ini..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
               </div>
 
               {/* ── Photo section ── */}
               <div className="border-t border-gray-100 pt-4">
-                {/* Preview grid (existing + new) */}
                 {formPhotoPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {formPhotoPreviews.map((p, i) => (
                       <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 group">
                         <img src={p.src} alt="" className="w-full h-full object-cover" />
                         <button
+                          type="button"
                           onClick={() => p.isNew ? removeNewPhoto((p as any).idx) : removeExistingPhoto(i)}
-                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
                           <X size={10} />
                         </button>
                         <button
+                          type="button"
                           onClick={() => setLightbox({ urls: formPhotoPreviews.map(x => x.src), idx: i })}
-                          className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
                           <ZoomIn size={9} />
                         </button>
@@ -748,14 +760,20 @@ export default function InventoryManagement() {
                 )}
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
             </div>
 
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-              <button onClick={() => setShowForm(false)}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Batal</button>
-              <button onClick={handleSubmit} disabled={saving}
-                className="flex-1 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 disabled:opacity-50 flex items-center justify-center gap-2">
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0 bg-gray-50/50">
+              <button type="button" onClick={() => setShowForm(false)}
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-100 transition-colors cursor-pointer">
+                Batal
+              </button>
+              <button type="button" onClick={handleSubmit} disabled={saving}
+                className="flex-1 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm">
                 {saving ? <><Loader2 size={16} className="animate-spin" /> Menyimpan...</> : <><Check size={16} /> Simpan</>}
               </button>
             </div>
@@ -763,18 +781,35 @@ export default function InventoryManagement() {
         </div>
       )}
 
-      {/* ── Delete Confirm ── */}
+      {/* ── Delete Confirm Modal ── */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
-            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trash2 size={24} className="text-red-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center animate-in fade-in zoom-in-95">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 size={24} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">Hapus Item?</h3>
-            <p className="text-sm text-gray-500 mb-6">Data inventaris ini akan dihapus permanen.</p>
+            <p className="text-sm text-gray-500 mb-6">
+              Item <strong>{deleteConfirm.name}</strong> akan dihapus permanen dari inventaris gereja.
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm">Batal</button>
-              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700">Hapus</button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deleting ? <Loader2 size={16} className="animate-spin" /> : null}
+                {deleting ? 'Menghapus...' : 'Hapus'}
+              </button>
             </div>
           </div>
         </div>
