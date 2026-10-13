@@ -3,7 +3,13 @@ import { EdgeKV } from './edgeKvClient';
 
 // Single source of truth is the app_kv store (same one Data Jemaat and Komisi write to).
 const KV = 'app_kv';
-const DEFAULT_PKS_NAMES = ['Sisca', 'Sandy', 'Damli', 'Risan', 'Gina Jaya', 'Willis', 'Merry', 'Ping & Hadi', 'Christopher'];
+export const DEFAULT_PKS_NAMES = ['Sisca', 'Sandy', 'Damli', 'Risan', 'Gina Jaya', 'Merry', 'Hadi & Pink', 'Christopher'];
+
+export interface PksLeaderContact {
+  name: string;
+  phone: string;
+  role?: string;
+}
 
 export interface Komsel {
   id: string;
@@ -20,6 +26,114 @@ export interface Komsel {
   virtual?: boolean;
 }
 
+export interface PksPlot {
+  id: string;
+  pksId?: string;
+  pksName: string;
+  room: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  status: 'active' | 'berhalangan' | 'completed';
+  notes?: string;
+  leaders: PksLeaderContact[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+export interface PlotConflict {
+  plotA: PksPlot;
+  plotB: PksPlot;
+  room: string;
+  date: string;
+  message: string;
+}
+
+export const STANDARD_ROOMS = [
+  'Ruang Serbaguna',
+  'Ruang Konseling',
+  'Ruang Remaja',
+  'Ruang Anak',
+  'Ruang Musik',
+  'Ruang Rapat',
+  'Sanctuary / Main Hall',
+  'Ruang PKS 1',
+  'Ruang PKS 2',
+];
+
+export const KNOWN_PKS_LEADERS: Record<string, PksLeaderContact[]> = {
+  'NAOMI': [
+    { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' },
+    { name: 'Naomi Natalia', phone: '081807480352', role: 'Wakil Ketua' }
+  ],
+  'PINK': [
+    { name: 'Elizabeth Damaira (Pink)', phone: '081807754691', role: 'Ketua PKS' },
+    { name: 'Hadi Susanto', phone: '08111137289', role: 'Ketua PKS' }
+  ],
+  'HADI & PINK': [
+    { name: 'Elizabeth Damaira (Pink)', phone: '081807754691', role: 'Ketua PKS' },
+    { name: 'Hadi Susanto', phone: '08111137289', role: 'Ketua PKS' }
+  ],
+  'PING & HADI': [
+    { name: 'Elizabeth Damaira (Pink)', phone: '081807754691', role: 'Ketua PKS' },
+    { name: 'Hadi Susanto', phone: '08111137289', role: 'Ketua PKS' }
+  ],
+  'STEFFANY & SINCO': [
+    { name: 'Steffany Mei Hun', phone: '081513005955', role: 'Ketua PKS' },
+    { name: 'Halim Sinco Sudi', phone: '08161114994', role: 'Ketua PKS' }
+  ],
+  'SISCA': [
+    { name: 'Sisca', phone: '081315867494', role: 'Ketua PKS' },
+    { name: 'Febiyana Fransisca', phone: '082114071715', role: 'Wakil Ketua' }
+  ],
+  'WILIS WIHARTATI': [
+    { name: 'Wilis Wihartarti The', phone: '081519113144', role: 'Ketua PKS' }
+  ],
+  'DAMLI & RETNA': [
+    { name: 'Damli Husni', phone: '087782790903', role: 'Ketua PKS' }
+  ],
+  'DAMLI': [
+    { name: 'Damli Husni', phone: '087782790903', role: 'Ketua PKS' }
+  ],
+  'RISAN': [
+    { name: 'Risan Sutanto', phone: '087808780025', role: 'Ketua PKS' }
+  ],
+  'AGUS DURANTES': [
+    { name: 'Agus Durantes', phone: '081298427200', role: 'Ketua PKS' }
+  ],
+  'ANDRES': [
+    { name: 'Andres', phone: '081310004283', role: 'Ketua PKS' }
+  ],
+  'BUDI HARMANTO & SUMY': [
+    { name: 'Budi Harmanto', phone: '08111315699', role: 'Ketua PKS' }
+  ],
+  'PAULUS': [
+    { name: 'Paulus Widyanto', phone: '08990092036', role: 'Ketua PKS' }
+  ],
+  'LISNI': [
+    { name: 'Lisni Sutijono', phone: '089693616605', role: 'Ketua PKS' }
+  ],
+  'NINI': [
+    { name: 'Nini', phone: '081314670235', role: 'Ketua PKS' }
+  ],
+  'MARIANI': [
+    { name: 'Mariani', phone: '081314150696', role: 'Ketua PKS' }
+  ],
+  'LUCKY ANDRE': [
+    { name: 'Lucky Andreas Wairissal', phone: '085692165007', role: 'Ketua PKS' }
+  ],
+  'MARCELLO': [
+    { name: 'Marcello Wong', phone: '082298694909', role: 'Ketua PKS' }
+  ],
+  'CHRISTOPHER': [
+    { name: 'Christopher Alexander', phone: '08953360000000', role: 'Ketua PKS' }
+  ],
+  'MERRY': [
+    { name: 'Merry', phone: '', role: 'Ketua PKS' }
+  ]
+};
+
 export function normalizePksName(input: string): string {
   if (!input) return '';
   return input
@@ -27,6 +141,37 @@ export function normalizePksName(input: string): string {
     .replace(/^PKS\s*/i, '') // Remove leading PKS
     .replace(/\s+/g, ' ') // Normalize spaces
     .trim();
+}
+
+/** Resolves known or detected leaders for a PKS */
+export function getLeadersForPks(pksName: string, allMembers?: any[]): PksLeaderContact[] {
+  const norm = normalizePksName(pksName);
+  // Check exact or partial match in KNOWN_PKS_LEADERS
+  if (KNOWN_PKS_LEADERS[norm]) return [...KNOWN_PKS_LEADERS[norm]];
+  for (const [key, leaders] of Object.entries(KNOWN_PKS_LEADERS)) {
+    if (norm.includes(key) || key.includes(norm)) {
+      return [...leaders];
+    }
+  }
+
+  // Try matching with members data
+  if (allMembers && allMembers.length > 0) {
+    const matched = allMembers.filter(m => {
+      const mPks = normalizePksName(m.pksName || '');
+      const mName = (m.name || '').toUpperCase();
+      return (mPks && mPks === norm) || norm.includes(mName);
+    });
+
+    if (matched.length > 0) {
+      return matched.slice(0, 2).map((m: any, idx: number) => ({
+        name: m.name || 'Ketua PKS',
+        phone: m.phone || m.whatsapp || '',
+        role: idx === 0 ? 'Ketua PKS' : 'Wakil / Pengurus'
+      }));
+    }
+  }
+
+  return [{ name: pksName, phone: '', role: 'Ketua PKS' }];
 }
 
 /** Loads congregation members from both key formats, deduplicated by id. */
@@ -54,10 +199,11 @@ export async function loadPksNames(members?: any[]): Promise<string[]> {
     const key = normalizePksName(name);
     if (key && !names.has(key)) names.set(key, String(name).replace(/^PKS\s*/i, '').trim());
   }
-  // Include explicitly-created PKS groups, but keep member spellings/casing from
-  // silently creating duplicate select entries such as Sandy and SANDY.
+
+  // Include explicitly-created PKS groups that are genuine records
   const { data: rows } = await EdgeKV.from(KV).select('value').like('key', 'komsel:%');
   for (const row of rows || []) {
+    if (!row.value || !row.value.id || row.value.raw_value) continue; // Skip legacy pointers
     const name = String(row.value?.pksName || row.value?.name || '').trim();
     const key = normalizePksName(name);
     if (key && !names.has(key)) names.set(key, name.replace(/^PKS\s*/i, '').trim());
@@ -80,7 +226,10 @@ export function useKomsels() {
         EdgeKV.from(KV).select('key,value').like('key', 'komsel:%'),
         loadAllMembers(),
       ]);
-      const saved: Komsel[] = (rows || []).map((r: any) => r.value).filter((v: any) => v?.id);
+      const saved: Komsel[] = (rows || [])
+        .map((r: any) => r.value)
+        .filter((v: any) => v?.id && !v.raw_value);
+
       const pksNames = await loadPksNames(members);
 
       // A saved komsel record wins; otherwise show the PKS as a virtual entry so no group is ever missing.
@@ -147,30 +296,137 @@ export async function saveKomsel(
 }
 
 export async function deleteKomsel(id: string, pksName?: string): Promise<void> {
-  const { error } = await EdgeKV.from(KV).delete().eq('key', `komsel:${id}`);
-  if (error) throw error;
-  if (!pksName) return;
-  const normalized = normalizePksName(pksName);
-  const members = await loadAllMembers();
-  for (const member of members.filter(m => normalizePksName(m.pksName || '') === normalized)) {
-    await setMemberPks(member.id, '');
+  const normalized = normalizePksName(pksName || '');
+
+  // 1. Delete by direct ID if not virtual
+  if (id && !id.startsWith('virtual:')) {
+    await EdgeKV.from(KV).delete().eq('key', `komsel:${id}`);
   }
-  const { data } = await EdgeKV.from(KV).select('value').eq('key', 'config:pks-names').maybeSingle();
-  if (Array.isArray(data?.value)) {
-    const remaining = data.value.filter((name: string) => normalizePksName(name) !== normalized);
+
+  // 2. Also search and delete any matching records in komsel:% (including legacy pointers, duplicates)
+  if (normalized) {
+    const { data: rows } = await EdgeKV.from(KV).select('key,value').like('key', 'komsel:%');
+    for (const r of rows || []) {
+      const rowPks = normalizePksName(r.value?.pksName || r.value?.name || '');
+      const keySuffix = normalizePksName(r.key.replace(/^komsel:(pks:)?/, ''));
+      if (rowPks === normalized || keySuffix === normalized || (r.value?.id && r.value.id === id)) {
+        await EdgeKV.from(KV).delete().eq('key', r.key);
+      }
+    }
+
+    // 3. Clear member assignments
+    const members = await loadAllMembers();
+    for (const member of members.filter(m => normalizePksName(m.pksName || '') === normalized)) {
+      await setMemberPks(member.id, '');
+    }
+
+    // 4. Update config:pks-names
+    const { data } = await EdgeKV.from(KV).select('value').eq('key', 'config:pks-names').maybeSingle();
+    const configured: string[] = Array.isArray(data?.value) ? data.value : DEFAULT_PKS_NAMES;
+    const remaining = configured.filter((name: string) => normalizePksName(name) !== normalized);
     await EdgeKV.from(KV).update({ value: remaining }).eq('key', 'config:pks-names');
   }
 }
 
-/** Assigns (or clears, with an empty name) the PKS of one congregation member, in whichever key format it is stored. */
+/** Assigns (or clears, with an empty name) the PKS of one congregation member. */
 export async function setMemberPks(memberId: string, pksName: string): Promise<void> {
   for (const key of [`congregation:member:${memberId}`, `member:${memberId}`]) {
     const { data } = await EdgeKV.from(KV).select('value').eq('key', key).maybeSingle();
     if (!data?.value) continue;
-    const value = { ...data.value, pksName: pksName.trim() || undefined, updatedAt: new Date().toISOString() };
+    const value = { ...data.value, pksName: pksName.trim() || '', updatedAt: new Date().toISOString() };
     const { error } = await EdgeKV.from(KV).update({ value }).eq('key', key);
     if (error) throw error;
     return;
   }
   throw new Error('Data jemaat tidak ditemukan');
+}
+
+// -------------------------------------------------------------
+// PKS Plotting (Ruangan, Tanggal, Jam & Deteksi Konflik)
+// -------------------------------------------------------------
+
+export async function loadAllPlots(): Promise<PksPlot[]> {
+  const { data } = await EdgeKV.from(KV).select('key,value').like('key', 'pks_plot:%');
+  const list: PksPlot[] = (data || [])
+    .map((r: any) => r.value)
+    .filter((v: any) => v && v.id && v.date);
+  return list.sort((a, b) => {
+    const cmp = (a.date || '').localeCompare(b.date || '');
+    if (cmp !== 0) return cmp;
+    return (a.startTime || '').localeCompare(b.startTime || '');
+  });
+}
+
+export async function savePlot(
+  plot: Partial<PksPlot> & { pksName: string; room: string; date: string; startTime: string; endTime: string },
+  createdBy = ''
+): Promise<PksPlot> {
+  const now = new Date().toISOString();
+  const isNew = !plot.id;
+  const id = plot.id || crypto.randomUUID();
+  const fullPlot: PksPlot = {
+    id,
+    pksId: plot.pksId,
+    pksName: plot.pksName.trim(),
+    room: plot.room.trim(),
+    date: plot.date,
+    startTime: plot.startTime,
+    endTime: plot.endTime,
+    status: plot.status || 'active',
+    notes: plot.notes || '',
+    leaders: plot.leaders && plot.leaders.length > 0 ? plot.leaders : getLeadersForPks(plot.pksName),
+    createdAt: isNew ? now : (plot.createdAt || now),
+    updatedAt: now,
+    createdBy: isNew ? createdBy : (plot.createdBy || createdBy),
+  };
+
+  const { error } = await EdgeKV.from(KV).update({ value: fullPlot }).eq('key', `pks_plot:${id}`);
+  if (error) throw error;
+  return fullPlot;
+}
+
+export async function deletePlot(id: string): Promise<void> {
+  const { error } = await EdgeKV.from(KV).delete().eq('key', `pks_plot:${id}`);
+  if (error) throw error;
+}
+
+export async function setPlotStatus(id: string, status: 'active' | 'berhalangan' | 'completed'): Promise<void> {
+  const { data } = await EdgeKV.from(KV).select('value').eq('key', `pks_plot:${id}`).maybeSingle();
+  if (!data?.value) throw new Error('Data plotting tidak ditemukan');
+  const updated: PksPlot = { ...data.value, status, updatedAt: new Date().toISOString() };
+  const { error } = await EdgeKV.from(KV).update({ value: updated }).eq('key', `pks_plot:${id}`);
+  if (error) throw error;
+}
+
+/** Detects all room schedule conflicts between active plots */
+export function detectPlotConflicts(plots: PksPlot[]): PlotConflict[] {
+  const conflicts: PlotConflict[] = [];
+  const active = plots.filter(p => p.status === 'active');
+
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      const a = active[i];
+      const b = active[j];
+      if (a.date !== b.date) continue;
+      if (a.room.trim().toLowerCase() !== b.room.trim().toLowerCase()) continue;
+
+      // Check time overlap: a.start < b.end && a.end > b.start
+      const aStart = a.startTime.replace(':', '');
+      const aEnd = a.endTime.replace(':', '');
+      const bStart = b.startTime.replace(':', '');
+      const bEnd = b.endTime.replace(':', '');
+
+      if (aStart < bEnd && aEnd > bStart) {
+        conflicts.push({
+          plotA: a,
+          plotB: b,
+          room: a.room,
+          date: a.date,
+          message: `Konflik di ${a.room} pada ${a.date}: PKS ${a.pksName} (${a.startTime}-${a.endTime}) bertabrakan dengan PKS ${b.pksName} (${b.startTime}-${b.endTime})`,
+        });
+      }
+    }
+  }
+
+  return conflicts;
 }

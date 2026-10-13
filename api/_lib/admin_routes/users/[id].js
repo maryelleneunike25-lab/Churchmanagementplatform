@@ -130,6 +130,7 @@ export default async function handler(req, res) {
     if (target.role === 'super_admin' && target.status === 'approved' && (await countOtherActiveSuperAdmins(id)) === 0) {
       return sendError(res, 400, 'Harus ada minimal satu Super Admin aktif');
     }
+    await sql`DELETE FROM auth_allowlist WHERE email = ${target.email}`;
     await sql`DELETE FROM users WHERE id = ${id}`;
 
     await logActivity({

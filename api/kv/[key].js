@@ -30,9 +30,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST' || req.method === 'PUT') {
     const value = getBody(req);
+    const valueJson = typeof value === 'string' ? value : JSON.stringify(value);
     await sql`
-      INSERT INTO app_kv (key, value) VALUES (${key}, ${value}::jsonb)
-      ON CONFLICT (key) DO UPDATE SET value = ${value}::jsonb, updated_at = now()
+      INSERT INTO app_kv (key, value) VALUES (${key}, ${valueJson}::jsonb)
+      ON CONFLICT (key) DO UPDATE SET value = ${valueJson}::jsonb, updated_at = now()
     `;
 
     const target = getTargetFromKey(key);

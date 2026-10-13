@@ -20,9 +20,7 @@ export default async function handler(req, res) {
   const email = rawEmail.toLowerCase();
   try {
     if (isJemaat) await ensureJemaatRole();
-    const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
-    if (existing.length > 0) return sendError(res, 400, 'Email sudah terdaftar');
-
+    const existing = await sql`SELECT id, role, status, password_hash, auth_provider FROM users WHERE email = ${email}`;
     const isSuperAdminEmail = !isJemaat && email === 'maryelleneunike25@gmail.com';
     const allowlist = await sql`SELECT * FROM auth_allowlist WHERE email = ${email}`;
 
@@ -42,6 +40,30 @@ export default async function handler(req, res) {
     const status = isJemaat || isSuperAdminEmail ? 'approved' : (allowlist.length > 0 ? 'approved' : 'pending');
     const role = isJemaat ? 'jemaat' : isSuperAdminEmail ? 'super_admin' : 'admin';
     const approvedBy = !isJemaat && allowlist.length > 0 ? allowlist[0].added_by : null;
+
+    if (existing.length > 0) {
+      const ex = existing[0];
+      // If the user was pre-added via allowlist, or was previously a jemaat, allow completing admin registration
+      if (!isJemaat && (ex.role === 'jemaat' || ex.auth_provider === 'allowlist' || !ex.password_hash)) {
+        const finalRole = isSuperAdminEmail ? 'super_admin' : (ex.role === 'super_admin' ? 'super_admin' : 'admin');
+        const finalStatus = (isSuperAdminEmail || allowlist.length > 0 || ex.status === 'approved') ? 'approved' : 'pending';
+        const updated = await sql`
+          UPDATE users
+          SET name = ${name},
+              password_hash = ${hash},
+              role = ${finalRole},
+              status = ${finalStatus},
+              auth_provider = 'email',
+              approved_by = COALESCE(approved_by, ${approvedBy}),
+              approved_at = CASE WHEN ${finalStatus === 'approved'} THEN COALESCE(approved_at, now()) ELSE null END
+          WHERE id = ${ex.id}
+          RETURNING id, email, name, status, role
+        `;
+        return sendJson(res, 200, { success: true, user: updated[0] });
+      }
+
+      return sendError(res, 400, 'Email sudah terdaftar. Silakan langsung masuk di halaman login.');
+    }
 
     const inserted = await sql`
       INSERT INTO users (email, name, password_hash, auth_provider, status, role, approved_by, approved_at)
