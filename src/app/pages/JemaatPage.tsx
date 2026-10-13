@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'motion/react';
 import {
   Clock, MapPin, Users, Heart, BookOpen, Star,
-  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound, Sparkles
+  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound
 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { getMinistry, formatSchedules, ALL_MINISTRIES } from '../../lib/ministries';
@@ -170,27 +170,14 @@ export default function JemaatPage() {
           style={{ y: heroContentY, opacity: heroOpacity }}
           className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center"
         >
-          {/* Welcome Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -16, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 rounded-full px-3.5 py-1.5 sm:px-4 sm:py-2 mb-4 sm:mb-6 text-white text-xs sm:text-sm font-medium shadow-sm transition-all"
-          >
-            <Sparkles size={14} className="text-amber-300 animate-pulse flex-shrink-0" />
-            <span className="text-blue-100 font-semibold tracking-wide">Selamat Datang di Rumah Tuhan</span>
-            <span className="text-white/40">•</span>
-            <span className="text-amber-200/90 text-[11px] sm:text-xs">Welcome Home</span>
-          </motion.div>
-
           {/* Main Title */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-3.5 sm:mb-5"
+            transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            className="mb-4 sm:mb-6 mt-1 sm:mt-2"
           >
-            <span className="block text-xs sm:text-sm font-bold tracking-widest uppercase text-sky-300/90 mb-1.5 sm:mb-2">
+            <span className="inline-block text-xs sm:text-sm font-bold tracking-widest uppercase text-sky-300/90 mb-2 sm:mb-3">
               Gereja Bethel Indonesia
             </span>
             <h1 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.14]">
