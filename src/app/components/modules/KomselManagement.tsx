@@ -1143,13 +1143,49 @@ export default function KomselManagement() {
       {/* ============================================================= */}
       {/* MODAL 1: ADD/EDIT KOMSEL                                      */}
       {/* ============================================================= */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingKomsel ? 'Edit Komsel' : 'Tambah Komsel Baru'}</DialogTitle>
-        <DialogContent className="space-y-4 pt-2">
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '20px',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+              <Users size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">
+                {editingKomsel ? 'Edit Data Komsel / PKS' : 'Tambah Komsel Baru'}
+              </h3>
+              <p className="text-xs text-indigo-200/80">Kelola kelompok sel dan pemimpin PKS terintegrasi</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpenDialog(false)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <DialogContent className="p-6 space-y-4 bg-slate-50/50">
           {/* Ketua PKS 1 */}
-          <div>
-            <TextField
-              label="Ketua PKS 1 (dari Data Jemaat)"
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span>Ketua PKS 1 (dari Data Jemaat) <span className="text-rose-500">*</span></span>
+              <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md font-semibold">Tersinkron Jemaat</span>
+            </label>
+            <input
+              type="text"
+              list="congregation-member-list"
               value={formData.leader1Name}
               onChange={e => {
                 const val = e.target.value;
@@ -1160,20 +1196,23 @@ export default function KomselManagement() {
                   pksName: nextPks,
                 });
               }}
-              fullWidth
-              size="small"
-              required
-              sx={{ mt: 1 }}
-              inputProps={{ list: 'congregation-member-list' }}
-              placeholder="Pilih nama jemaat..."
-              helperText="Ketua PKS utama (ketik untuk mencari dari Data Jemaat)"
+              placeholder="Ketik untuk mencari dari Data Jemaat..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
+            <p className="text-[11px] text-slate-400">
+              Ketua PKS utama (ketik untuk mencari dari Data Jemaat yang sudah ada)
+            </p>
           </div>
 
-          {/* Ketua PKS 2 / Co-Leader (Opsional) */}
-          <div>
-            <TextField
-              label="Ketua PKS 2 / Co-Leader (Opsional)"
+          {/* Ketua PKS 2 / Co-Leader */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span>Ketua PKS 2 / Co-Leader (Opsional)</span>
+              <span className="text-[10px] text-slate-400 font-normal">Boleh kosong</span>
+            </label>
+            <input
+              type="text"
+              list="congregation-member-list"
               value={formData.leader2Name}
               onChange={e => {
                 const val = e.target.value;
@@ -1184,13 +1223,12 @@ export default function KomselManagement() {
                   pksName: nextPks,
                 });
               }}
-              fullWidth
-              size="small"
-              sx={{ mt: 1 }}
-              inputProps={{ list: 'congregation-member-list' }}
               placeholder="Kosongkan jika hanya 1 ketua..."
-              helperText="Isi jika ada ketua kedua / co-leader. Hanya nama yang dipilih yang akan ditampilkan."
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
+            <p className="text-[11px] text-slate-400">
+              Hanya nama yang dipilih yang akan ditampilkan pada daftar & kontak
+            </p>
           </div>
 
           <datalist id="congregation-member-list">
@@ -1202,48 +1240,76 @@ export default function KomselManagement() {
           </datalist>
 
           {/* Nama PKS / Tampilan Label */}
-          <TextField
-            label="Nama PKS (Label Grup)"
-            value={formData.pksName}
-            onChange={e => setFormData({ ...formData, pksName: e.target.value })}
-            fullWidth
-            size="small"
-            required
-            sx={{ mt: 2 }}
-            helperText="Nama yang tampil sebagai label PKS (otomatis terisi dari ketua yang dipilih)"
-          />
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">
+              Nama PKS (Label Grup) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.pksName}
+              onChange={e => setFormData({ ...formData, pksName: e.target.value })}
+              placeholder="contoh: AGUS DURANTES"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+            <p className="text-[11px] text-slate-400">
+              Label PKS (otomatis terisi dari ketua yang dipilih atau sesuaikan manual)
+            </p>
+          </div>
 
-          <TextField
-            label="Nama Komsel (opsional)"
-            value={formData.name}
-            onChange={e => setFormData({ ...formData, name: e.target.value })}
-            fullWidth
-            size="small"
-            sx={{ mt: 2 }}
-            placeholder="contoh: Komsel Betlehem"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Nama Komsel (Opsional) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Nama Komsel (Opsional)
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                placeholder="contoh: Betlehem"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
+            </div>
 
-          <FormControl fullWidth size="small" sx={{ mt: 2 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={formData.status}
-              onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-              label="Status"
-            >
-              <MenuItem value="active">Aktif</MenuItem>
-              <MenuItem value="inactive">Nonaktif</MenuItem>
-            </Select>
-          </FormControl>
+            {/* Status */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Status Komsel</label>
+              <select
+                value={formData.status}
+                onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+              >
+                <option value="active">🟢 Aktif</option>
+                <option value="inactive">🔴 Nonaktif</option>
+              </select>
+            </div>
+          </div>
         </DialogContent>
-        <div className="p-4 flex justify-end gap-2 border-t">
-          <Button onClick={() => setOpenDialog(false)} disabled={saving}>Batal</Button>
-          <Button
-            variant="contained"
+
+        <div className="px-6 py-4 bg-white flex items-center justify-end gap-2.5 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={() => setOpenDialog(false)}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
             onClick={handleSubmit}
             disabled={saving || (!formData.pksName.trim() && !formData.leader1Name.trim())}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
           >
-            {saving ? 'Menyimpan...' : 'Simpan'}
-          </Button>
+            {saving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Menyimpan...</span>
+              </>
+            ) : (
+              <span>Simpan Komsel</span>
+            )}
+          </button>
         </div>
       </Dialog>
 

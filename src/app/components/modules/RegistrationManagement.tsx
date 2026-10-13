@@ -158,81 +158,137 @@ export default function RegistrationManagement() {
           {filtered.map(reg => {
             const isOpen = expandedId === reg.id;
             const entries = Object.entries(reg.data || {});
+            const registrantName = reg.data?.nama || (reg.data?.namaPria && reg.data?.namaWanita ? `${reg.data.namaPria} & ${reg.data.namaWanita}` : '') || reg.data?.namaAnak || reg.title || '';
+            const phone = reg.data?.telepon || '';
+            const waNumber = phone ? phone.replace(/\D/g, '').replace(/^0/, '62') : null;
+
             return (
-              <div key={reg.id} className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-4">
+              <div 
+                key={reg.id} 
+                className={`bg-white border rounded-2xl shadow-xs transition-all duration-200 overflow-hidden ${
+                  isOpen ? 'border-indigo-200 shadow-md ring-1 ring-indigo-100' : 'border-gray-200/80 hover:border-gray-300'
+                }`}
+              >
+                {/* Header Row */}
+                <div 
+                  onClick={() => setExpandedId(isOpen ? null : reg.id)}
+                  className="flex items-center gap-3.5 px-5 py-4 cursor-pointer hover:bg-slate-50/60 transition-colors flex-wrap sm:flex-nowrap"
+                >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${TYPE_COLORS[reg.type] || 'bg-gray-100 text-gray-700'}`}>
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-2xs ${TYPE_COLORS[reg.type] || 'bg-gray-100 text-gray-700'}`}>
                         {TYPE_LABELS[reg.type] || reg.type}
                       </span>
-                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[reg.status] || 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${STATUS_COLORS[reg.status] || 'bg-gray-100 text-gray-600'}`}>
                         {reg.status === 'baru' ? 'Baru' : reg.status === 'diproses' ? 'Diproses' : 'Selesai'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400">{formatDate(reg.submittedAt)}</p>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {registrantName && (
+                        <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-snug">
+                          {registrantName}
+                        </h4>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        &bull; {formatDate(reg.submittedAt)}
+                      </span>
+                    </div>
+
+                    {/* Quick snippet for phone / WA */}
+                    {phone && (
+                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 font-medium">
+                        <span>Kontak: {phone}</span>
+                      </p>
+                    )}
                   </div>
 
-                  {canEdit ? (
-                    <select
-                      value={reg.status}
-                      onChange={e => updateStatus(reg, e.target.value)}
-                      onClick={e => e.stopPropagation()}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-blue-400"
+                  {/* Actions & Status Dropdown */}
+                  <div className="flex items-center gap-2.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    {canEdit ? (
+                      <select
+                        value={reg.status}
+                        onChange={e => updateStatus(reg, e.target.value)}
+                        className={`text-xs font-bold border rounded-xl px-3 py-1.5 cursor-pointer focus:outline-none transition-all shadow-2xs ${
+                          reg.status === 'baru'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : reg.status === 'diproses'
+                            ? 'bg-amber-50 border-amber-200 text-amber-700'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        }`}
+                      >
+                        <option value="baru">Baru</option>
+                        <option value="diproses">Diproses</option>
+                        <option value="selesai">Selesai</option>
+                      </select>
+                    ) : (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                        {reg.status}
+                      </span>
+                    )}
+
+                    {canEdit && (
+                      <button 
+                        type="button"
+                        onClick={() => deleteReg(reg)} 
+                        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Hapus pendaftaran"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+
+                    <button 
+                      type="button"
+                      onClick={() => setExpandedId(isOpen ? null : reg.id)} 
+                      className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                      title={isOpen ? 'Tutup rincian' : 'Buka rincian'}
                     >
-                      <option value="baru">Baru</option>
-                      <option value="diproses">Diproses</option>
-                      <option value="selesai">Selesai</option>
-                    </select>
-                  ) : (
-                    <div className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700 bg-gray-50">
-                      {reg.status}
-                    </div>
-                  )}
-
-                  {canEdit && (
-                    <button onClick={() => deleteReg(reg)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
-                      <Trash2 size={14} />
+                      {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </button>
-                  )}
-
-                  <button onClick={() => setExpandedId(isOpen ? null : reg.id)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
-                    {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                  </button>
+                  </div>
                 </div>
 
+                {/* Expanded Details Form */}
                 {isOpen && (
-                  <div className="px-5 pb-5 border-t border-gray-50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4">
+                  <div className="px-5 pb-5 pt-3 border-t border-gray-100 bg-slate-50/40 animate-in fade-in duration-150">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                      Rincian Data Pendaftaran:
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {entries.map(([key, val]) => {
                         const isPhone = key === 'telepon';
-                        const waNumber = isPhone && val ? val.replace(/\D/g, '').replace(/^0/, '62') : null;
                         return (
-                          <div key={key}>
-                            <p className="text-xs text-gray-400 font-medium mb-0.5">
+                          <div key={key} className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs">
+                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
                               {FIELD_LABELS[key] || key}
                             </p>
                             {isPhone && waNumber ? (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-sm text-gray-800 font-medium">{val}</p>
-                                <a
-                                  href={`https://wa.me/${waNumber}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs font-semibold bg-green-500 hover:bg-green-600 text-white px-2.5 py-1 rounded-full transition-colors"
-                                >
-                                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                  Chat WA
-                                </a>
-                                <a
-                                  href={`tel:+${waNumber}`}
-                                  className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-full transition-colors"
-                                >
-                                  Telepon
-                                </a>
+                              <div>
+                                <p className="text-sm text-gray-900 font-bold mb-2">{val}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <a
+                                    href={`https://wa.me/${waNumber}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+                                  >
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                    Chat WA
+                                  </a>
+                                  <a
+                                    href={`tel:+${waNumber}`}
+                                    className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                                  >
+                                    Telepon
+                                  </a>
+                                </div>
                               </div>
                             ) : (
-                              <p className="text-sm text-gray-800 font-medium break-words">{val || '—'}</p>
+                              <p className="text-sm text-gray-900 font-semibold break-words leading-relaxed">
+                                {val || '—'}
+                              </p>
                             )}
                           </div>
                         );

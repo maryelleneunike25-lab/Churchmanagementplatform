@@ -572,37 +572,94 @@ export default function KomisiManagement() {
                 const range = KOMISI_AGE_RANGE[activeKomisi];
                 const outOfRange = !!range && age >= 0 && (age < range[0] || age > range[1]);
                 return (
-                  <div key={m.id} className={`bg-white border rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm ${notInDb ? 'border-amber-200' : 'border-gray-100'}`}>
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
-                      {m.name.charAt(0).toUpperCase()}
+                  <div key={m.id} className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs transition-all hover:shadow-sm ${notInDb ? 'border-amber-200 bg-amber-50/20' : 'border-gray-200/80 hover:border-blue-200'}`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold flex items-center justify-center flex-shrink-0 text-sm shadow-2xs">
+                          {m.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          {/* Nama & Status Terhubung */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-tight break-words">{m.name}</h4>
+                            {linked ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                                <Link size={11} className="text-emerald-600" /> Terhubung ke Jemaat Umum
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                                <AlertTriangle size={11} className="text-amber-600" /> Belum di database jemaat umum
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Detail Badges: Usia & Rentang Komisi */}
+                          <div className="flex items-center gap-2 flex-wrap mt-2">
+                            {age >= 0 && (
+                              <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${AGE_GROUP_STYLES[getAgeGroup(birthDate)]}`}>
+                                {age} thn ({getAgeGroup(birthDate)})
+                              </span>
+                            )}
+                            {outOfRange && (
+                              <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                Usia di luar rentang komisi
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Data Rinci: HP, Tgl Lahir, Alamat */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
+                            {m.phone && (
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Phone size={13} className="text-emerald-500 flex-shrink-0" />
+                                <a
+                                  href={`https://wa.me/${m.phone.replace(/\D/g, '').replace(/^0/, '62')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-600 font-medium hover:underline truncate"
+                                >
+                                  {m.phone}
+                                </a>
+                              </div>
+                            )}
+                            {birthDate && (
+                              <div className="flex items-center gap-1.5 min-w-0 text-gray-600">
+                                <Calendar size={13} className="text-pink-400 flex-shrink-0" />
+                                <span>{formatDate(birthDate)}</span>
+                              </div>
+                            )}
+                            {m.address && (
+                              <div className="flex items-center gap-1.5 min-w-0 sm:col-span-2 lg:col-span-1 text-gray-500">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+                                <span className="truncate" title={m.address}>{m.address}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      {canEdit && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => openEditMember(m)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
+                            title="Edit data anggota"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMember(m)}
+                            className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                            title="Hapus dari komisi"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-900 text-sm">{m.name}</p>
-                        {linked ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                            <Link size={10} />Terhubung ke Jemaat Umum
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                            <AlertTriangle size={10} />Belum di database umum — belum ikut ibadah umum
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 flex-wrap">
-                        {m.phone && <span>{m.phone}</span>}
-                        {birthDate && <span>· {formatDate(birthDate)}</span>}
-                        {age >= 0 && <span className={`px-1.5 py-0.5 rounded-full font-semibold ${AGE_GROUP_STYLES[getAgeGroup(birthDate)]}`}>{age} thn</span>}
-                        {outOfRange && <span className="px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">usia di luar rentang komisi</span>}
-                        {m.address && <span>· {m.address}</span>}
-                      </div>
-                    </div>
-                    {canEdit && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={() => openEditMember(m)} className="p-1.5 text-gray-400 hover:text-blue-600"><Edit2 size={14} /></button>
-                        <button onClick={() => handleDeleteMember(m)} className="p-1.5 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
-                      </div>
-                    )}
                   </div>
                 );
               })}

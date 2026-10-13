@@ -248,64 +248,92 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
       </div>
 
       {(m.pksName || (m.ibadah && m.ibadah.length > 0) || (m.pelayan && m.pelayan.length > 0)) && (
-        <div className="flex flex-wrap gap-1 items-center">
+        <div className="pt-2 border-t border-gray-100 flex flex-col gap-2.5 text-xs">
+          {/* Baris 1: Komsel / PKS */}
           {m.pksName && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/dashboard?tab=komsel&pks=${encodeURIComponent(m.pksName!)}`);
-              }}
-              title={`Klik untuk membuka Komsel PKS ${m.pksName}`}
-              className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 hover:bg-purple-200 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1"
-            >
-              <span>PKS {m.pksName}</span>
-            </button>
+            <div className="flex items-start gap-2">
+              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
+                Komsel
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/dashboard?tab=komsel&pks=${encodeURIComponent(m.pksName!)}`);
+                }}
+                title={`Klik untuk membuka Komsel PKS ${m.pksName}`}
+                className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-800 hover:bg-purple-200 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+              >
+                <span>PKS {m.pksName}</span>
+              </button>
+            </div>
           )}
-          {(m.ibadah || []).map(code => {
-            const komId = IBADAH_TO_KOMISI[code]?.[0];
-            return (
-              <button
-                type="button"
-                key={code}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (komId) {
-                    navigate(`/dashboard?tab=komisi&komisi=${encodeURIComponent(komId)}`);
-                  } else if (code === 'IR') {
-                    navigate('/dashboard?tab=absensi');
-                  } else {
-                    navigate('/dashboard?tab=komisi');
-                  }
-                }}
-                title={`Klik untuk membuka Komisi / Ibadah ${IBADAH_LABEL[code] || code}`}
-                className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer"
-              >
-                {IBADAH_LABEL[code] || code}
-              </button>
-            );
-          })}
-          {(m.pelayan || []).map((p, i) => {
-            const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
-            return (
-              <button
-                type="button"
-                key={i}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/dashboard?tab=pelayan&bidang=${encodeURIComponent(p)}`);
-                }}
-                title={`Klik untuk membuka Pelayan bidang ${p}`}
-                className={`px-1.5 py-0.5 text-[10px] active:scale-95 transition-all cursor-pointer ${
-                  div
-                    ? `rounded-full border font-bold ${div.light} hover:opacity-80`
-                    : 'rounded bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {div ? div.label : p}
-              </button>
-            );
-          })}
+
+          {/* Baris 2: Komisi / Ibadah */}
+          {m.ibadah && m.ibadah.length > 0 && (
+            <div className="flex items-start gap-2">
+              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
+                Komisi
+              </span>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {m.ibadah.map(code => {
+                  const komId = IBADAH_TO_KOMISI[code]?.[0];
+                  return (
+                    <button
+                      type="button"
+                      key={code}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (komId) {
+                          navigate(`/dashboard?tab=komisi&komisi=${encodeURIComponent(komId)}`);
+                        } else if (code === 'IR') {
+                          navigate('/dashboard?tab=absensi');
+                        } else {
+                          navigate('/dashboard?tab=komisi');
+                        }
+                      }}
+                      title={`Klik untuk membuka Komisi / Ibadah ${IBADAH_LABEL[code] || code}`}
+                      className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                    >
+                      {IBADAH_LABEL[code] || code}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Baris 3: Bidang Pelayanan */}
+          {m.pelayan && m.pelayan.length > 0 && (
+            <div className="flex items-start gap-2">
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
+                Pelayan
+              </span>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {m.pelayan.map((p, i) => {
+                  const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
+                  return (
+                    <button
+                      type="button"
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/dashboard?tab=pelayan&bidang=${encodeURIComponent(p)}`);
+                      }}
+                      title={`Klik untuk membuka Pelayan bidang ${p}`}
+                      className={`px-2 py-0.5 text-xs font-bold rounded-lg border active:scale-95 transition-all cursor-pointer shadow-2xs ${
+                        div
+                          ? `${div.light} hover:opacity-85`
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {div ? div.label : p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
