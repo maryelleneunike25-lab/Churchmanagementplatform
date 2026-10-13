@@ -737,97 +737,197 @@ export default function KomisiManagement() {
 
       {/* ── Member Form Modal ── */}
       {showMemberForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">{editMember ? 'Edit Anggota' : 'Tambah Anggota Baru'}</h2>
-              <button onClick={() => setShowMemberForm(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh] overflow-hidden border border-slate-100">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">
+                    {editMember ? 'Edit Data Anggota' : 'Tambah Anggota Baru'}
+                  </h3>
+                  <p className="text-xs text-indigo-200/80">Komisi {komisiInfo.label}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowMemberForm(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+
+            <div className="overflow-y-auto flex-1 p-6 space-y-4 bg-slate-50/50">
               {/* Auto-suggestion banner */}
               {!selectedJemaatId && autoSuggestion && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-start gap-3">
-                  <Activity size={16} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-start gap-3 shadow-2xs">
+                  <Activity size={18} className="text-indigo-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-indigo-800">Ditemukan di database jemaat umum</p>
-                    <p className="text-xs text-indigo-700 mt-0.5">
-                      <strong>{autoSuggestion.jemaat.name}</strong>
+                    <p className="text-xs font-bold text-indigo-900">Cocok dengan database jemaat umum:</p>
+                    <p className="text-xs text-indigo-800 font-semibold mt-1">
+                      {autoSuggestion.jemaat.name}
                       {autoSuggestion.jemaat.birthDate && ` · ${formatDate(autoSuggestion.jemaat.birthDate)}`}
                       {autoSuggestion.jemaat.phone && ` · ${autoSuggestion.jemaat.phone}`}
                     </p>
-                    <p className="text-xs text-indigo-500 mt-0.5">Alasan: {autoSuggestion.reasons.join(', ')}</p>
+                    <p className="text-[11px] text-indigo-600 mt-0.5">Kriteria cocok: {autoSuggestion.reasons.join(', ')}</p>
                   </div>
-                  <button onClick={() => setSelectedJemaatId(autoSuggestion.jemaat.id)}
-                    className="flex items-center gap-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-semibold flex-shrink-0">
-                    <Link size={10} />Hubungkan
+                  <button 
+                    type="button"
+                    onClick={() => setSelectedJemaatId(autoSuggestion.jemaat.id)}
+                    className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl font-bold flex-shrink-0 shadow-2xs cursor-pointer transition-colors"
+                  >
+                    <Link size={12} /> Hubungkan
                   </button>
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Lengkap *</label>
-                <input type="text" value={memberForm.name} onChange={e => setMemberForm(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-              </div>
-              <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal Lahir</label>
-                  <input type="date" value={memberForm.birthDate} onChange={e => setMemberForm(p => ({ ...p, birthDate: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-                  <p className="text-xs text-gray-400 mt-1">Isi untuk membantu pencocokan otomatis</p>
-                </div>
+              {/* Card 1: Informasi Utama */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3.5">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Informasi Pokok</p>
+
+                {/* Nama Lengkap */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Peran</label>
-                  <select value={memberForm.role} onChange={e => setMemberForm(p => ({ ...p, role: e.target.value as any }))}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                    <option value="anggota">Anggota</option>
-                    <option value="pengurus">Pengurus / PIC</option>
-                    <option value="guru">Guru (Khusus Sekolah Minggu)</option>
-                  </select>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nama Lengkap <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Elizabeth Damaira"
+                    value={memberForm.name} 
+                    onChange={e => setMemberForm(p => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                  />
                 </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">No. Telepon / WA</label>
-                <input type="tel" value={memberForm.phone} onChange={e => setMemberForm(p => ({ ...p, phone: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Alamat Domisili</label>
-                <input type="text" value={memberForm.address} onChange={e => setMemberForm(p => ({ ...p, address: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+
+                {/* Tanggal Lahir & Peran */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Tanggal Lahir
+                    </label>
+                    <input 
+                      type="date" 
+                      value={memberForm.birthDate} 
+                      onChange={e => setMemberForm(p => ({ ...p, birthDate: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Membantu kalkulasi usia & sinkronisasi</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Peran di Komisi
+                    </label>
+                    <select 
+                      value={memberForm.role} 
+                      onChange={e => setMemberForm(p => ({ ...p, role: e.target.value as any }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="anggota">Anggota</option>
+                      <option value="pengurus">Pengurus / PIC</option>
+                      <option value="guru">Guru (Khusus Sekolah Minggu)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              {/* Manual link */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
-                  <Link size={13} />Hubungkan ke Jemaat Umum
-                </label>
+              {/* Card 2: Kontak & Domisili */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3.5">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Kontak & Domisili</p>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    No. Telepon / WhatsApp
+                  </label>
+                  <input 
+                    type="tel" 
+                    placeholder="08123456789"
+                    value={memberForm.phone} 
+                    onChange={e => setMemberForm(p => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Alamat Domisili
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Jl. Jelambar Fajar No. 12"
+                    value={memberForm.address} 
+                    onChange={e => setMemberForm(p => ({ ...p, address: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                  />
+                </div>
+              </div>
+
+              {/* Card 3: Hubungkan ke Data Jemaat Umum */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Link size={13} className="text-indigo-600" />
+                    <span>Sinkronisasi ke Data Jemaat Umum</span>
+                  </label>
+                  {selectedJemaatId && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Terhubung
+                    </span>
+                  )}
+                </div>
+
                 {selectedJemaatId ? (
-                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5">
-                    <Check size={14} className="text-emerald-600 flex-shrink-0" />
+                  <div className="flex items-center gap-3 bg-emerald-50/70 border border-emerald-200 rounded-xl p-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                      <Check size={16} />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-emerald-800 font-semibold">{jemaatMap[selectedJemaatId]?.name || selectedJemaatId}</p>
+                      <p className="text-xs text-emerald-900 font-bold truncate">
+                        {jemaatMap[selectedJemaatId]?.name || selectedJemaatId}
+                      </p>
                       {jemaatMap[selectedJemaatId]?.birthDate && (
-                        <p className="text-xs text-emerald-600">{formatDate(jemaatMap[selectedJemaatId].birthDate!)} · {jemaatMap[selectedJemaatId].phone}</p>
+                        <p className="text-[11px] text-emerald-700">
+                          {formatDate(jemaatMap[selectedJemaatId].birthDate!)} · {jemaatMap[selectedJemaatId].phone || 'Tanpa no. HP'}
+                        </p>
                       )}
                     </div>
-                    <button onClick={() => setSelectedJemaatId('')} className="text-emerald-500 hover:text-red-500"><Unlink size={14} /></button>
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedJemaatId('')} 
+                      className="p-1.5 text-emerald-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Lepas tautan"
+                    >
+                      <Unlink size={15} />
+                    </button>
                   </div>
                 ) : (
-                  <div>
+                  <div className="space-y-1.5">
                     <div className="relative">
-                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input type="text" placeholder={`Cari dari ${jemaatList.length} jemaat umum...`} value={linkSearch}
+                      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder={`Cari dari ${jemaatList.length} data jemaat umum...`} 
+                        value={linkSearch}
                         onChange={e => setLinkSearch(e.target.value)}
-                        className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                      />
                     </div>
-                    {/* Inline results — NOT absolute, so overflow-y-auto parent won't clip it */}
+                    {/* Inline suggestions */}
                     {linkSearch.length >= 2 && formSuggestions.length > 0 && (
-                      <div className="mt-1 border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                      <div className="mt-1 border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-white shadow-md">
                         {formSuggestions.map(r => (
-                          <button key={r.jemaat.id}
+                          <button 
+                            key={r.jemaat.id}
+                            type="button"
                             onMouseDown={e => { e.preventDefault(); setSelectedJemaatId(r.jemaat.id); setLinkSearch(''); }}
-                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0">
-                            <p className="font-semibold text-gray-900 text-sm">{r.jemaat.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            className="w-full text-left px-3.5 py-2 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0 cursor-pointer"
+                          >
+                            <p className="font-bold text-slate-900 text-xs">{r.jemaat.name}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
                               {r.jemaat.birthDate && `${formatDate(r.jemaat.birthDate)} · `}
                               {r.jemaat.phone && `${r.jemaat.phone}`}
                             </p>
@@ -836,21 +936,39 @@ export default function KomisiManagement() {
                       </div>
                     )}
                     {linkSearch.length >= 2 && formSuggestions.length === 0 && (
-                      <p className="text-xs text-gray-400 mt-1.5 px-1">Tidak ditemukan di {jemaatList.length} data jemaat umum</p>
-                    )}
-                    {jemaatList.length === 0 && (
-                      <p className="text-xs text-red-400 mt-1.5 px-1">Belum ada data jemaat umum — tambahkan di menu Data Jemaat</p>
+                      <p className="text-[11px] text-slate-400 px-1">Tidak ditemukan jemaat dengan nama tersebut.</p>
                     )}
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowMemberForm(false)} className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Batal</button>
-              <button onClick={handleSaveMember} disabled={!memberForm.name.trim() || savingMember}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-                {savingMember ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                {editMember ? 'Simpan' : 'Tambah'}
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 bg-white flex items-center justify-end gap-2.5 border-t border-slate-200">
+              <button 
+                type="button"
+                onClick={() => setShowMemberForm(false)} 
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button 
+                type="button"
+                onClick={handleSaveMember} 
+                disabled={!memberForm.name.trim() || savingMember}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
+              >
+                {savingMember ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>{editMember ? 'Simpan Perubahan' : 'Tambah Anggota'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
