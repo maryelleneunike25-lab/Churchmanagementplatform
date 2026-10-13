@@ -8,7 +8,7 @@ import { IBADAH_LABEL } from '../../../lib/ibadahOptions';
 import {
   Search, Phone, User, Users, CalendarCheck, Info, Trash2, X,
   Cake, Heart, Baby, MapPin, Mail, AlertTriangle, ExternalLink,
-  Check, Loader2
+  Check, Loader2, Plus, UserPlus
 } from 'lucide-react';
 
 const KV = 'kv_store_561004a0';
@@ -25,7 +25,7 @@ const SCHEDULE_PELAYAN = [
 ];
 
 const PELAYAN_LAINNYA = [
-  'Pastoral', 'Sekretariat', 'Perjamuan Kudus', 'Usher',
+  'Dekorasi', 'Pastoral', 'Sekretariat', 'Perjamuan Kudus', 'Usher',
   'Multimedia Weekly News', 'Fotografi', 'Tim Doa',
   'Pengurus ABI', 'Pengurus Teens', 'Pengurus Vessel',
   'Pengurus WBI', 'Pengurus Kompas', 'Pengurus Kowari',
@@ -197,6 +197,43 @@ export default function PelayanManagement() {
     .filter(m => !q || m.name.toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name, 'id')), [members, selected, q]);
 
+  // Add Member Picker State
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
+
+  // Handle adding a member from congregation to selected bidang
+  const handleAddMemberToBidang = async (targetMember: Member) => {
+    if (!canEdit) return;
+    setAddingMemberId(targetMember.id);
+    try {
+      const currentPelayan = targetMember.pelayan || [];
+      if (currentPelayan.includes(selected)) {
+        setToastMessage(`${targetMember.name} sudah terdaftar di bidang ${selected}`);
+        return;
+      }
+
+      const newPelayan = [...currentPelayan, selected];
+      const key = targetMember._storeKey || (targetMember.id.startsWith('congregation:member:') ? targetMember.id : `congregation:member:${targetMember.id}`);
+
+      const { data: cur } = await supabase.from(KV).select('value').eq('key', key).maybeSingle();
+      const updatedValue = {
+        ...(cur?.value || targetMember),
+        pelayan: newPelayan,
+        updatedAt: new Date().toISOString(),
+      };
+      await supabase.from(KV).update({ value: updatedValue }).eq('key', key);
+
+      // Update state
+      setMembers(prev => prev.map(m => m.id === targetMember.id ? { ...m, pelayan: newPelayan } : m));
+      setToastMessage(`${targetMember.name} berhasil ditambahkan ke bidang ${selected}`);
+    } catch (err: any) {
+      alert(`Gagal menambahkan pelayan: ${err.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setAddingMemberId(null);
+    }
+  };
+
   // Handle removing pelayan role
   const handleRemovePelayan = async () => {
     if (!deleteConfirm) return;
@@ -299,12 +336,25 @@ export default function PelayanManagement() {
         {/* Selected header banner */}
         <div className={`${q ? 'bg-gray-800' : activeDef?.color || 'bg-gray-800'} rounded-2xl px-4 py-3 flex items-center justify-between shadow-sm`}>
           <div className="min-w-0">
-            <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">{q ? 'Hasil Pencarian' : 'Bidang'}</p>
+            <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">{q ? 'Hasil Pencarian' : 'Bidang Pelayanan'}</p>
             <p className="text-white font-bold text-base break-words">{q ? `“${search}”` : selected}</p>
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : filtered.length}</p>
-            <p className="text-white/60 text-[10px]">pelayan</p>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {canEdit && !q && (
+              <button
+                type="button"
+                onClick={() => { setPickerSearch(''); setPickerOpen(true); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-xs transition-colors cursor-pointer border border-white/20 shadow-xs"
+                title={`Tambah anggota jemaat ke bidang ${selected}`}
+              >
+                <UserPlus size={14} />
+                <span>Tambah Anggota</span>
+              </button>
+            )}
+            <div className="text-right">
+              <p className="text-white font-bold text-2xl leading-none">{loading ? '—' : filtered.length}</p>
+              <p className="text-white/60 text-[10px]">pelayan</p>
+            </div>
           </div>
         </div>
 
@@ -317,8 +367,18 @@ export default function PelayanManagement() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-8 text-center bg-white rounded-2xl border border-gray-100">
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-3"><User size={24} className="text-gray-400" /></div>
-            <p className="font-semibold text-gray-600 text-sm">{q ? 'Tidak ada yang cocok' : 'Belum ada pelayan di bidang ini'}</p>
-            {!q && <p className="text-xs text-gray-400 mt-1">Tambah lewat Data Jemaat → Edit → Pelayanan</p>}
+            <p className="font-semibold text-gray-600 text-sm">{q ? 'Tidak ada yang cocok' : `Belum ada pelayan di bidang ${selected}`}</p>
+            {!q && canEdit && (
+              <button
+                type="button"
+                onClick={() => { setPickerSearch(''); setPickerOpen(true); }}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+              >
+                <UserPlus size={14} />
+                <span>Pilih dari Data Jemaat</span>
+              </button>
+            )}
+            {!q && !canEdit && <p className="text-xs text-gray-400 mt-1">Tambah lewat Data Jemaat → Edit → Pelayanan</p>}
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -648,6 +708,105 @@ export default function PelayanManagement() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50">
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 {deleting ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD MEMBER PICKER MODAL ── */}
+      {pickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Tambah Anggota ke Bidang</h3>
+                <p className="text-xs text-gray-500 font-medium">Bidang: <span className="font-bold text-blue-600">{selected}</span></p>
+              </div>
+              <button onClick={() => setPickerOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-3 border-b border-gray-100">
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Cari nama jemaat..."
+                  value={pickerSearch}
+                  onChange={e => setPickerSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-3 space-y-1 divide-y divide-gray-50 max-h-[50vh]">
+              {members
+                .filter(m => {
+                  const q = pickerSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  return m.name.toLowerCase().includes(q) || (m.nickname || '').toLowerCase().includes(q);
+                })
+                .slice(0, 50)
+                .map(m => {
+                  const alreadyIn = (m.pelayan || []).includes(selected);
+                  const isBusy = addingMemberId === m.id;
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-2.5 hover:bg-gray-50 rounded-xl transition-colors pt-2.5"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        {m.photoUrl ? (
+                          <img src={m.photoUrl} alt={m.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                            {initials(m.name)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
+                          <p className="text-[11px] text-gray-400 truncate">
+                            {m.phone || 'Tanpa no. telepon'}
+                            {m.pksName ? ` · PKS ${m.pksName}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      {alreadyIn ? (
+                        <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 flex-shrink-0">
+                          Terdaftar
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleAddMemberToBidang(m)}
+                          className="px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors flex items-center gap-1 flex-shrink-0 cursor-pointer disabled:opacity-50"
+                        >
+                          {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                          <span>{isBusy ? 'Menambahkan...' : 'Pilih'}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              {members.filter(m => m.name.toLowerCase().includes(pickerSearch.toLowerCase())).length === 0 && (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  Tidak ada jemaat yang cocok
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                Selesai
               </button>
             </div>
           </div>

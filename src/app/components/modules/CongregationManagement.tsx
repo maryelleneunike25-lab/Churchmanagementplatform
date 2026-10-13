@@ -53,7 +53,7 @@ const SCHEDULE_KEYS = new Set(SCHEDULE_DIVISIONS.map(d => d.key));
 
 // Other pelayan roles — saved in member profile but do NOT sync to Jadwal Pelayanan
 const PELAYAN_LAINNYA = [
-  'Pastoral', 'Sekretariat', 'Perjamuan Kudus', 'Usher',
+  'Dekorasi', 'Pastoral', 'Sekretariat', 'Perjamuan Kudus', 'Usher',
   'Multimedia Weekly News',
   'Fotografi', 'Tim Doa', 'Pengurus ABI', 'Pengurus Teens',
   'Pengurus Vessel', 'Pengurus WBI', 'Pengurus Kompas',
@@ -83,7 +83,7 @@ interface Member {
   gender: 'male' | 'female';
   maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
   baptismDate?: string;
-  status: 'active' | 'inactive' | 'new';
+  status: 'active' | 'inactive' | 'new' | 'visitor' | 'visitors';
   pelayan?: string[];
     familyId?: string;
     spouseName?: string;
@@ -111,7 +111,7 @@ const BLANK_FORM = {
   maritalStatus: 'single' as 'single' | 'married' | 'divorced' | 'widowed',
   baptismDate: '',
   baptismStatus: 'belum' as 'sudah' | 'belum',
-  status: 'new' as 'active' | 'inactive' | 'new',
+  status: 'new' as 'active' | 'inactive' | 'new' | 'visitor' | 'visitors',
   pelayan: [] as string[], komselId: '',
   additionalPhones: [] as string[],
   ibadah: [] as string[],
@@ -189,8 +189,16 @@ const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700',
   new: 'bg-blue-100 text-blue-700',
   inactive: 'bg-gray-100 text-gray-500',
+  visitor: 'bg-amber-100 text-amber-800 border border-amber-200',
+  visitors: 'bg-amber-100 text-amber-800 border border-amber-200',
 };
-const STATUS_LABEL: Record<string, string> = { active: 'Aktif', new: 'Jemaat Baru', inactive: 'Tidak Aktif' };
+const STATUS_LABEL: Record<string, string> = {
+  active: 'Aktif',
+  new: 'Jemaat Baru',
+  inactive: 'Tidak Aktif',
+  visitor: 'Visitors',
+  visitors: 'Visitors',
+};
 
 function Avatar({ m, size = 56 }: { m: { name: string; photoUrl?: string }; size?: number }) {
   const initials = m.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -919,7 +927,7 @@ export default function CongregationManagement() {
       'Jenis Kelamin': m.gender === 'male' ? 'Laki-laki' : 'Perempuan',
       'Status Pernikahan': m.maritalStatus || '',
       'Alamat Domisili': m.address || '',
-      'Status': m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif',
+      'Status': STATUS_LABEL[m.status] || (m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif'),
       'Pelayan': (m.pelayan || []).join(', '),
       'Komsel/PKS': m.pksName || komsels.find(k => k.id === m.komselId)?.name || '',
       'Ibadah': (m.ibadah || []).join(', '),
@@ -1301,6 +1309,7 @@ export default function CongregationManagement() {
                     className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
                     <option value="new">Jemaat Baru</option>
                     <option value="active">Aktif</option>
+                    <option value="visitor">Visitors</option>
                     <option value="inactive">Tidak Aktif</option>
                   </select>
                 </div>

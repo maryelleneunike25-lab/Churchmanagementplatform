@@ -1013,16 +1013,26 @@ export default function KomselManagement() {
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingKomsel ? 'Edit Komsel' : 'Tambah Komsel Baru'}</DialogTitle>
         <DialogContent className="space-y-4 pt-2">
-          <TextField
-            label="Nama PKS (pemimpin)"
-            value={formData.pksName}
-            onChange={e => setFormData({ ...formData, pksName: e.target.value })}
-            fullWidth
-            size="small"
-            required
-            sx={{ mt: 1 }}
-            helperText="Nama ini otomatis muncul sebagai pilihan PKS di Data Jemaat"
-          />
+          <div>
+            <TextField
+              label="Nama PKS (pemimpin)"
+              value={formData.pksName}
+              onChange={e => setFormData({ ...formData, pksName: e.target.value })}
+              fullWidth
+              size="small"
+              required
+              sx={{ mt: 1 }}
+              inputProps={{ list: 'congregation-member-list' }}
+              helperText="Ketik nama atau pilih dari jemaat yang terdaftar di Data Jemaat"
+            />
+            <datalist id="congregation-member-list">
+              {allMembers.map(m => (
+                <option key={m.id} value={m.name}>
+                  {m.name} {m.phone ? `(${m.phone})` : ''}
+                </option>
+              ))}
+            </datalist>
+          </div>
           <TextField
             label="Nama Komsel (opsional)"
             value={formData.name}
@@ -1195,12 +1205,19 @@ export default function KomselManagement() {
                 <div className="col-span-6">
                   <input
                     value={ldr.name}
+                    list="congregation-member-list"
                     onChange={e => {
+                      const val = e.target.value;
                       const updated = [...plotForm.leaders];
-                      updated[idx].name = e.target.value;
+                      updated[idx].name = val;
+                      // Auto-fill phone if matches congregation member
+                      const found = allMembers.find(m => m.name.toLowerCase() === val.trim().toLowerCase());
+                      if (found && (found.phone || (found.phones && found.phones[0])) && !updated[idx].phone) {
+                        updated[idx].phone = found.phone || found.phones[0];
+                      }
                       setPlotForm({ ...plotForm, leaders: updated });
                     }}
-                    placeholder="Nama Ketua PKS"
+                    placeholder="Nama Ketua PKS (dari Data Jemaat)"
                     className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
                   />
                 </div>
