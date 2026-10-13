@@ -6,7 +6,7 @@ import {
   Users, Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, Search,
   SortAsc, SortDesc, UserPlus, UserMinus, Phone, Calendar, Clock,
   MapPin, AlertTriangle, CheckCircle2, MessageSquare, AlertCircle,
-  Ban, RefreshCw, Send, Check, Lock, Settings
+  Ban, RefreshCw, Send, Check, Lock, Settings, DoorOpen, Loader2
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogTitle, TextField, Select, MenuItem,

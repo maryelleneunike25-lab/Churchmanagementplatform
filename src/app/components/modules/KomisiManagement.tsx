@@ -9,7 +9,7 @@ import KomisiReport from './KomisiReport';
 import {
   Users, Plus, Trash2, Edit2, X, Check, ChevronDown, AlertTriangle,
   ClipboardList, Download, Calendar, UserCheck, UserX, Link, Unlink,
-  Search, RefreshCw, ShieldAlert, Info, Activity, Circle, ArrowUpToLine, ArrowDownToLine, Save,
+  Search, RefreshCw, ShieldAlert, Info, Activity, Circle, Save,
 } from 'lucide-react';
 
 const KV = 'kv_store_561004a0';
@@ -473,10 +473,6 @@ export default function KomisiManagement() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="fixed right-3 bottom-24 z-30 flex flex-col gap-2">
-        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Ke atas" className="w-10 h-10 rounded-full bg-white border border-gray-200 text-gray-600 shadow-md flex items-center justify-center"><ArrowUpToLine size={17} /></button>
-        <button onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })} aria-label="Ke bawah" className="w-10 h-10 rounded-full bg-white border border-gray-200 text-gray-600 shadow-md flex items-center justify-center"><ArrowDownToLine size={17} /></button>
-      </div>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
