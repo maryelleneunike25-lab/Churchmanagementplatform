@@ -103,8 +103,16 @@ export default async function handler(req, res) {
         actionsSummary,
       });
     } catch (err) {
-      console.error('Fetch activity logs error:', err);
-      return sendError(res, 500, 'Gagal memuat log aktivitas');
+      console.warn('Fetch activity logs error:', err?.message);
+      return sendJson(res, 200, {
+        success: true,
+        logs: [],
+        total: 0,
+        page: 1,
+        limit: 50,
+        actionsSummary: [],
+        quotaExceeded: true
+      });
     }
   }
 

@@ -7,13 +7,18 @@ export default async function handler(req, res) {
   if (!admin) return;
 
   if (req.method === 'GET') {
-    const list = await sql`
-      SELECT a.email, a.added_at, u.name as added_by_name 
-      FROM auth_allowlist a 
-      LEFT JOIN users u ON a.added_by = u.id 
-      ORDER BY a.added_at DESC
-    `;
-    return sendJson(res, 200, { success: true, data: list });
+    try {
+      const list = await sql`
+        SELECT a.email, a.added_at, u.name as added_by_name 
+        FROM auth_allowlist a 
+        LEFT JOIN users u ON a.added_by = u.id 
+        ORDER BY a.added_at DESC
+      `;
+      return sendJson(res, 200, { success: true, data: list });
+    } catch (err) {
+      console.warn('allowlist GET DB error:', err?.message);
+      return sendJson(res, 200, { success: true, data: [], quotaExceeded: true });
+    }
   } 
   
   if (req.method === 'POST') {

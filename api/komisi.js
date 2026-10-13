@@ -7,17 +7,22 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const { id } = req.query;
-    if (id) {
-      const members = await sql`
-        SELECT km.id, km.role, km.manual_name, km.manual_phone, km.manual_birth_date, j.name, j.phones, j.birth_date
-        FROM komisi_members km
-        LEFT JOIN jemaat j ON km.jemaat_id = j.id
-        WHERE km.komisi_id = ${id}
-      `;
-      return sendJson(res, 200, members);
+    try {
+      if (id) {
+        const members = await sql`
+          SELECT km.id, km.role, km.manual_name, km.manual_phone, km.manual_birth_date, j.name, j.phones, j.birth_date
+          FROM komisi_members km
+          LEFT JOIN jemaat j ON km.jemaat_id = j.id
+          WHERE km.komisi_id = ${id}
+        `;
+        return sendJson(res, 200, members);
+      }
+      const komisis = await sql`SELECT * FROM komisi`;
+      return sendJson(res, 200, komisis);
+    } catch (err) {
+      console.warn('komisi.js DB error:', err?.message);
+      return sendJson(res, 200, []);
     }
-    const komisis = await sql`SELECT * FROM komisi`;
-    return sendJson(res, 200, komisis);
   }
 
   res.setHeader('Allow', 'GET');

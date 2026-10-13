@@ -81,8 +81,13 @@ export default async function handler(req, res) {
         }
       });
     } catch (err) {
-      console.error('Get presence error:', err);
-      return sendError(res, 500, 'Gagal memuat status admin');
+      console.warn('Get presence error:', err?.message);
+      return sendJson(res, 200, {
+        success: true,
+        admins: [],
+        stats: { online: 0, idle: 0, total: 0 },
+        quotaExceeded: true
+      });
     }
   }
 

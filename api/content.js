@@ -9,12 +9,22 @@ const uid = (p) => `${p}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}
 const now = () => new Date().toISOString();
 
 const byPrefix = async (prefix) => {
-  const rows = await sql`SELECT value FROM app_kv WHERE key LIKE ${prefix + '%'}`;
-  return rows.map((r) => r.value).filter(Boolean);
+  try {
+    const rows = await sql`SELECT value FROM app_kv WHERE key LIKE ${prefix + '%'}`;
+    return rows.map((r) => r.value).filter(Boolean);
+  } catch (err) {
+    console.warn(`content byPrefix error for ${prefix}:`, err?.message);
+    return [];
+  }
 };
 const get = async (key) => {
-  const rows = await sql`SELECT value FROM app_kv WHERE key = ${key}`;
-  return rows[0]?.value ?? null;
+  try {
+    const rows = await sql`SELECT value FROM app_kv WHERE key = ${key}`;
+    return rows[0]?.value ?? null;
+  } catch (err) {
+    console.warn(`content get error for ${key}:`, err?.message);
+    return null;
+  }
 };
 const set = (key, value) => {
   const json = JSON.stringify(value);
