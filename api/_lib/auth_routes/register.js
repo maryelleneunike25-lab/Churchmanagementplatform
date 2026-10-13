@@ -21,7 +21,12 @@ export default async function handler(req, res) {
   try {
     if (isJemaat) await ensureJemaatRole();
     const existing = await sql`SELECT id, role, status, password_hash, auth_provider FROM users WHERE email = ${email}`;
-    const isSuperAdminEmail = !isJemaat && email === 'maryelleneunike25@gmail.com';
+    const SUPER_ADMIN_EMAILS = [
+      'maryelleneunike25@gmail.com',
+      'maryelleneun@gmail.com',
+      'admin@gbijeltim.com'
+    ];
+    const isSuperAdminEmail = !isJemaat && SUPER_ADMIN_EMAILS.includes(email);
     const allowlist = await sql`SELECT * FROM auth_allowlist WHERE email = ${email}`;
 
     if (!isJemaat && !isSuperAdminEmail && allowlist.length === 0) {

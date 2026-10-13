@@ -15,8 +15,15 @@ export default async function handler(req, res) {
     
     let user = users[0];
 
+    const SUPER_ADMIN_EMAILS = [
+      'maryelleneunike25@gmail.com',
+      'maryelleneun@gmail.com',
+      'admin@gbijeltim.com'
+    ];
+    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(email);
+
     // Auto promote default superadmin
-    if (email === 'maryelleneunike25@gmail.com' && (user.role !== 'super_admin' || user.status !== 'approved')) {
+    if (isSuperAdminEmail && (user.role !== 'super_admin' || user.status !== 'approved')) {
       const updated = await sql`
         UPDATE users SET role = 'super_admin', status = 'approved'
         WHERE id = ${user.id} RETURNING *
@@ -33,7 +40,11 @@ export default async function handler(req, res) {
       return sendJson(res, 200, { success: false, status: user.status, message: 'Akun belum disetujui.' });
     }
 
-    const token = issueSessionToken(res, user.id, user.role);
+    const token = issueSessionToken(res, user.id, user.role, {
+      email: user.email,
+      name: user.name,
+      permissions: user.permissions
+    });
 
     // Update presence & log activity
     const userAgent = req.headers['user-agent'] || null;

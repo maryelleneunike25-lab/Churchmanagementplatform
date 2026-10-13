@@ -1,14 +1,20 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.warn('JWT_SECRET is not set. Sessions will fail.');
+const JWT_SECRET = process.env.JWT_SECRET || 'e9a71b2d4c5f6e8a09b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3';
+if (!process.env.JWT_SECRET) {
+  console.warn('JWT_SECRET is not set in env. Using fallback secret.');
 }
 
 const COOKIE_NAME = 'gjt_session';
 
-export function issueSessionToken(res, userId, role) {
-  const token = jwt.sign({ sub: userId, role }, JWT_SECRET, { expiresIn: '7d' });
+export function issueSessionToken(res, userId, role, extra = {}) {
+  const token = jwt.sign({
+    sub: userId,
+    role,
+    email: extra.email,
+    name: extra.name,
+    permissions: extra.permissions
+  }, JWT_SECRET, { expiresIn: '7d' });
   const isProd = process.env.NODE_ENV === 'production';
   // Use httpOnly, Secure (in prod), SameSite=Lax
   res.setHeader(
@@ -26,7 +32,10 @@ export function verifySessionToken(req) {
       const payload = jwt.verify(bearerToken, JWT_SECRET);
       return {
         userId: payload.sub,
-        role: payload.role
+        role: payload.role,
+        email: payload.email,
+        name: payload.name,
+        permissions: payload.permissions
       };
     } catch (e) {}
   }
@@ -48,7 +57,10 @@ export function verifySessionToken(req) {
     const payload = jwt.verify(token, JWT_SECRET);
     return {
       userId: payload.sub,
-      role: payload.role
+      role: payload.role,
+      email: payload.email,
+      name: payload.name,
+      permissions: payload.permissions
     };
   } catch (err) {
     return null;

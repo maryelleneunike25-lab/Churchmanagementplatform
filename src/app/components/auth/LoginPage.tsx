@@ -33,40 +33,50 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
     window.location.protocol === 'file:'
   );
 
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '647511928995-cp3lvq3pap1pg1am24qfouenodnuh1ne.apps.googleusercontent.com';
+
   useEffect(() => {
     // Only load web GIS script if running on browser (not in native app)
     if (isNative) return;
 
-    const loadGoogleScript = () => {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
+    const initGoogleButton = () => {
+      // @ts-ignore
+      if (window.google && googleButtonRef.current) {
         // @ts-ignore
-        if (window.google && googleButtonRef.current) {
+        window.google.accounts.id.initialize({
           // @ts-ignore
-          window.google.accounts.id.initialize({
-            // @ts-ignore
-            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id',
-            callback: handleGoogleCredentialResponse
-          });
-          // @ts-ignore
-          window.google.accounts.id.renderButton(googleButtonRef.current, {
-            theme: 'outline',
-            size: 'large',
-            width: '100%',
-            text: 'signin_with',
-            shape: 'rectangular',
-          });
-        }
-      };
-      document.body.appendChild(script);
-      return () => {
-        document.body.removeChild(script);
-      };
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse
+        });
+        // @ts-ignore
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: 'signin_with',
+          shape: 'rectangular',
+        });
+      }
     };
-    loadGoogleScript();
+
+    if ((window as any).google?.accounts?.id && googleButtonRef.current) {
+      initGoogleButton();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      initGoogleButton();
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
   }, [isNative]);
 
   const handleNativeGoogleSignIn = async () => {
@@ -74,7 +84,7 @@ export default function LoginPage({ onSwitchToSignup }: { onSwitchToSignup?: () 
     setLoading(true);
     try {
       const res = await NativeGoogleAuth.signIn({
-        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID
+        clientId: GOOGLE_CLIENT_ID
       });
       if (res && res.credential) {
         await handleGoogleCredentialResponse({ credential: res.credential });
