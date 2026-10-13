@@ -11,7 +11,7 @@ import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES, ty
 import { projectId } from '/utils/supabase/info';
 import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
 import ImagePicker from '../common/ImagePicker';
-import { MapPin, Phone, Mail, Cake, Heart, Baby } from 'lucide-react';
+import { MapPin, Phone, Mail, Cake, Heart, Baby, Calendar } from 'lucide-react';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
 const KV = 'kv_store_561004a0';
@@ -112,6 +112,7 @@ const BLANK_FORM = {
   baptismDate: '',
   baptismStatus: 'belum' as 'sudah' | 'belum',
   status: 'new' as 'active' | 'inactive' | 'new' | 'visitor' | 'visitors',
+  joinDate: '',
   pelayan: [] as string[], komselId: '',
   additionalPhones: [] as string[],
   ibadah: [] as string[],
@@ -241,6 +242,7 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
         {m.email && <div className={row}><Mail size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-all">{m.email}</span></div>}
         {m.address && <div className={row}><MapPin size={13} className="mt-0.5 text-gray-400 flex-shrink-0" /><span className="break-words">{m.address}</span></div>}
         {m.birthDate && <div className={row}><Cake size={13} className="mt-0.5 text-pink-400 flex-shrink-0" /><span>{m.birthPlace ? `${m.birthPlace}, ` : ''}{formatDate(m.birthDate)}</span></div>}
+        {m.joinDate && <div className={row}><Calendar size={13} className="mt-0.5 text-blue-500 flex-shrink-0" /><span>Bergabung: {formatDate(m.joinDate)} {m.status === 'new' && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1 py-0.2 rounded">(Baru)</span>}</span></div>}
         {m.maritalStatus && m.maritalStatus !== 'single' && m.spouseName && <div className={row}><Heart size={13} className="mt-0.5 text-rose-400 flex-shrink-0" /><span className="break-words">{m.spouseName}</span></div>}
         {m.maritalStatus && m.maritalStatus !== 'single' && m.children && m.children.length > 0 && <div className={row}><Baby size={13} className="mt-0.5 text-sky-400 flex-shrink-0" /><span className="break-words">{m.children.map(c => c.name).join(', ')}</span></div>}
       </div>
@@ -622,6 +624,7 @@ export default function CongregationManagement() {
         baptismDate: member.baptismDate || '',
         baptismStatus: member.baptismStatus || 'belum',
         status: member.status || 'active',
+        joinDate: member.joinDate ? member.joinDate.slice(0, 10) : '',
         pelayan: member.pelayan || [], komselId: member.komselId || '',
         additionalPhones: (member.phones || []).slice(1),
         ibadah: member.ibadah || [],
@@ -630,7 +633,7 @@ export default function CongregationManagement() {
       });
     } else {
       setEditingMember(null);
-      setFormData({ ...BLANK_FORM });
+      setFormData({ ...BLANK_FORM, joinDate: new Date().toISOString().slice(0, 10) });
     }
     setOpenDialog(true);
   };
@@ -673,7 +676,7 @@ export default function CongregationManagement() {
         spouseName: formData.maritalStatus !== 'single' ? formData.spouseName.trim() || undefined : undefined,
         children: formData.maritalStatus !== 'single' ? formData.children.filter(c => c.name.trim()).map(c => ({ name: c.name.trim(), birthDate: c.birthDate || undefined })) : [],
         phones: [formData.phone.trim(), ...formData.additionalPhones.filter(p => p.trim())].filter(Boolean),
-        joinDate: editingMember?.joinDate || now,
+        joinDate: formData.joinDate ? formData.joinDate : (editingMember?.joinDate || now),
         createdAt: editingMember?.createdAt || now,
         updatedAt: now,
       };
@@ -1312,6 +1315,14 @@ export default function CongregationManagement() {
                     <option value="visitor">Visitors</option>
                     <option value="inactive">Tidak Aktif</option>
                   </select>
+                </div>
+                {/* Tanggal Pertama Bergabung */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Tanggal Pertama Bergabung {formData.status === 'new' && <span className="text-blue-600 font-semibold">(Jemaat Baru)</span>}
+                  </label>
+                  <input type="date" value={formData.joinDate} onChange={e => setFormData(p => ({ ...p, joinDate: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
                 </div>
                 {/* Alamat Domisili */}
                 <div className="col-span-2">

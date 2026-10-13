@@ -28,6 +28,8 @@ function toMember(r: { key: string; value: unknown }): Member | null {
     status: m.status,
     pksName: m.pksName,
     komselId: m.komselId,
+    joinDate: m.joinDate,
+    createdAt: m.createdAt,
   };
 }
 
@@ -39,6 +41,8 @@ interface Member {
   status?: string;
   pksName?: string;
   komselId?: string;
+  joinDate?: string;
+  createdAt?: string;
 }
 
 interface Session {
@@ -319,17 +323,32 @@ function CalendarModal({
 function CustomChartTooltip({ active, payload }: any) {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    const delta = data.delta || 0;
     return (
-      <div className="bg-gray-900/95 backdrop-blur-xs text-white p-3 rounded-xl shadow-xl text-xs space-y-1 border border-gray-800 min-w-40 animate-in fade-in zoom-in-95">
+      <div className="bg-gray-900/95 backdrop-blur-xs text-white p-3 rounded-xl shadow-xl text-xs space-y-1.5 border border-gray-800 min-w-44 animate-in fade-in zoom-in-95">
         <p className="font-semibold text-gray-100">{data.fullLabel || data.label}</p>
         <div className="flex items-center justify-between gap-3 pt-1 border-t border-gray-800">
           <span className="text-gray-400">Total Hadir:</span>
           <span className="font-bold text-emerald-400 text-sm">{data.hadir} orang</span>
         </div>
+        {delta !== 0 && (
+          <div className="flex items-center justify-between gap-3 text-[11px]">
+            <span className="text-gray-400">Perubahan:</span>
+            <span className={`font-semibold ${delta > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {delta > 0 ? `+${delta} (Naik)` : `${delta} (Turun)`}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 text-[11px] text-gray-400">
+          <span>Jemaat Baru:</span>
+          <span className="font-semibold text-blue-300">
+            +{data.newMembers || 0} orang
+          </span>
+        </div>
         {data.totalMembers > 0 && (
           <div className="flex items-center justify-between gap-3 text-[11px] text-gray-400">
             <span>Persentase:</span>
-            <span className="font-semibold text-blue-300">
+            <span className="font-semibold text-gray-200">
               {Math.round((data.hadir / data.totalMembers) * 100)}%
             </span>
           </div>
@@ -779,8 +798,9 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
 
   // ─── Chart Data Preparation ──────────────────────────────────────────────
   const chartData = useMemo(() => {
+    let result = [];
     if (view === 'weekly') {
-      // Recent 8 weeks trend ending at or around currentWeek
+      // Recent 8 weeks ending at or around currentWeek
       const weeksData = [];
       const baseDate = new Date(currentWeek.sundayDate);
       
@@ -795,28 +815,47 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
 
         const isCurrent = wInfo.sundayDate === currentWeek.sundayDate;
 
+        // Count new members joined in this week window
+        const newMembersCount = members.filter(m => {
+          const jd = (m.joinDate || m.createdAt || '').slice(0, 10);
+          return jd >= wInfo.monday && jd <= wInfo.sunday;
+        }).length;
+
         weeksData.push({
           key: wInfo.sundayDate,
           label: wInfo.shortLabel,
+          periodName: `Minggu (${wInfo.shortLabel})`,
           fullLabel: `Minggu: ${wInfo.label}`,
           hadir: count,
+          delta: 0,
+          newMembers: newMembersCount,
           isCurrent,
           totalMembers: members.length,
           dateStr: wInfo.sundayDate,
         });
       }
-      return weeksData;
+      result = weeksData;
     } else if (view === 'monthly') {
       // All Sundays in that month
-      return dateCols.map(d => {
+      result = dateCols.map(d => {
         const count = totalByDate(d);
         const parts = d.split('-');
         const dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+
+        // New members on that date
+        const newMembersCount = members.filter(m => {
+          const jd = (m.joinDate || m.createdAt || '').slice(0, 10);
+          return jd === d;
+        }).length;
+
         return {
           key: d,
           label: `${parts[2]}/${parts[1]}`,
+          periodName: `Ibadah ${parts[2]}/${parts[1]}`,
           fullLabel: dateObj.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
           hadir: count,
+          delta: 0,
+          newMembers: newMembersCount,
           isCurrent: d === selectedDate,
           totalMembers: members.length,
           dateStr: d,
@@ -825,22 +864,40 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
     } else {
       // Yearly: 12 months
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-      return months.map((mName, idx) => {
+      result = months.map((mName, idx) => {
         const mPrefix = `${year}-${pad2(idx + 1)}`;
         const mSessions = sessions.filter(s => s.date.startsWith(mPrefix));
         const total = mSessions.reduce((sum, s) => sum + s.presentIds.length, 0);
         const avg = mSessions.length > 0 ? Math.round(total / mSessions.length) : 0;
+
+        // New members in this month
+        const newMembersCount = members.filter(m => {
+          const jd = (m.joinDate || m.createdAt || '').slice(0, 7);
+          return jd === mPrefix;
+        }).length;
+
         return {
           key: mPrefix,
           label: mName,
+          periodName: `Bulan ${mName}`,
           fullLabel: `Bulan ${monthLabel(year, idx + 1)}`,
           hadir: avg,
+          delta: 0,
+          newMembers: newMembersCount,
           sessionsCount: mSessions.length,
           totalMembers: members.length,
           dateStr: `${mPrefix}-01`,
         };
       });
     }
+
+    // Calculate delta (kenaikan / penurunan) relative to previous period item
+    for (let i = 0; i < result.length; i++) {
+      if (i > 0) {
+        result[i].delta = result[i].hadir - result[i - 1].hadir;
+      }
+    }
+    return result;
   }, [view, currentWeek, sessions, dateCols, members, year, month, selectedDate]);
 
   const avgAttendance = useMemo(() => {
@@ -995,12 +1052,12 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
             <div className="flex items-center gap-2">
               <BarChart3 size={20} className="text-blue-600" />
               <h3 className="font-bold text-gray-900 text-base">
-                {view === 'weekly' ? 'Tren Kehadiran Mingguan' : view === 'monthly' ? `Kehadiran per Minggu (${monthLabel(year, month)})` : `Rata-rata Kehadiran per Bulan (${year})`}
+                {view === 'weekly' ? 'Kehadiran Mingguan' : view === 'monthly' ? `Kehadiran per Minggu (${monthLabel(year, month)})` : `Rata-rata Kehadiran per Bulan (${year})`}
               </h3>
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
               {view === 'weekly'
-                ? 'Perbandingan kehadiran dengan minggu-minggu sebelumnya (klik bar untuk memilih)'
+                ? 'Perbandingan kehadiran mingguan dengan rincian kenaikan/penurunan & jemaat baru'
                 : 'Grafik interaktif jemaat hadir per sesi ibadah'}
             </p>
           </div>
@@ -1096,6 +1153,70 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
               </BarChart>
             </ResponsiveContainer>
           )}
+        </div>
+
+        {/* ─── Data List Breakdown (Kenaikan / Penurunan & Jemaat Baru) ─── */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-2.5">
+            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Rincian Per Periode: Kenaikan/Penurunan & Jemaat Baru</span>
+            </h4>
+            <span className="text-[11px] text-gray-400">
+              {view === 'weekly' ? 'Data per minggu' : view === 'monthly' ? 'Data per sesi bulan ini' : 'Data per bulan sepanjang tahun'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {chartData.map((item, idx) => {
+              const delta = item.delta || 0;
+              const newCount = item.newMembers || 0;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => item.dateStr && setSelectedDate(item.dateStr)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                    item.isCurrent
+                      ? 'border-indigo-400 bg-indigo-50/50 shadow-xs ring-1 ring-indigo-200'
+                      : 'border-gray-100 bg-gray-50/70 hover:bg-white hover:border-gray-200'
+                  }`}
+                >
+                  <p className="text-[11px] font-bold text-gray-700 truncate" title={item.fullLabel}>
+                    {item.label}
+                  </p>
+                  <div className="mt-1 flex items-baseline justify-between gap-1">
+                    <span className="text-base font-extrabold text-gray-900">{item.hadir}</span>
+                    <span className="text-[10px] text-gray-500 font-medium">hadir</span>
+                  </div>
+
+                  <div className="mt-1.5 pt-1.5 border-t border-gray-200/60 flex flex-col gap-1 text-[10px]">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-gray-500">Perubahan:</span>
+                      {idx === 0 ? (
+                        <span className="text-gray-400 font-medium">–</span>
+                      ) : delta > 0 ? (
+                        <span className="font-bold text-emerald-600 flex items-center gap-0.5">
+                          <TrendingUp size={10} /> +{delta}
+                        </span>
+                      ) : delta < 0 ? (
+                        <span className="font-bold text-rose-600 flex items-center gap-0.5">
+                          <TrendingDown size={10} /> {delta}
+                        </span>
+                      ) : (
+                        <span className="font-medium text-gray-500">Tetap (0)</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-gray-500">Jemaat Baru:</span>
+                      <span className={`font-bold ${newCount > 0 ? 'text-blue-600 bg-blue-100/70 px-1 rounded' : 'text-gray-400'}`}>
+                        +{newCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

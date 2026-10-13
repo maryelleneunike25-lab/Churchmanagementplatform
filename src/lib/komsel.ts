@@ -62,6 +62,28 @@ export const STANDARD_ROOMS = [
   'Ruang PKS 2',
 ];
 
+/** Loads rooms from config:rooms in KV store, falling back to STANDARD_ROOMS */
+export async function loadRooms(): Promise<string[]> {
+  try {
+    const { data } = await EdgeKV.from(KV).select('value').eq('key', 'config:rooms').maybeSingle();
+    if (data?.value && Array.isArray(data.value) && data.value.length > 0) {
+      return data.value;
+    }
+  } catch (err) {
+    console.error('Error loading rooms:', err);
+  }
+  return [...STANDARD_ROOMS];
+}
+
+/** Saves rooms to config:rooms in KV store */
+export async function saveRooms(rooms: string[]): Promise<void> {
+  const { error } = await EdgeKV.from(KV).update({ value: rooms }).eq('key', 'config:rooms');
+  if (error) {
+    const { error: insError } = await EdgeKV.from(KV).insert({ key: 'config:rooms', value: rooms });
+    if (insError) throw insError;
+  }
+}
+
 export const KNOWN_PKS_LEADERS: Record<string, PksLeaderContact[]> = {
   'NAOMI': [
     { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' },
@@ -398,7 +420,7 @@ export async function setPlotStatus(id: string, status: 'active' | 'berhalangan'
   if (error) throw error;
 }
 
-/** Detects all room schedule conflicts between active plots */
+/** Detects all room conflicts between active plots (only checks room conflict) */
 export function detectPlotConflicts(plots: PksPlot[]): PlotConflict[] {
   const conflicts: PlotConflict[] = [];
   const active = plots.filter(p => p.status === 'active');
@@ -407,24 +429,15 @@ export function detectPlotConflicts(plots: PksPlot[]): PlotConflict[] {
     for (let j = i + 1; j < active.length; j++) {
       const a = active[i];
       const b = active[j];
-      if (a.date !== b.date) continue;
       if (a.room.trim().toLowerCase() !== b.room.trim().toLowerCase()) continue;
 
-      // Check time overlap: a.start < b.end && a.end > b.start
-      const aStart = a.startTime.replace(':', '');
-      const aEnd = a.endTime.replace(':', '');
-      const bStart = b.startTime.replace(':', '');
-      const bEnd = b.endTime.replace(':', '');
-
-      if (aStart < bEnd && aEnd > bStart) {
-        conflicts.push({
-          plotA: a,
-          plotB: b,
-          room: a.room,
-          date: a.date,
-          message: `Konflik di ${a.room} pada ${a.date}: PKS ${a.pksName} (${a.startTime}-${a.endTime}) bertabrakan dengan PKS ${b.pksName} (${b.startTime}-${b.endTime})`,
-        });
-      }
+      conflicts.push({
+        plotA: a,
+        plotB: b,
+        room: a.room,
+        date: a.date,
+        message: `Konflik Ruangan ${a.room}: Digunakan oleh PKS ${a.pksName} (${a.date} ${a.startTime}-${a.endTime}) dan PKS ${b.pksName} (${b.date} ${b.startTime}-${b.endTime})`,
+      });
     }
   }
 

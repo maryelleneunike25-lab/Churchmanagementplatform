@@ -6,7 +6,7 @@ import {
   Users, Plus, Edit2, Trash2, X, ChevronDown, ChevronRight, Search,
   SortAsc, SortDesc, UserPlus, UserMinus, Phone, Calendar, Clock,
   MapPin, AlertTriangle, CheckCircle2, MessageSquare, AlertCircle,
-  Ban, RefreshCw, Send, Check
+  Ban, RefreshCw, Send, Check, Lock, Settings
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogTitle, TextField, Select, MenuItem,
@@ -15,8 +15,8 @@ import {
 import {
   useKomsels, saveKomsel, deleteKomsel, setMemberPks, loadAllMembers,
   normalizePksName, Komsel, PksPlot, loadAllPlots, savePlot, deletePlot,
-  setPlotStatus, detectPlotConflicts, STANDARD_ROOMS, getLeadersForPks,
-  PksLeaderContact
+  setPlotStatus, detectPlotConflicts, STANDARD_ROOMS, loadRooms, saveRooms,
+  getLeadersForPks, PksLeaderContact
 } from '../../../lib/komsel';
 
 const BLANK_FORM = { pksName: '', name: '', status: 'active' as 'active' | 'inactive' };
@@ -77,6 +77,14 @@ export default function KomselManagement() {
   const [editingPlot, setEditingPlot] = useState<PksPlot | null>(null);
   const [plotSaving, setPlotSaving] = useState(false);
 
+  // Managed Rooms State
+  const [roomsList, setRoomsList] = useState<string[]>([...STANDARD_ROOMS]);
+  const [openRoomsDialog, setOpenRoomsDialog] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [editingRoomIndex, setEditingRoomIndex] = useState<number | null>(null);
+  const [editingRoomVal, setEditingRoomVal] = useState('');
+  const [savingRooms, setSavingRooms] = useState(false);
+
   // Plot form state
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [plotForm, setPlotForm] = useState({
@@ -99,10 +107,16 @@ export default function KomselManagement() {
   const fetchPlots = async () => {
     try {
       setLoadingPlots(true);
-      const data = await loadAllPlots();
+      const [data, loadedRooms] = await Promise.all([
+        loadAllPlots(),
+        loadRooms(),
+      ]);
       setPlots(data);
+      if (loadedRooms && loadedRooms.length > 0) {
+        setRoomsList(loadedRooms);
+      }
     } catch (e: any) {
-      console.error('Error fetching plots:', e);
+      console.error('Error fetching plots/rooms:', e);
     } finally {
       setLoadingPlots(false);
     }
@@ -204,12 +218,7 @@ export default function KomselManagement() {
     const collision = plots.find(p => {
       if (editingPlot && p.id === editingPlot.id) return false;
       if (p.status !== 'active') return false;
-      if (p.date !== plotForm.date) return false;
-      if (p.room.trim().toLowerCase() !== roomToTest) return false;
-
-      const pStart = p.startTime.replace(':', '');
-      const pEnd = p.endTime.replace(':', '');
-      return start < pEnd && end > pStart;
+      return p.room.trim().toLowerCase() === roomToTest;
     });
 
     return collision || null;
@@ -309,12 +318,77 @@ export default function KomselManagement() {
   }, [pickerFor, pickerSearch, allMembers]);
 
   // -------------------------------------------------------------
+  // Room Management Handlers (Super Admin Only)
+  // -------------------------------------------------------------
+  const handleAddRoom = async () => {
+    if (!isSuperAdmin) return;
+    const name = newRoomName.trim();
+    if (!name) return;
+    if (roomsList.some(r => r.toLowerCase() === name.toLowerCase())) {
+      setError('Ruangan sudah ada di daftar.');
+      return;
+    }
+    const updated = [...roomsList, name];
+    setSavingRooms(true);
+    try {
+      await saveRooms(updated);
+      setRoomsList(updated);
+      setNewRoomName('');
+      setSuccessMsg(`Ruangan "${name}" berhasil ditambahkan.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (e: any) {
+      setError(e.message || 'Gagal menyimpan ruangan');
+    } finally {
+      setSavingRooms(false);
+    }
+  };
+
+  const handleUpdateRoom = async (index: number) => {
+    if (!isSuperAdmin) return;
+    const val = editingRoomVal.trim();
+    if (!val) return;
+    const updated = [...roomsList];
+    updated[index] = val;
+    setSavingRooms(true);
+    try {
+      await saveRooms(updated);
+      setRoomsList(updated);
+      setEditingRoomIndex(null);
+      setEditingRoomVal('');
+      setSuccessMsg('Nama ruangan berhasil diperbarui.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (e: any) {
+      setError(e.message || 'Gagal mengubah ruangan');
+    } finally {
+      setSavingRooms(false);
+    }
+  };
+
+  const handleDeleteRoom = async (index: number) => {
+    if (!isSuperAdmin) return;
+    const targetRoom = roomsList[index];
+    if (!confirm(`Hapus ruangan "${targetRoom}" dari daftar?`)) return;
+    const updated = roomsList.filter((_, i) => i !== index);
+    setSavingRooms(true);
+    try {
+      await saveRooms(updated);
+      setRoomsList(updated);
+      setSuccessMsg(`Ruangan "${targetRoom}" berhasil dihapus.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (e: any) {
+      setError(e.message || 'Gagal menghapus ruangan');
+    } finally {
+      setSavingRooms(false);
+    }
+  };
+
+  // -------------------------------------------------------------
   // Plotting Handlers
   // -------------------------------------------------------------
   const handleOpenPlotDialog = (plot?: PksPlot, defaultPksName?: string) => {
     if (plot) {
       setEditingPlot(plot);
-      const isCustomRoom = !STANDARD_ROOMS.includes(plot.room);
+      const isCustomRoom = !roomsList.includes(plot.room);
       setPlotForm({
         pksName: plot.pksName,
         room: isCustomRoom ? 'Lainnya' : plot.room,
@@ -332,7 +406,7 @@ export default function KomselManagement() {
       const leaders = pks ? getLeadersForPks(pks, allMembers) : [];
       setPlotForm({
         pksName: pks,
-        room: STANDARD_ROOMS[0],
+        room: roomsList[0] || 'Ruang Ibadah Utama',
         customRoom: '',
         date: todayStr,
         startTime: '10:00',
@@ -699,16 +773,27 @@ export default function KomselManagement() {
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Calendar size={18} className="text-indigo-600" /> Jadwal Plotting Ruangan Per Minggu
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">Pantau alokasi ruangan setiap PKS dan cegah jadwal bertabrakan secara real-time.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Pantau alokasi ruangan setiap PKS dan kelola ruangan tanpa bentrok.</p>
             </div>
-            {canEdit && (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => handleOpenPlotDialog()}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-colors"
+                onClick={() => setOpenRoomsDialog(true)}
+                className="flex items-center gap-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-colors"
+                title="Kelola Daftar Ruangan"
               >
-                <Plus size={15} />Tambah Plot Ruangan
+                <Settings size={14} className="text-gray-500" />
+                Kelola Ruangan
+                {!isSuperAdmin && <Lock size={12} className="text-amber-500 ml-0.5" />}
               </button>
-            )}
+              {canEdit && (
+                <button
+                  onClick={() => handleOpenPlotDialog()}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors"
+                >
+                  <Plus size={15} />Tambah Plot Ruangan
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Conflict Alert Banner (If Any Collision Exists) */}
@@ -819,7 +904,7 @@ export default function KomselManagement() {
                 className="border border-gray-200 rounded-xl px-3 py-1.5 text-xs bg-white text-gray-700"
               >
                 <option value="all">Semua Ruangan</option>
-                {STANDARD_ROOMS.map(r => (
+                {roomsList.map(r => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
@@ -1113,7 +1198,7 @@ export default function KomselManagement() {
               onChange={e => setPlotForm({ ...plotForm, room: e.target.value })}
               label="Ruangan / Lokasi"
             >
-              {STANDARD_ROOMS.map(r => (
+              {roomsList.map(r => (
                 <MenuItem key={r} value={r}>{r}</MenuItem>
               ))}
               <MenuItem value="Lainnya">Ruangan Lainnya (Kustom)...</MenuItem>
@@ -1272,6 +1357,139 @@ export default function KomselManagement() {
           >
             {plotSaving ? 'Menyimpan...' : 'Simpan Plotting'}
           </Button>
+        </div>
+      </Dialog>
+
+      {/* ============================================================= */}
+      {/* MODAL 3: KELOLA RUANGAN (SUPER ADMIN ONLY FOR EDIT/DELETE)    */}
+      {/* ============================================================= */}
+      <Dialog open={openRoomsDialog} onClose={() => setOpenRoomsDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle className="flex items-center justify-between font-bold text-gray-900 border-b pb-3">
+          <div className="flex items-center gap-2">
+            <Settings size={20} className="text-indigo-600" />
+            <span>Kelola Daftar Ruangan</span>
+          </div>
+          {isSuperAdmin ? (
+            <span className="text-[11px] font-bold bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full border border-purple-200">
+              Super Admin
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+              <Lock size={12} /> Terkunci (Hanya Super Admin)
+            </span>
+          )}
+        </DialogTitle>
+        <DialogContent className="space-y-4 pt-4">
+          {!isSuperAdmin && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+              <Lock size={16} className="text-amber-600 flex-shrink-0" />
+              <span>Daftar ruangan terkunci. Anda dapat melihat dan memilih ruangan, namun hanya <strong>Super Admin</strong> yang memiliki akses untuk menambah, mengubah, atau menghapus ruangan.</span>
+            </div>
+          )}
+
+          {/* Add Room input (Super admin only) */}
+          {isSuperAdmin && (
+            <div className="flex items-center gap-2">
+              <TextField
+                placeholder="Nama ruangan baru (contoh: Ruang Rapat 2)"
+                value={newRoomName}
+                onChange={e => setNewRoomName(e.target.value)}
+                size="small"
+                fullWidth
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddRoom();
+                  }
+                }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleAddRoom}
+                disabled={savingRooms || !newRoomName.trim()}
+                sx={{ whiteSpace: 'nowrap', bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+              >
+                + Tambah
+              </Button>
+            </div>
+          )}
+
+          {/* Rooms list */}
+          <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden bg-white">
+            {roomsList.map((r, idx) => (
+              <div key={idx} className="p-3 flex items-center justify-between gap-2 hover:bg-gray-50/60 transition-colors">
+                {editingRoomIndex === idx ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      value={editingRoomVal}
+                      onChange={e => setEditingRoomVal(e.target.value)}
+                      className="flex-1 text-xs px-2.5 py-1.5 border border-indigo-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleUpdateRoom(idx);
+                        if (e.key === 'Escape') setEditingRoomIndex(null);
+                      }}
+                    />
+                    <button
+                      onClick={() => handleUpdateRoom(idx)}
+                      disabled={savingRooms || !editingRoomVal.trim()}
+                      className="text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-lg font-medium hover:bg-emerald-700"
+                    >
+                      Simpan
+                    </button>
+                    <button
+                      onClick={() => setEditingRoomIndex(null)}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <span className="text-sm font-medium text-gray-800">{r}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {isSuperAdmin ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setEditingRoomIndex(idx);
+                              setEditingRoomVal(r);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Ubah Nama Ruangan"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRoom(idx)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Hapus Ruangan"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-gray-400 p-1.5 flex items-center gap-1 text-[11px]" title="Terkunci (Hanya Super Admin)">
+                          <Lock size={13} />
+                          <span className="text-[10px] text-gray-400">Terkunci</span>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+            {roomsList.length === 0 && (
+              <p className="text-xs text-gray-400 py-6 text-center">Belum ada ruangan yang terdaftar.</p>
+            )}
+          </div>
+        </DialogContent>
+        <div className="p-4 flex justify-end border-t">
+          <Button onClick={() => setOpenRoomsDialog(false)}>Tutup</Button>
         </div>
       </Dialog>
 
