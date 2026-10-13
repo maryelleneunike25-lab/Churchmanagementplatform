@@ -7,7 +7,7 @@ import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
   Save, Download, Calendar as CalendarIcon, Users, TrendingDown, TrendingUp,
   ChevronLeft, ChevronRight, BarChart3, ClipboardList, AlertTriangle,
-  Loader2, X, Sparkles, Filter, RotateCcw, Phone, MessageCircle
+  Loader2, X, Sparkles, Filter, RotateCcw, Phone, MessageCircle, Edit2
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -360,42 +360,75 @@ function CustomChartTooltip({ active, payload }: any) {
 }
 
 // ─── Daily Input Tab ─────────────────────────────────────────────────────────
-function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
+function DailyInput({
+  members,
+  sessions,
+  setSessions,
+  onSessionSaved,
+  canEdit,
+  date,
+  setDate,
+}: {
   members: Member[];
   sessions: Session[];
+  setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   onSessionSaved: () => void;
   canEdit: boolean;
+  date: string;
+  setDate: (d: string) => void;
 }) {
-  const today = fmt(new Date());
-  const [date, setDate] = useState(today);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [present, setPresent] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilter] = useState<'all' | 'hadir' | 'absen'>('all');
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
   const [resetting, setResetting] = useState(false);
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState('');
 
   const sessionId = `sess_${date}_Ibadah_Umum`;
-  const existingSession = sessions.find(s => s.id === sessionId);
-  const inactiveIds = useMemo(() => getInactiveMembers(members, sessions, present), [members, sessions, present]);
+  const existingSession = useMemo(() => sessions.find(s => s.id === sessionId), [sessions, sessionId]);
 
-  // Load existing session for selected date + service
+  const [present, setPresent] = useState<Set<string>>(() => new Set(existingSession?.presentIds || []));
+  const [saved, setSaved] = useState<boolean>(() => !!existingSession);
+  const [isEditing, setIsEditing] = useState<boolean>(() => !existingSession);
+
+  // Load session only when date changes (sessionId changes)
   useEffect(() => {
-    const existing = sessions.find(s => s.id === sessionId);
-    setPresent(new Set(existing?.presentIds || []));
-    setSaved(!!existing);
-  }, [sessionId, sessions]);
+    const s = sessions.find(item => item.id === sessionId);
+    setPresent(new Set(s?.presentIds || []));
+    setSaved(!!s);
+    setIsEditing(!s);
+    setSaveSuccessNotice('');
+  }, [sessionId]);
 
   const toggle = (id: string) => {
     if (!canEdit) return;
-    setPresent(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setIsEditing(true);
+    setSaved(false);
+    setSaveSuccessNotice('');
+    setPresent(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   };
 
-  const markAll = () => { if (canEdit) setPresent(new Set(filtered.map(m => m.id))); };
-  const clearAll = () => { if (canEdit) setPresent(new Set()); };
+  const markAll = () => {
+    if (!canEdit) return;
+    setIsEditing(true);
+    setSaved(false);
+    setSaveSuccessNotice('');
+    setPresent(new Set(filtered.map(m => m.id)));
+  };
+
+  const clearAll = () => {
+    if (!canEdit) return;
+    setIsEditing(true);
+    setSaved(false);
+    setSaveSuccessNotice('');
+    setPresent(new Set());
+  };
 
   const filtered = useMemo(() => {
     let list = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
@@ -408,14 +441,16 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
   }, [members, search, filter, sortDir, present]);
 
   const handleSave = async () => {
+    if (!canEdit) return;
     setSaving(true);
     try {
+      const nowIso = new Date().toISOString();
       const session: Session = {
         id: sessionId,
         date,
         serviceType: SERVICE_TYPE,
         presentIds: [...present],
-        savedAt: new Date().toISOString(),
+        savedAt: nowIso,
       };
       const key = `attendance_session:${sessionId}`;
       const { data: existing } = await supabaseAdmin.from(KV).select('key').eq('key', key).maybeSingle();
@@ -425,6 +460,12 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
         await supabaseAdmin.from(KV).insert({ key, value: session });
       }
 
+      // Optimistically update sessions in parent state so view updates instantly
+      setSessions(prev => {
+        const filteredList = prev.filter(s => s.id !== sessionId);
+        return [...filteredList, session];
+      });
+
       await trackActivity(
         'SAVE_ATTENDANCE',
         'Absensi',
@@ -432,7 +473,12 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       );
 
       setSaved(true);
+      setIsEditing(false);
+      setSaveSuccessNotice(`Absensi ${formatDateLabel(date)} berhasil disimpan! (${present.size} orang hadir)`);
+      setTimeout(() => setSaveSuccessNotice(''), 4000);
       onSessionSaved();
+    } catch (err: any) {
+      alert(`Gagal menyimpan absensi: ${err.message || 'Terjadi kesalahan'}`);
     } finally {
       setSaving(false);
     }
@@ -454,8 +500,12 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
         `Mereset dan menghapus data absensi ${SERVICE_TYPE} tanggal ${date}`
       );
 
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
       setPresent(new Set());
       setSaved(false);
+      setIsEditing(true);
+      setSaveSuccessNotice('Data absensi tanggal ini telah direset.');
+      setTimeout(() => setSaveSuccessNotice(''), 3000);
       onSessionSaved();
     } catch (err: any) {
       alert(`Gagal mereset absensi: ${err.message || 'Terjadi kesalahan'}`);
@@ -466,6 +516,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 
   const presentCount = present.size;
   const absentCount = members.length - presentCount;
+  const todayStr = fmt(new Date());
 
   return (
     <div className="space-y-4">
@@ -485,35 +536,94 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
             </button>
             <button
               type="button"
-              onClick={() => setDate(today)}
-              className="text-xs px-2.5 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 font-medium cursor-pointer"
+              onClick={() => setDate(todayStr)}
+              className={`text-xs px-2.5 py-2 rounded-xl border transition-colors cursor-pointer ${
+                date === todayStr ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'border-gray-200 hover:bg-gray-50 text-gray-600 font-medium'
+              }`}
             >
               Hari Ini
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          {/* Status badge when saved */}
+          {existingSession && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl font-medium inline-flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-emerald-600" />
+                <span>Sesi Tersimpan ({existingSession.presentIds?.length || 0} hadir)</span>
+              </span>
+
+              {canEdit && !isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Klik untuk mengedit/memperbaiki data absensi minggu ini atau minggu sebelumnya"
+                >
+                  <Edit2 size={13} /> Edit Absensi
+                </button>
+              )}
+            </div>
+          )}
+
+          {isEditing && existingSession && (
+            <button
+              type="button"
+              onClick={() => {
+                setPresent(new Set(existingSession.presentIds || []));
+                setIsEditing(false);
+                setSaved(true);
+              }}
+              className="text-xs px-2.5 py-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer border border-gray-200"
+            >
+              Batal Edit
+            </button>
+          )}
+
           {(saved || existingSession || present.size > 0) && canEdit && (
             <button
               type="button"
               onClick={handleReset}
               disabled={resetting || saving}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300 shadow-xs cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 shadow-xs cursor-pointer disabled:opacity-50"
               title="Reset dan hapus data absensi tanggal ini"
             >
-              {resetting ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
-              <span>{resetting ? 'Mereset...' : 'Reset Absensi'}</span>
+              {resetting ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              <span>{resetting ? 'Mereset...' : 'Reset'}</span>
             </button>
           )}
 
-          <button onClick={handleSave} disabled={saving || resetting || !canEdit}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {saving ? 'Menyimpan...' : saved ? 'Tersimpan ✓' : 'Simpan Absensi'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleSave}
+              disabled={saving || resetting}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer ${
+                saved && !isEditing
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-blue-700 text-white hover:bg-blue-800 ring-2 ring-blue-300'
+              } disabled:opacity-50`}
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              <span>{saving ? 'Menyimpan...' : (saved && !isEditing) ? 'Tersimpan ✓' : existingSession ? 'Simpan Perubahan' : 'Simpan Absensi'}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Success banner if any */}
+      {saveSuccessNotice && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+            <span>{saveSuccessNotice}</span>
+          </div>
+          <button onClick={() => setSaveSuccessNotice('')} className="text-emerald-600 hover:text-emerald-800">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
@@ -530,93 +640,6 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
           <div className="text-xs text-blue-600 mt-1">Total Jemaat</div>
         </div>
       </div>
-
-      {/* Inactive alert */}
-      {inactiveIds.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-xs">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-700">
-                <AlertTriangle size={18} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-amber-900">
-                  Jemaat Jarang Aktif ({inactiveIds.length} orang)
-                </p>
-                <p className="text-xs text-amber-700">
-                  Tidak hadir dalam 3 ibadah umum berturut-turut. Hubungi untuk pelayanan penggembalaan:
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
-            {members.filter(m => inactiveIds.includes(m.id)).map(m => {
-              const cleanPhone = (m.phone || '').replace(/[^0-9]/g, '');
-              let waNumber = cleanPhone;
-              if (waNumber.startsWith('0')) {
-                waNumber = '62' + waNumber.slice(1);
-              }
-              const waText = encodeURIComponent(
-                `Shalom ${m.name}, salam kasih dari gereja GBI Jeltim. Kami rindu menyapa dan menanyakan kabar Bpk/Ibu/Sdr. Semoga selalu dalam lindungan dan berkat Tuhan.`
-              );
-
-              return (
-                <div key={m.id} className="flex flex-col justify-between rounded-xl bg-white border border-amber-200/70 p-3 shadow-xs hover:border-amber-400 transition-colors">
-                  <div className="flex items-start gap-2.5 min-w-0 mb-2">
-                    <span className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                      {m.name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-gray-900 truncate" title={m.name}>
-                        {m.name}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {m.pksName ? (
-                          <span className="inline-block text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">
-                            PKS: {m.pksName}
-                          </span>
-                        ) : (
-                          <span className="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                            Non-PKS
-                          </span>
-                        )}
-                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
-                          3x Berturut Absen
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-1 text-[11px]">
-                    <div className="truncate text-gray-600 font-medium">
-                      {m.phone ? (
-                        <a href={`tel:${m.phone}`} className="hover:text-blue-600 flex items-center gap-1">
-                          <Phone size={11} className="text-gray-400" />
-                          <span>{m.phone}</span>
-                        </a>
-                      ) : (
-                        <span className="text-gray-400 italic">No HP belum ada</span>
-                      )}
-                    </div>
-                    {waNumber && (
-                      <a
-                        href={`https://wa.me/${waNumber}?text=${waText}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-semibold transition-colors flex-shrink-0 cursor-pointer"
-                        title="Hubungi via WhatsApp"
-                      >
-                        <MessageCircle size={12} className="text-emerald-600" />
-                        <span>Chat WA</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Search + Sort + Filter */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -656,7 +679,6 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
         ) : (
           filtered.map((m, i) => {
             const isPresent = present.has(m.id);
-            const isInactive = inactiveIds.includes(m.id);
             return (
               <div key={m.id}
                 onClick={() => toggle(m.id)}
@@ -665,12 +687,12 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900 truncate">{m.name}</p>
-                    {isInactive && (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full flex-shrink-0">Jarang Aktif</span>
+                    {m.pksName && (
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">PKS: {m.pksName}</span>
                     )}
                   </div>
                   <p className={`text-sm mt-0.5 ${isPresent ? 'text-emerald-600' : 'text-gray-400'}`}>
-                    {isPresent ? 'Hadir 🎉' : 'Belum hadir'}
+                    {isPresent ? 'Hadir ✓' : 'Belum hadir'}
                   </p>
                 </div>
                 {isPresent
@@ -731,6 +753,11 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
 
   const currentWeek = useMemo(() => getWeekInfo(selectedDate), [selectedDate]);
   const sundays = useMemo(() => sundaysInMonth(year, month), [year, month]);
+
+  const inactiveMembers = useMemo(() => {
+    const ids = getInactiveMembers(members, sessions);
+    return members.filter(m => ids.includes(m.id));
+  }, [members, sessions]);
 
   // Navigate weeks
   const prevWeek = () => {
@@ -1220,6 +1247,93 @@ function ReportSummary({ members, sessions }: { members: Member[]; sessions: Ses
         </div>
       </div>
 
+      {/* ─── Inactive Members Alert (Laporan Absensi) ─── */}
+      {inactiveMembers.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-700">
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-900">
+                  Jemaat Jarang Aktif ({inactiveMembers.length} orang)
+                </p>
+                <p className="text-xs text-amber-700">
+                  Tidak hadir dalam 3 sesi ibadah umum berturut-turut. Hubungi untuk pelayanan penggembalaan:
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
+            {inactiveMembers.map(m => {
+              const cleanPhone = (m.phone || '').replace(/[^0-9]/g, '');
+              let waNumber = cleanPhone;
+              if (waNumber.startsWith('0')) {
+                waNumber = '62' + waNumber.slice(1);
+              }
+              const waText = encodeURIComponent(
+                `Shalom ${m.name}, salam kasih dari gereja GBI Jeltim. Kami rindu menyapa dan menanyakan kabar Bpk/Ibu/Sdr. Semoga selalu dalam lindungan dan berkat Tuhan.`
+              );
+
+              return (
+                <div key={m.id} className="flex flex-col justify-between rounded-xl bg-white border border-amber-200/70 p-3 shadow-xs hover:border-amber-400 transition-colors">
+                  <div className="flex items-start gap-2.5 min-w-0 mb-2">
+                    <span className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      {m.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-900 truncate" title={m.name}>
+                        {m.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {m.pksName ? (
+                          <span className="inline-block text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                            PKS: {m.pksName}
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                            Non-PKS
+                          </span>
+                        )}
+                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
+                          3x Berturut Absen
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-1 text-[11px]">
+                    <div className="truncate text-gray-600 font-medium">
+                      {m.phone ? (
+                        <a href={`tel:${m.phone}`} className="hover:text-blue-600 flex items-center gap-1">
+                          <Phone size={11} className="text-gray-400" />
+                          <span>{m.phone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 italic">No HP belum ada</span>
+                      )}
+                    </div>
+                    {waNumber && (
+                      <a
+                        href={`https://wa.me/${waNumber}?text=${waText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-semibold transition-colors flex-shrink-0 cursor-pointer"
+                        title="Hubungi via WhatsApp"
+                      >
+                        <MessageCircle size={12} className="text-emerald-600" />
+                        <span>Chat WA</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative max-w-xs">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1356,12 +1470,15 @@ export default function AttendanceManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const todayStr = useMemo(() => fmt(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+
   const isSuperAdmin = user?.role === 'super_admin';
   const canEdit = isSuperAdmin || user?.permissions?.editAbsensi || user?.permissions?.editAbsen || user?.permissions?.manageAbsensi || false;
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent && members.length === 0) setLoading(true);
       const [{ data: d1 }, { data: d2 }, { data: sessData }] = await Promise.all([
         supabaseAdmin.from(KV).select('key,value').like('key', 'congregation:member:%'),
         supabaseAdmin.from(KV).select('key,value').like('key', 'member:%'),
@@ -1388,9 +1505,9 @@ export default function AttendanceManagement() {
   };
 
   useEffect(() => { loadData(); }, []);
-  useAutoRefresh(loadData, 30_000);
+  // NOTE: AutoRefresh removed so that active inputs, scroll position, and selected dates are never wiped out
 
-  if (loading) {
+  if (loading && members.length === 0) {
     return (
       <div className="flex items-center justify-center py-20 text-gray-400">
         <Loader2 size={28} className="animate-spin mr-3" /> Memuat data...
@@ -1435,7 +1552,15 @@ export default function AttendanceManagement() {
       )}
 
       {tab === 'input' ? (
-        <DailyInput members={members} sessions={sessions} onSessionSaved={loadData} canEdit={canEdit} />
+        <DailyInput
+          members={members}
+          sessions={sessions}
+          setSessions={setSessions}
+          onSessionSaved={() => loadData(true)}
+          canEdit={canEdit}
+          date={selectedDate}
+          setDate={setSelectedDate}
+        />
       ) : (
         <ReportSummary members={members} sessions={sessions} />
       )}
