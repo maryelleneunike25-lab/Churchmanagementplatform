@@ -725,29 +725,50 @@ export default function ScheduleManagement() {
       </div>
 
       {/* ── Division tabs ── */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-        {DIVISIONS.map(div => (
-          <button key={div.id} onClick={() => { setActiveDivision(div.id as DivId); loadJemaat(); }}
-            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-              activeDivision === div.id
-                ? `${div.color} text-white border-transparent shadow-sm`
-                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}>
-            {div.label}
-          </button>
-        ))}
+      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide">
+        {DIVISIONS.map(div => {
+          const isActive = activeDivision === div.id;
+          return (
+            <button
+              key={div.id}
+              onClick={() => { setActiveDivision(div.id as DivId); loadJemaat(); }}
+              className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-2 ${
+                isActive
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-indigo-500/25'
+                  : 'bg-white border-slate-200/90 text-slate-700 hover:border-indigo-300 hover:bg-slate-50/70 shadow-2xs'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${div.color} flex-shrink-0`} />
+              <span>{div.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Schedule table for active division ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Division header */}
-        <div className={`px-5 py-3 flex items-center justify-between ${divInfo.color}`}>
-          <h3 className="text-white font-bold text-sm tracking-wide">{divInfo.label}</h3>
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        {/* Division header banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-xl ${divInfo.color} flex items-center justify-center text-white shadow-2xs flex-shrink-0`}>
+              <span className="font-black text-xs">{divInfo.label.charAt(0)}</span>
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm tracking-wide leading-tight">{divInfo.label}</h3>
+              <p className="text-[11px] text-indigo-200 mt-0.5">
+                Jadwal pelayan bulan {MONTHS_ID[month]} {year} ({sundays.length} Minggu)
+              </p>
+            </div>
+          </div>
           {divInfo.notes && (
             <div className="relative group">
-              <Info size={15} className="text-white/70 cursor-help" />
-              <div className="absolute right-0 top-full mt-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl p-3 shadow-lg w-72 z-20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                {divInfo.notes.split('\n').map((n, i) => <p key={i} className="leading-relaxed">• {n}</p>)}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-xs transition-colors cursor-help border border-white/10">
+                <Info size={13} className="text-amber-300" />
+                <span>Ketentuan & Notes</span>
+              </div>
+              <div className="absolute right-0 top-full mt-2 bg-slate-900/95 text-white border border-slate-700 text-xs rounded-2xl p-3.5 shadow-2xl w-80 z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none backdrop-blur-md">
+                <p className="font-bold text-amber-300 mb-1 text-[11px] uppercase tracking-wider">Catatan Divisi:</p>
+                {divInfo.notes.split('\n').map((n, i) => <p key={i} className="leading-relaxed text-slate-200 mt-1">• {n}</p>)}
               </div>
             </div>
           )}
@@ -757,10 +778,12 @@ export default function ScheduleManagement() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap w-28">Tanggal</th>
+              <tr className="bg-slate-50/80 border-b border-slate-200/80">
+                <th className="px-5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap w-32">
+                  Tanggal
+                </th>
                 {divInfo.roles.map(role => (
-                  <th key={role} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                  <th key={role} className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
                     {role}
                   </th>
                 ))}
@@ -773,9 +796,9 @@ export default function ScheduleManagement() {
                 const conflicts = conflictsForDate(iso);
 
                 return (
-                  <tr key={iso} className={`border-b border-gray-50 ${si % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <span className="text-xs font-semibold text-gray-700">{displayDate(iso)}</span>
+                  <tr key={iso} className={`border-b border-slate-100 hover:bg-slate-50/60 transition-colors ${si % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                    <td className="px-5 py-2.5 whitespace-nowrap">
+                      <span className="text-xs font-bold text-slate-900">{displayDate(iso)}</span>
                     </td>
                     {divInfo.roles.map(role => {
                       const val = weekDiv[role] || '';
@@ -786,7 +809,7 @@ export default function ScheduleManagement() {
                         : [];
 
                       return (
-                        <td key={role} className="px-2 py-1.5">
+                        <td key={role} className="px-2 py-2">
                           <NameCell
                             value={val}
                             suggestions={suggestions}
@@ -808,33 +831,46 @@ export default function ScheduleManagement() {
 
         {/* Notes footer */}
         {divInfo.notes && (
-          <div className="px-5 py-3 bg-amber-50 border-t border-amber-100">
-            <p className="text-xs font-semibold text-amber-800 mb-1">Notes:</p>
-            {divInfo.notes.split('\n').map((n, i) => (
-              <p key={i} className="text-xs text-amber-700">• {n}</p>
-            ))}
+          <div className="px-5 py-3 bg-amber-50/70 border-t border-amber-100/80 flex items-start gap-2">
+            <Info size={14} className="text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-900 leading-relaxed">
+              <strong className="font-bold text-amber-900">Perhatian: </strong>
+              {divInfo.notes.split('\n').join(' • ')}
+            </div>
           </div>
         )}
       </div>
 
       {/* ── Ringkasan semua divisi: matrix divisi x minggu ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="font-bold text-gray-900 text-sm">Ringkasan Semua Divisi</h3>
-          <p className="text-[11px] text-gray-400">Nama merah = bertugas di lebih dari satu divisi pada hari yang sama</p>
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap bg-slate-50/50">
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">Ringkasan Semua Divisi</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Seluruh petugas gabungan dalam setiap minggu</p>
+          </div>
+          <span className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-xl shadow-2xs">
+            Nama merah = bertugas lebih dari satu divisi di hari yang sama
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left" style={{ minWidth: 160 + sundays.length * 170 }}>
             <thead>
-              <tr className="bg-gray-50">
-                <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500 w-40 border-b border-r border-gray-100">Divisi</th>
+              <tr className="bg-slate-50/90 border-b border-slate-200/80">
+                <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 w-44 border-r border-slate-200/80">
+                  Divisi
+                </th>
                 {sundays.map(sd => {
                   const iso = isoDate(sd);
                   const nConf = Object.keys(conflictsForDate(iso)).length;
                   return (
-                    <th key={iso} className="px-3 py-3 text-xs font-bold text-gray-800 border-b border-gray-100 align-bottom">
+                    <th key={iso} className="px-4 py-3 text-xs font-bold text-slate-800 align-bottom">
                       <div>{displayDate(iso)}</div>
-                      {nConf > 0 && <div className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-amber-600"><AlertTriangle size={10} />{nConf} tabrakan</div>}
+                      {nConf > 0 && (
+                        <div className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 w-fit">
+                          <AlertTriangle size={10} />
+                          <span>{nConf} tabrakan</span>
+                        </div>
+                      )}
                     </th>
                   );
                 })}
@@ -842,9 +878,11 @@ export default function ScheduleManagement() {
             </thead>
             <tbody>
               {DIVISIONS.map(div => (
-                <tr key={div.id} className="align-top">
-                  <th className="sticky left-0 z-10 bg-white px-4 py-3 border-b border-r border-gray-100">
-                    <span className={`inline-block text-[11px] font-bold px-2 py-1 rounded-md border leading-tight ${div.lightColor}`}>{div.label}</span>
+                <tr key={div.id} className="align-top border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
+                  <th className="sticky left-0 z-10 bg-white px-4 py-3 border-r border-slate-200/80 font-normal">
+                    <span className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-xl border leading-tight ${div.lightColor}`}>
+                      {div.label}
+                    </span>
                   </th>
                   {sundays.map(sd => {
                     const iso = isoDate(sd);
@@ -852,18 +890,29 @@ export default function ScheduleManagement() {
                     const divData = scheduleData[iso]?.divisions[div.id] || {};
                     const names = Object.values(divData).filter(Boolean) as string[];
                     return (
-                      <td key={iso} className="px-3 py-3 border-b border-gray-50">
+                      <td key={iso} className="px-4 py-3">
                         {names.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1.5">
                             {names.map((name, i) => {
                               const nk = name.toLowerCase().trim();
                               const isConflict = !!(conflicts[nk] && conflicts[nk].length > 1);
                               return (
-                                <span key={i} className={`text-xs px-2 py-0.5 rounded-full ${isConflict ? 'bg-red-100 text-red-700 font-semibold' : 'bg-gray-100 text-gray-700'}`}>{name}</span>
+                                <span
+                                  key={i}
+                                  className={`text-xs px-2.5 py-1 rounded-xl font-medium border ${
+                                    isConflict
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200 font-bold shadow-2xs'
+                                      : 'bg-slate-50 text-slate-800 border-slate-200/80'
+                                  }`}
+                                >
+                                  {name}
+                                </span>
                               );
                             })}
                           </div>
-                        ) : <span className="text-xs text-gray-300">—</span>}
+                        ) : (
+                          <span className="text-xs text-slate-300 font-medium">—</span>
+                        )}
                       </td>
                     );
                   })}

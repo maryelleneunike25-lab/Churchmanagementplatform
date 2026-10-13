@@ -5,7 +5,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useAuth } from '../../contexts/AuthContext';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import {
-  Plus, Pencil, Trash2, Eye, EyeOff, ImageIcon, X, Check, Loader2, AlertCircle
+  Plus, Pencil, Trash2, Eye, EyeOff, ImageIcon, X, Check, Loader2, AlertCircle, Camera, Upload
 } from 'lucide-react';
 
 const API_URL = `${apiBase()}/api/content`;
@@ -211,38 +211,62 @@ export default function AnnouncementManagement() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <h3 className="font-bold text-gray-900">
-                {editId ? 'Edit Flyer' : 'Tambah Flyer Baru'}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-center border border-white/15">
+                  <ImageIcon size={18} className="text-indigo-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base leading-tight">
+                    {editId ? 'Edit Flyer' : 'Tambah Flyer Baru'}
+                  </h3>
+                  <p className="text-[11px] text-indigo-200 font-medium mt-0.5">
+                    Poster acara & pengumuman di carousel beranda
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={18} />
               </button>
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {/* Image upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gambar Flyer (16:9)
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Gambar Flyer (Rasio 16:9)
                 </label>
                 <div
                   onClick={() => fileRef.current?.click()}
-                  className="relative cursor-pointer border-2 border-dashed border-gray-300 rounded-xl overflow-hidden hover:border-blue-400 transition-colors"
+                  className="relative cursor-pointer border-2 border-dashed border-slate-300 rounded-2xl overflow-hidden hover:border-indigo-500 bg-slate-50/70 transition-all group"
                   style={{ aspectRatio: '16/9' }}
                 >
                   {form.imagePreview ? (
-                    <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
+                    <>
+                      <img src={form.imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1.5 backdrop-blur-2xs">
+                        <Upload size={16} />
+                        <span>Klik untuk ganti gambar</span>
+                      </div>
+                    </>
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                      <ImageIcon size={32} className="mb-2" />
-                      <span className="text-sm">Klik untuk upload gambar</span>
-                      <span className="text-xs mt-1">JPG, PNG, WebP — rasio 16:9 disarankan</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-4 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 mb-2.5">
+                        <ImageIcon size={24} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-700">Klik untuk upload gambar flyer</span>
+                      <span className="text-[11px] text-slate-400 mt-1">Format JPG, PNG, WebP — disarankan rasio 16:9</span>
                     </div>
                   )}
                 </div>
+
                 <input
                   ref={fileRef}
                   type="file"
@@ -258,76 +282,109 @@ export default function AnnouncementManagement() {
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => camRef.current?.click()}
-                  className="mt-2 text-xs font-semibold text-blue-600 hover:underline"
-                >
-                  📷 Ambil dengan kamera
-                </button>
-                {form.imagePreview && (
+
+                {/* Upload action buttons */}
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                   <button
-                    onClick={() => setForm(f => ({ ...f, imageFile: null, imagePreview: null }))}
-                    className="mt-2 text-xs text-red-500 hover:underline"
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
                   >
-                    Hapus gambar
+                    <Upload size={13} className="text-indigo-600" />
+                    <span>Pilih Berkas</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => camRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200/70 transition-colors cursor-pointer"
+                  >
+                    <Camera size={13} className="text-indigo-600" />
+                    <span>Ambil Kamera</span>
+                  </button>
+                  {form.imagePreview && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, imageFile: null, imagePreview: null }))}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl border border-red-100 transition-colors cursor-pointer ml-auto"
+                    >
+                      <Trash2 size={13} />
+                      <span>Hapus Gambar</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Judul *</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Judul Flyer *</label>
                 <input
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="Contoh: Ibadah Natal 2024"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Contoh: Ibadah Natal 2024 / Retreat Pemuda"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder-slate-400 bg-white shadow-2xs"
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Deskripsi Flyer</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   rows={3}
                   placeholder="Informasi tambahan tentang event atau pengumuman..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder-slate-400 bg-white shadow-2xs resize-none"
                 />
               </div>
 
               {/* Active toggle */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80">
                 <div>
-                  <div className="text-sm font-medium text-gray-800">Tampilkan di Homepage</div>
-                  <div className="text-xs text-gray-500">Flyer akan muncul di carousel halaman jemaat</div>
+                  <div className="text-xs font-bold text-slate-800">Tampilkan di Homepage</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Flyer akan muncul di carousel halaman utama jemaat</div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setForm(f => ({ ...f, active: !f.active }))}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${form.active ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${form.active ? 'bg-indigo-600' : 'bg-slate-300'}`}
                 >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${form.active ? 'left-7' : 'left-1'}`} />
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-all ${form.active ? 'left-7' : 'left-1'}`} />
                 </button>
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle size={14} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
             </div>
 
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex-shrink-0">
               <button
+                type="button"
                 onClick={() => setShowForm(false)}
-                className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50"
+                className="flex-1 border border-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={saving}
-                className="flex-1 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-800 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95"
               >
-                {saving ? <><Loader2 size={16} className="animate-spin" /> Menyimpan...</> : <><Check size={16} /> Simpan</>}
+                {saving ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={15} />
+                    <span>Simpan</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

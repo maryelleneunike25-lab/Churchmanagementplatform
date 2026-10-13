@@ -5,7 +5,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   Plus, Pencil, Trash2, X, Loader2, UserCircle,
-  ImageIcon, Users, ChevronDown, ChevronUp, Eye
+  ImageIcon, Users, ChevronDown, ChevronUp, Eye, Camera, Heart, UserPlus, Check
 } from 'lucide-react';
 
 const API_URL = `${apiBase()}/api/content`;
@@ -58,7 +58,7 @@ const emptyForm = (): FormState => ({
 });
 
 
-// ── Photo picker circle ──────────────────────────────────────────────────────
+// ── Photo picker box ──────────────────────────────────────────────────────────
 function PhotoPicker({ preview, onChange, onClear, size = 'lg' }: {
   preview: string | null;
   onChange: (f: File) => void;
@@ -66,34 +66,64 @@ function PhotoPicker({ preview, onChange, onClear, size = 'lg' }: {
   size?: 'lg' | 'sm';
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
   const dim = size === 'lg' ? 'w-28 h-28' : 'w-16 h-16';
-  const iconSize = size === 'lg' ? 44 : 24;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2.5">
       <div
         onClick={() => ref.current?.click()}
-        className={`${dim} relative rounded-2xl cursor-pointer overflow-hidden border-2 border-dashed border-gray-200 hover:border-blue-400 bg-gray-50 transition-colors flex items-center justify-center group`}
+        className={`${dim} relative rounded-2xl cursor-pointer overflow-hidden border-2 border-dashed border-slate-300 hover:border-indigo-400 bg-slate-50 transition-all flex items-center justify-center group shadow-2xs`}
       >
-        {preview
-          ? <img src={preview} alt="" className="w-full h-full object-cover" />
-          : <div className="flex flex-col items-center gap-1 text-gray-300">
-              <UserCircle size={iconSize} />
-              {size === 'lg' && <span className="text-[10px]">Klik untuk unggah</span>}
-            </div>
-        }
-        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {preview ? (
+          <img src={preview} alt="" className="w-full h-full object-cover object-top" />
+        ) : (
+          <div className="flex flex-col items-center gap-1 text-slate-400 p-2 text-center">
+            <UserCircle size={size === 'lg' ? 40 : 22} className="text-slate-300" />
+            {size === 'lg' && <span className="text-[10px] font-bold text-slate-500">Klik untuk unggah</span>}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-slate-900/40 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-2xs">
           <ImageIcon size={size === 'lg' ? 20 : 14} className="text-white" />
-          {size === 'lg' && <span className="text-white text-[10px] font-medium">Ganti foto</span>}
+          {size === 'lg' && <span className="text-white text-[10px] font-bold">Ganti foto</span>}
         </div>
       </div>
-      <input ref={ref} type="file" accept="image/*" className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) onChange(f); e.target.value = ''; }} />
-      {preview && (
-        <button onClick={onClear} className="text-xs text-red-500 hover:text-red-700 transition-colors">
-          Hapus foto
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onChange(f); e.target.value = ''; }}
+      />
+      <input
+        ref={camRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onChange(f); e.target.value = ''; }}
+      />
+
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
+        <button
+          type="button"
+          onClick={() => camRef.current?.click()}
+          className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200/60 transition-colors cursor-pointer flex items-center gap-1"
+        >
+          <Camera size={11} />
+          <span>Kamera</span>
         </button>
-      )}
+        {preview && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-[11px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-100 transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <Trash2 size={11} />
+            <span>Hapus</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -119,37 +149,53 @@ function MemberCard({ m, onEdit, onDelete }: {
   const isCouple = !!(m.spouseName?.trim());
   const displayName = isCouple ? `${m.name} & ${m.spouseName}` : m.name;
   const displayRole = isCouple && m.spouseRole ? `${m.role} & ${m.spouseRole}` : m.role;
+  const initials = (m.name || '?').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
 
   return (
-    <div className="group flex items-center gap-3 p-3 rounded-2xl border border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm transition-all">
+    <div className="group flex items-start gap-3.5 p-3.5 rounded-2xl border border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-xs transition-all shadow-2xs">
       {/* Photo */}
-      <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
-        {m.photoUrl
-          ? <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover object-top" loading="lazy" />
-          : <div className="w-full h-full flex items-center justify-center">
-              <UserCircle size={28} className="text-gray-300" />
-            </div>
-        }
+      <div className="flex-shrink-0 w-13 h-13 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
+        {m.photoUrl ? (
+          <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover object-top" loading="lazy" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white font-black text-xs flex items-center justify-center">
+            {initials}
+          </div>
+        )}
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          {isCouple && <Users size={12} className="text-pink-400 flex-shrink-0" />}
-          <p className="font-semibold text-gray-900 text-sm truncate">{displayName}</p>
+        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+          {isCouple && (
+            <span className="p-1 rounded-md bg-pink-50 text-pink-500 flex-shrink-0 border border-pink-100" title="Pasangan / Couple">
+              <Heart size={11} className="fill-pink-500" />
+            </span>
+          )}
+          <p className="font-bold text-slate-900 text-sm leading-tight break-words">{displayName}</p>
         </div>
-        {displayRole && <p className="text-xs text-gray-500 truncate">{displayRole}</p>}
+        {displayRole && (
+          <p className="text-xs text-slate-500 font-medium leading-relaxed break-words">{displayRole}</p>
+        )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        <button onClick={onEdit} title="Edit"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-          <Pencil size={15} />
+      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onEdit}
+          title="Edit Data"
+          className="w-7 h-7 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-colors border border-slate-200/60 shadow-2xs cursor-pointer"
+        >
+          <Pencil size={12} />
         </button>
-        <button onClick={onDelete} title="Hapus"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-          <Trash2 size={15} />
+        <button
+          type="button"
+          onClick={onDelete}
+          title="Hapus"
+          className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-colors border border-red-100/60 shadow-2xs cursor-pointer"
+        >
+          <Trash2 size={12} />
         </button>
       </div>
     </div>
@@ -168,40 +214,63 @@ function TierSection({ tier, members, canEdit, onAdd, onEdit, onDelete }: {
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+    <div className="rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs bg-white">
       {/* Section header */}
-      <div className={`flex items-center gap-3 px-5 py-4 ${open ? 'border-b border-gray-100' : ''}`}>
-        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tier.dot}`} />
-        <h3 className="font-bold text-gray-800 flex-1 text-sm">{tier.label}</h3>
-        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{members.length}</span>
+      <div className={`flex items-center gap-3 px-5 py-4 ${open ? 'border-b border-slate-100' : ''} bg-white`}>
+        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${tier.dot} ring-2 ring-white shadow-2xs`} />
+        <h3 className="font-bold text-slate-900 flex-1 text-sm tracking-tight">{tier.label}</h3>
+        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
+          {members.length}
+        </span>
         {canEdit && (
           <button
+            type="button"
             onClick={onAdd}
-            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200/70 transition-colors shadow-2xs cursor-pointer active:scale-95"
           >
-            <Plus size={13} /> Tambah
+            <Plus size={13} />
+            <span>Tambah</span>
           </button>
         )}
-        <button onClick={() => setOpen(o => !o)} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+        >
           {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
 
-      {/* Members list */}
+      {/* Members grid */}
       {open && (
-        <div className="bg-gray-50/50 p-3 space-y-2">
-          {members.length === 0
-            ? <div className="text-center py-6 text-gray-400">
-                <Users size={28} className="mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Belum ada anggota di kategori ini</p>
-                <button onClick={onAdd} className="mt-2 text-xs text-blue-500 hover:underline">+ Tambah sekarang</button>
-              </div>
-            : members.map(m => (
-                <MemberCard key={m.id} m={m}
+        <div className="bg-slate-50/50 p-4">
+          {members.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 p-6">
+              <Users size={32} className="mx-auto mb-2 text-slate-300" />
+              <p className="text-xs font-semibold text-slate-600">Belum ada hamba Tuhan di kategori {tier.label}</p>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={onAdd}
+                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer shadow-xs active:scale-95"
+                >
+                  <Plus size={13} />
+                  <span>Tambah Anggota Sekarang</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {members.map(m => (
+                <MemberCard
+                  key={m.id}
+                  m={m}
                   onEdit={() => canEdit && onEdit(m)}
-                  onDelete={() => canEdit && onDelete(m)} />
-              ))
-          }
+                  onDelete={() => canEdit && onDelete(m)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -409,19 +478,35 @@ export default function TeamManagement() {
 
       {/* ── Form Modal ──────────────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in" onClick={() => setShowForm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col border border-slate-200 animate-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900 text-lg">{editId ? 'Edit Anggota' : 'Tambah Anggota'}</h3>
-              <button onClick={() => setShowForm(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-center border border-white/15">
+                  <UserPlus size={18} className="text-indigo-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base leading-tight">
+                    {editId ? 'Edit Anggota Tim' : 'Tambah Anggota Tim'}
+                  </h3>
+                  <p className="text-[11px] text-indigo-200 font-medium mt-0.5">
+                    Data jajaran hamba Tuhan & gembala GBI Jeltim
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
               {/* Photo upload */}
-              <div className="flex justify-center">
+              <div className="flex justify-center pb-1">
                 <PhotoPicker
                   preview={form.photoPreview}
                   onChange={f => {
@@ -435,71 +520,77 @@ export default function TeamManagement() {
               </div>
 
               {/* Couple toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-pink-50 border border-pink-100">
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">Pasangan / Couple?</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Tampil sebagai 2 nama dalam 1 foto</p>
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-pink-50/70 border border-pink-200/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center flex-shrink-0">
+                    <Heart size={16} className="fill-pink-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Pasangan / Couple?</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Tampil sebagai 2 nama dalam 1 foto</p>
+                  </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setField('isCouple', !form.isCouple)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${form.isCouple ? 'bg-pink-400' : 'bg-gray-200'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${form.isCouple ? 'bg-pink-500' : 'bg-slate-300'}`}
                 >
-                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${form.isCouple ? 'left-6' : 'left-1'}`} />
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-xs transition-all ${form.isCouple ? 'left-6' : 'left-1'}`} />
                 </button>
               </div>
 
               {/* Name fields */}
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     {form.isCouple ? 'Nama Orang Pertama *' : 'Nama Lengkap *'}
                   </label>
                   <input
                     value={form.name}
                     onChange={e => setField('name', e.target.value)}
-                    placeholder={form.isCouple ? 'Pdt. John Doe' : 'Pdt. John Doe'}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Contoh: Pdt. Gina Jaya"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder-slate-400 bg-white shadow-2xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     {form.isCouple ? 'Jabatan Orang Pertama' : 'Jabatan / Pelayanan'}
                   </label>
                   <input
                     value={form.role}
                     onChange={e => setField('role', e.target.value)}
-                    placeholder="Gembala Sidang"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Contoh: Gembala Sidang"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 placeholder-slate-400 bg-white shadow-2xs"
                   />
                 </div>
 
                 {/* Second person (couple only) */}
                 {form.isCouple && (
-                  <div className="pt-2 border-t border-pink-100 space-y-3">
+                  <div className="pt-3 border-t border-pink-100 space-y-3 animate-in fade-in">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nama Orang Kedua</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nama Orang Kedua *</label>
                       <input
                         value={form.spouseName}
                         onChange={e => setField('spouseName', e.target.value)}
-                        placeholder="Ny. Jane Doe"
-                        className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                        placeholder="Contoh: Pdm. Poppy Wairissal"
+                        className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 text-slate-800 placeholder-slate-400 bg-white shadow-2xs"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Jabatan Orang Kedua</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Jabatan Orang Kedua</label>
                       <input
                         value={form.spouseRole}
                         onChange={e => setField('spouseRole', e.target.value)}
-                        placeholder="Pendeta"
-                        className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                        placeholder="Contoh: Gembala Sidang"
+                        className="w-full px-4 py-2.5 rounded-xl border border-pink-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-pink-400 text-slate-800 placeholder-slate-400 bg-white shadow-2xs"
                       />
                     </div>
                     {/* Preview */}
                     {(form.name || form.spouseName) && (
-                      <div className="text-center text-sm text-gray-500 bg-gray-50 rounded-xl py-2 px-3">
-                        Tampil sebagai: <span className="font-semibold text-gray-800">
+                      <div className="text-center text-xs text-slate-500 bg-slate-50 border border-slate-200/80 rounded-xl py-2 px-3">
+                        Tampil sebagai: <strong className="text-slate-800">
                           {[form.name, form.spouseName].filter(Boolean).join(' & ')}
-                        </span>
+                        </strong>
                       </div>
                     )}
                   </div>
@@ -508,48 +599,78 @@ export default function TeamManagement() {
 
               {/* Tier selector */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-2">Kategori / Jajaran</label>
-                <div className="flex flex-wrap gap-2">
-                  {TIERS.map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => setField('tier', t.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${form.tier === t.value ? t.color + ' ring-2 ring-offset-1 ring-blue-300' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Kategori / Jajaran</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TIERS.map(t => {
+                    const isSelected = form.tier === t.value;
+                    return (
+                      <button
+                        type="button"
+                        key={t.value}
+                        onClick={() => setField('tier', t.value)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm ring-2 ring-indigo-500/25'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Order */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Urutan Tampil</label>
-                <input
-                  type="number"
-                  value={form.order}
-                  onChange={e => setField('order', Number(e.target.value))}
-                  min={0}
-                  className="w-24 px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-xs text-gray-400 ml-2">angka lebih kecil = tampil duluan</span>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Urutan Tampil</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={form.order}
+                    onChange={e => setField('order', Number(e.target.value))}
+                    min={0}
+                    className="w-24 px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 bg-white shadow-2xs"
+                  />
+                  <span className="text-xs text-slate-400">angka lebih kecil = tampil duluan di atas</span>
+                </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-2">
+                  <X size={14} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
               )}
             </div>
 
             {/* Modal footer */}
-            <div className="flex gap-3 px-6 pb-6">
-              <button onClick={() => setShowForm(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors">
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer"
+              >
                 Batal
               </button>
-              <button onClick={handleSubmit} disabled={saving}
-                className="flex-1 py-3 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                {saving && <Loader2 size={15} className="animate-spin" />}
-                {saving ? 'Menyimpan...' : (editId ? 'Simpan Perubahan' : 'Tambah Anggota')}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saving}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>{editId ? 'Simpan Perubahan' : 'Tambah Anggota'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
