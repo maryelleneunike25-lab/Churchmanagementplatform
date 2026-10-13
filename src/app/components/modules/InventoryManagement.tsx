@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
+import ModernDatePicker from '../common/ModernDatePicker';
 import {
   Plus, Pencil, Trash2, Package, X, Check, Loader2, AlertCircle,
   Tag, ChevronDown, ArrowUpDown, Search, FolderOpen, Settings2,
@@ -696,9 +697,13 @@ export default function InventoryManagement() {
               {/* Purchase Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembelian</label>
-                <input type="date" value={form.purchaseDate}
-                  onChange={e => setForm(f => ({ ...f, purchaseDate: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                <ModernDatePicker
+                  value={form.purchaseDate}
+                  onChange={val => setForm(f => ({ ...f, purchaseDate: val }))}
+                  placeholder="Pilih tanggal pembelian"
+                  minYear={1990}
+                  maxYear={new Date().getFullYear() + 2}
+                />
               </div>
 
               {/* Notes */}

@@ -264,37 +264,73 @@ function CalendarModal({
         {/* Modern Month & Year Slider Selector */}
         <div className="p-4 sm:p-5 space-y-4">
           {/* Year Slider / Quick Jump */}
-          <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-2 shadow-2xs">
-            <button 
-              type="button" 
-              onClick={() => setViewYear(y => y - 1)} 
-              className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-              title="Tahun Sebelumnya"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tahun:</span>
-              <select
-                value={viewYear}
-                onChange={e => setViewYear(Number(e.target.value))}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-1 text-sm font-extrabold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer shadow-2xs"
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 space-y-2">
+            <div className="flex items-center justify-between gap-1">
+              <button 
+                type="button" 
+                onClick={() => setViewYear(y => Math.max(2015, y - 5))} 
+                className="px-2 py-1 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200 text-xs font-bold"
+                title="-5 Tahun"
               >
-                {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - 10 + i).map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+                &laquo; 5th
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setViewYear(y => Math.max(2015, y - 1))} 
+                className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                title="Tahun Sebelumnya"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tahun:</span>
+                <select
+                  value={viewYear}
+                  onChange={e => setViewYear(Number(e.target.value))}
+                  className="bg-white border border-slate-200 rounded-xl px-3 py-1 text-sm font-extrabold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer shadow-2xs"
+                >
+                  {Array.from({ length: 30 }, (_, i) => 2015 + i).map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                type="button" 
+                onClick={() => setViewYear(y => Math.min(2045, y + 1))} 
+                className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                title="Tahun Selanjutnya"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setViewYear(y => Math.min(2045, y + 5))} 
+                className="px-2 py-1 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200 text-xs font-bold"
+                title="+5 Tahun"
+              >
+                5th &raquo;
+              </button>
             </div>
 
-            <button 
-              type="button" 
-              onClick={() => setViewYear(y => y + 1)} 
-              className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-              title="Tahun Selanjutnya"
-            >
-              <ChevronRight size={16} />
-            </button>
+            <div className="pt-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mb-1 px-1">
+                <span>2015</span>
+                <span className="text-indigo-700 font-extrabold text-xs bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                  Geser Tahun: {viewYear}
+                </span>
+                <span>2045</span>
+              </div>
+              <input
+                type="range"
+                min={2015}
+                max={2045}
+                value={viewYear}
+                onChange={e => setViewYear(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 transition-all"
+              />
+            </div>
           </div>
 
           {/* Month Slider & Navigator */}

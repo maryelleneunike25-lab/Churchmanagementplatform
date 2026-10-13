@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Alert } from '@mui/material';
 import { Card, CardContent } from '../ui/card';
+import ModernDatePicker from '../common/ModernDatePicker';
 import { Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { projectId } from '/utils/supabase/info';
 
@@ -285,15 +286,16 @@ export default function FinanceManagement() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
             />
-            <TextField
-              fullWidth
-              label="Tanggal"
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              required
-            />
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tanggal Transaksi</label>
+              <ModernDatePicker
+                value={formData.date}
+                onChange={val => setFormData({ ...formData, date: val })}
+                placeholder="Pilih tanggal transaksi"
+                minYear={2015}
+                maxYear={new Date().getFullYear() + 2}
+              />
+            </div>
           </div>
         </DialogContent>
         <DialogActions>

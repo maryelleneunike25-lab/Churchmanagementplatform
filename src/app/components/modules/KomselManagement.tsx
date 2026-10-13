@@ -18,6 +18,7 @@ import {
   setPlotStatus, detectPlotConflicts, STANDARD_ROOMS, loadRooms, saveRooms,
   getLeadersForPks, PksLeaderContact
 } from '../../../lib/komsel';
+import ModernDatePicker from '../common/ModernDatePicker';
 
 const BLANK_FORM = {
   pksName: '',
@@ -1526,11 +1527,12 @@ export default function KomselManagement() {
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Tanggal <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="date"
+                <ModernDatePicker
                   value={plotForm.date}
-                  onChange={e => setPlotForm({ ...plotForm, date: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onChange={val => setPlotForm({ ...plotForm, date: val })}
+                  placeholder="Pilih tanggal plotting"
+                  minYear={new Date().getFullYear() - 1}
+                  maxYear={new Date().getFullYear() + 5}
                 />
               </div>
 

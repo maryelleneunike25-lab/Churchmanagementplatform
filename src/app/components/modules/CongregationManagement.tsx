@@ -11,6 +11,7 @@ import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES, ty
 import { projectId } from '/utils/supabase/info';
 import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
 import ImagePicker from '../common/ImagePicker';
+import ModernDatePicker from '../common/ModernDatePicker';
 import { MapPin, Phone, Mail, Cake, Heart, Baby, Calendar, HeartHandshake } from 'lucide-react';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
@@ -1337,8 +1338,14 @@ export default function CongregationManagement() {
                 {/* Tanggal Lahir */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal Lahir</label>
-                  <input type="date" value={formData.birthDate} onChange={e => setFormData(p => ({ ...p, birthDate: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <ModernDatePicker
+                    value={formData.birthDate}
+                    onChange={val => setFormData(p => ({ ...p, birthDate: val }))}
+                    placeholder="Pilih tanggal lahir"
+                    minYear={1920}
+                    maxYear={new Date().getFullYear()}
+                    showAge={true}
+                  />
                 </div>
                 {/* Jenis Kelamin */}
                 <div>
@@ -1374,8 +1381,13 @@ export default function CongregationManagement() {
                         </span>
                       )}
                     </label>
-                    <input type="date" value={formData.marriageDate} onChange={e => setFormData(p => ({ ...p, marriageDate: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                    <ModernDatePicker
+                      value={formData.marriageDate}
+                      onChange={val => setFormData(p => ({ ...p, marriageDate: val }))}
+                      placeholder="Pilih tanggal pernikahan"
+                      minYear={1940}
+                      maxYear={new Date().getFullYear() + 1}
+                    />
                   </div>
                 )}
                 {/* Status */}
@@ -1394,8 +1406,13 @@ export default function CongregationManagement() {
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Tanggal Pertama Bergabung {formData.status === 'new' && <span className="text-blue-600 font-semibold">(Jemaat Baru)</span>}
                   </label>
-                  <input type="date" value={formData.joinDate} onChange={e => setFormData(p => ({ ...p, joinDate: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                  <ModernDatePicker
+                    value={formData.joinDate}
+                    onChange={val => setFormData(p => ({ ...p, joinDate: val }))}
+                    placeholder="Pilih tanggal bergabung"
+                    minYear={1980}
+                    maxYear={new Date().getFullYear() + 1}
+                  />
                 </div>
                 {/* Alamat Domisili */}
                 <div className="col-span-2">
@@ -1413,8 +1430,13 @@ export default function CongregationManagement() {
                 {/* Tanggal Baptis */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal Baptis</label>
-                  <input type="date" value={formData.baptismDate} onChange={e => setFormData(p => ({ ...p, baptismDate: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                  <ModernDatePicker
+                    value={formData.baptismDate}
+                    onChange={val => setFormData(p => ({ ...p, baptismDate: val }))}
+                    placeholder="Pilih tanggal baptis"
+                    minYear={1940}
+                    maxYear={new Date().getFullYear() + 1}
+                  />
                 </div>
                 {/* Status Baptis */}
                 <div>
@@ -1470,9 +1492,13 @@ export default function CongregationManagement() {
                           </span>
                         )}
                       </label>
-                      <input type="date" value={formData.marriageDate}
-                        onChange={e => setFormData(p => ({ ...p, marriageDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                      <ModernDatePicker
+                        value={formData.marriageDate}
+                        onChange={val => setFormData(p => ({ ...p, marriageDate: val }))}
+                        placeholder="Pilih tanggal pernikahan"
+                        minYear={1940}
+                        maxYear={new Date().getFullYear() + 1}
+                      />
                     </div>
                   </div>
                   {/* Anak-anak */}
@@ -1490,23 +1516,30 @@ export default function CongregationManagement() {
                     )}
                     <div className="space-y-2">
                       {(formData.children || []).map((child, idx) => (
-                        <div key={idx} className="flex gap-2 items-start">
+                        <div key={idx} className="flex gap-2 items-center">
                           <input type="text" placeholder={`Nama anak ${idx + 1}`} value={child.name}
                             onChange={e => setFormData(p => ({
                               ...p,
                               children: (p.children || []).map((c, i) => i === idx ? { ...c, name: e.target.value } : c)
                             }))}
-                            className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
-                          <input type="date" value={child.birthDate || ''}
-                            onChange={e => setFormData(p => ({
-                              ...p,
-                              children: (p.children || []).map((c, i) => i === idx ? { ...c, birthDate: e.target.value } : c)
-                            }))}
-                            className="w-36 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                          <div className="w-44 sm:w-52 flex-shrink-0">
+                            <ModernDatePicker
+                              value={child.birthDate || ''}
+                              onChange={val => setFormData(p => ({
+                                ...p,
+                                children: (p.children || []).map((c, i) => i === idx ? { ...c, birthDate: val } : c)
+                              }))}
+                              placeholder="Tgl lahir anak"
+                              minYear={1950}
+                              maxYear={new Date().getFullYear()}
+                              showAge={true}
+                            />
+                          </div>
                           <button type="button"
                             onClick={() => setFormData(p => ({ ...p, children: (p.children || []).filter((_, i) => i !== idx) }))}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">
-                            <X size={14} />
+                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0">
+                            <X size={15} />
                           </button>
                         </div>
                       ))}

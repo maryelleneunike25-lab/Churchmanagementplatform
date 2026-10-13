@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { projectId } from '/utils/supabase/info';
 import { getAge, getAgeGroup, AGE_GROUP_STYLES } from '../../../lib/age';
 import KomisiReport from './KomisiReport';
+import ModernDatePicker from '../common/ModernDatePicker';
 import {
   Users, Plus, Trash2, Edit2, X, Check, ChevronDown, AlertTriangle,
   ClipboardList, Download, Calendar, UserCheck, UserX, Link, Unlink,
@@ -809,11 +810,13 @@ export default function KomisiManagement() {
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Tanggal Lahir
                     </label>
-                    <input 
-                      type="date" 
-                      value={memberForm.birthDate} 
-                      onChange={e => setMemberForm(p => ({ ...p, birthDate: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                    <ModernDatePicker
+                      value={memberForm.birthDate}
+                      onChange={val => setMemberForm(p => ({ ...p, birthDate: val }))}
+                      placeholder="Pilih tanggal lahir"
+                      minYear={1930}
+                      maxYear={new Date().getFullYear()}
+                      showAge={true}
                     />
                     <p className="text-[10px] text-slate-400 mt-1">Membantu kalkulasi usia & sinkronisasi</p>
                   </div>
@@ -993,8 +996,13 @@ export default function KomisiManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Tanggal *</label>
-                <input type="date" value={sessionForm.date} onChange={e => setSessionForm(p => ({ ...p, date: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                <ModernDatePicker
+                  value={sessionForm.date}
+                  onChange={val => setSessionForm(p => ({ ...p, date: val }))}
+                  placeholder="Pilih tanggal sesi"
+                  minYear={new Date().getFullYear() - 2}
+                  maxYear={new Date().getFullYear() + 2}
+                />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
