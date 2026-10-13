@@ -7,7 +7,7 @@ import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
   Save, Download, Calendar as CalendarIcon, Users, TrendingDown, TrendingUp,
   ChevronLeft, ChevronRight, BarChart3, ClipboardList, AlertTriangle,
-  Loader2, X, Sparkles, Filter
+  Loader2, X, Sparkles, Filter, RotateCcw, Phone, MessageCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -20,7 +20,15 @@ const SERVICE_TYPE = 'Ibadah Umum';
 function toMember(r: { key: string; value: unknown }): Member | null {
   const m = r.value as any;
   if (!m?.name) return null;
-  return { id: m.id || r.key, name: m.name, address: m.address, phone: m.phone, status: m.status };
+  return {
+    id: m.id || r.key,
+    name: m.name,
+    address: m.address,
+    phone: m.phone || (Array.isArray(m.phones) && m.phones.length > 0 ? m.phones[0] : undefined),
+    status: m.status,
+    pksName: m.pksName,
+    komselId: m.komselId,
+  };
 }
 
 interface Member {
@@ -29,6 +37,8 @@ interface Member {
   address?: string;
   phone?: string;
   status?: string;
+  pksName?: string;
+  komselId?: string;
 }
 
 interface Session {
@@ -66,16 +76,26 @@ function sundaysInMonth(year: number, month: number): string[] {
   return dates;
 }
 
-// Inactive threshold: attended < 50% of sessions in last 4 weeks
-function getInactiveMembers(members: Member[], sessions: Session[]): string[] {
-  const now = new Date();
-  const fourWeeksAgo = fmt(new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000));
-  const recent = sessions.filter(s => s.date >= fourWeeksAgo);
-  if (recent.length === 0) return [];
+// Inactive rule: only inactive if absent in 3 consecutive general service sessions
+// Must have at least 3 sessions recorded in history; excludes members currently marked present.
+function getInactiveMembers(members: Member[], sessions: Session[], currentPresent?: Set<string>): string[] {
+  const generalSessions = sessions
+    .filter(s => s.serviceType === SERVICE_TYPE)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  // If there are less than 3 sessions recorded in history, no one can be declared "jarang aktif"
+  if (generalSessions.length < 3) return [];
+
+  const last3Sessions = generalSessions.slice(0, 3);
+
   return members
     .filter(m => {
-      const count = recent.filter(s => s.presentIds.includes(m.id)).length;
-      return count / recent.length < 0.5;
+      // If currently checked as present in this session, exclude from inactive list
+      if (currentPresent?.has(m.id)) return false;
+
+      // Inactive if not present in any of the last 3 consecutive sessions
+      const attendedAny = last3Sessions.some(s => s.presentIds && s.presentIds.includes(m.id));
+      return !attendedAny;
     })
     .map(m => m.id);
 }
@@ -337,8 +357,11 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [resetting, setResetting] = useState(false);
+
   const sessionId = `sess_${date}_Ibadah_Umum`;
-  const inactiveIds = useMemo(() => getInactiveMembers(members, sessions), [members, sessions]);
+  const existingSession = sessions.find(s => s.id === sessionId);
+  const inactiveIds = useMemo(() => getInactiveMembers(members, sessions, present), [members, sessions, present]);
 
   // Load existing session for selected date + service
   useEffect(() => {
@@ -396,6 +419,32 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
     }
   };
 
+  const handleReset = async () => {
+    if (!canEdit) return;
+    const confirmMsg = `Reset & hapus data absensi untuk tanggal ${date}?\nSemua centang kehadiran pada tanggal ini akan dibersihkan.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setResetting(true);
+    try {
+      const key = `attendance_session:${sessionId}`;
+      await supabaseAdmin.from(KV).delete().eq('key', key);
+
+      await trackActivity(
+        'RESET_ATTENDANCE',
+        'Absensi',
+        `Mereset dan menghapus data absensi ${SERVICE_TYPE} tanggal ${date}`
+      );
+
+      setPresent(new Set());
+      setSaved(false);
+      onSessionSaved();
+    } catch (err: any) {
+      alert(`Gagal mereset absensi: ${err.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const presentCount = present.size;
   const absentCount = members.length - presentCount;
 
@@ -425,11 +474,26 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
           </div>
         </div>
 
-        <button onClick={handleSave} disabled={saving || !canEdit}
-          className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto cursor-pointer ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {saving ? 'Menyimpan...' : saved ? 'Tersimpan ✓' : 'Simpan Absensi'}
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          {(saved || existingSession || present.size > 0) && canEdit && (
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={resetting || saving}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300 shadow-xs cursor-pointer disabled:opacity-50"
+              title="Reset dan hapus data absensi tanggal ini"
+            >
+              {resetting ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+              <span>{resetting ? 'Mereset...' : 'Reset Absensi'}</span>
+            </button>
+          )}
+
+          <button onClick={handleSave} disabled={saving || resetting || !canEdit}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? 'Menyimpan...' : saved ? 'Tersimpan ✓' : 'Simpan Absensi'}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -450,20 +514,87 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 
       {/* Inactive alert */}
       {inactiveIds.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-amber-800">Jemaat Jarang Aktif ({inactiveIds.length} orang)</p>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-700">
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-900">
+                  Jemaat Jarang Aktif ({inactiveIds.length} orang)
+                </p>
+                <p className="text-xs text-amber-700">
+                  Tidak hadir dalam 3 ibadah umum berturut-turut. Hubungi untuk pelayanan penggembalaan:
+                </p>
+              </div>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
-            {members.filter(m => inactiveIds.includes(m.id)).map(m => (
-              <div key={m.id} className="flex items-center gap-2 min-w-0 rounded-xl bg-white/80 border border-amber-100 px-3 py-2 text-xs text-amber-900">
-                <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-semibold flex-shrink-0">{m.name.slice(0, 1).toUpperCase()}</span>
-                <span className="truncate">{m.name}</span>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-80 overflow-y-auto pr-1">
+            {members.filter(m => inactiveIds.includes(m.id)).map(m => {
+              const cleanPhone = (m.phone || '').replace(/[^0-9]/g, '');
+              let waNumber = cleanPhone;
+              if (waNumber.startsWith('0')) {
+                waNumber = '62' + waNumber.slice(1);
+              }
+              const waText = encodeURIComponent(
+                `Shalom ${m.name}, salam kasih dari gereja GBI Jeltim. Kami rindu menyapa dan menanyakan kabar Bpk/Ibu/Sdr. Semoga selalu dalam lindungan dan berkat Tuhan.`
+              );
+
+              return (
+                <div key={m.id} className="flex flex-col justify-between rounded-xl bg-white border border-amber-200/70 p-3 shadow-xs hover:border-amber-400 transition-colors">
+                  <div className="flex items-start gap-2.5 min-w-0 mb-2">
+                    <span className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      {m.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-900 truncate" title={m.name}>
+                        {m.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {m.pksName ? (
+                          <span className="inline-block text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                            PKS: {m.pksName}
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                            Non-PKS
+                          </span>
+                        )}
+                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
+                          3x Berturut Absen
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-1 text-[11px]">
+                    <div className="truncate text-gray-600 font-medium">
+                      {m.phone ? (
+                        <a href={`tel:${m.phone}`} className="hover:text-blue-600 flex items-center gap-1">
+                          <Phone size={11} className="text-gray-400" />
+                          <span>{m.phone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 italic">No HP belum ada</span>
+                      )}
+                    </div>
+                    {waNumber && (
+                      <a
+                        href={`https://wa.me/${waNumber}?text=${waText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-semibold transition-colors flex-shrink-0 cursor-pointer"
+                        title="Hubungi via WhatsApp"
+                      >
+                        <MessageCircle size={12} className="text-emerald-600" />
+                        <span>Chat WA</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
