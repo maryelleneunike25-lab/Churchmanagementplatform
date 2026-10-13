@@ -735,87 +735,159 @@ export default function KomselManagement() {
                   </div>
 
                   {expanded && (
-                    <div className="p-4 border-t border-gray-100 bg-gray-50/40 space-y-4">
-                      {/* Leader Contact Card */}
-                      <div className="bg-white p-3 rounded-xl border border-gray-200/70 flex items-center justify-between flex-wrap gap-2">
+                    <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                      {/* Control Bar: Leader contact + Quick Actions */}
+                      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
                             <Phone size={13} className="text-indigo-600" /> Kontak Ketua PKS:
                           </span>
-                          {leaders.map((ldr, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg text-xs">
-                              <span className="font-medium text-indigo-900">{ldr.name}</span>
-                              {ldr.phone ? (
-                                <div className="flex items-center gap-1 ml-1">
+                          {leaders.length === 0 ? (
+                            <span className="text-xs text-slate-400 italic">Belum ditentukan</span>
+                          ) : (
+                            leaders.map((ldr, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 bg-indigo-50/80 border border-indigo-100 px-3 py-1.5 rounded-xl text-xs">
+                                <span className="font-bold text-indigo-950">{ldr.name}</span>
+                                {ldr.phone ? (
                                   <button
+                                    type="button"
                                     onClick={() => openWhatsApp(ldr.phone, `Shalom ${ldr.name}, kami dari Admin GBI Jeltim terkait PKS ${pksName}...`)}
-                                    className="text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-0.5"
-                                    title="Kirim pesan WhatsApp"
+                                    className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-0.5 rounded-lg font-semibold flex items-center gap-1 transition-colors cursor-pointer ml-1"
+                                    title="Hubungi via WhatsApp"
                                   >
-                                    <MessageSquare size={12} /> {ldr.phone}
+                                    <MessageSquare size={12} className="text-emerald-600" /> {ldr.phone}
                                   </button>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 italic text-[11px]">(Belum ada no telp)</span>
-                              )}
-                            </div>
-                          ))}
+                                ) : (
+                                  <span className="text-slate-400 italic text-[11px]">(Tanpa no telp)</span>
+                                )}
+                              </div>
+                            ))
+                          )}
                         </div>
 
+                        {/* Action buttons */}
                         {canEdit && (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-2 justify-end">
                             <button
+                              type="button"
                               onClick={() => handleOpenPlotDialog(undefined, pksName)}
-                              className="flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200"
+                              className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-xl border border-indigo-200/80 transition-colors shadow-2xs cursor-pointer"
                             >
-                              <Calendar size={13} /> Plot Jadwal/Ruangan
+                              <Calendar size={13} className="text-indigo-600" />
+                              <span>Plot Ruangan</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => openPicker(komsel)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer active:scale-95"
+                            >
+                              <UserPlus size={13} />
+                              <span>+ Tambah Anggota</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDialog(komsel)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <Edit2 size={13} className="text-slate-500" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(komsel)}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-red-600 bg-white hover:bg-red-50 border border-red-200/80 rounded-xl transition-colors shadow-2xs cursor-pointer"
+                            >
+                              <Trash2 size={13} className="text-red-500" />
+                              <span>Hapus</span>
                             </button>
                           </div>
                         )}
                       </div>
 
-                      {/* Action Bar */}
-                      {canEdit && (
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <button onClick={() => openPicker(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg">
-                            <UserPlus size={13} /> Tambah Anggota
-                          </button>
-                          <button onClick={() => handleOpenDialog(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg">
-                            <Edit2 size={13} /> Edit PKS
-                          </button>
-                          <button onClick={() => handleDelete(komsel)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg">
-                            <Trash2 size={13} /> Hapus PKS
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Members Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {members.map((m: any) => (
-                          <div key={m.id} className="bg-white p-3 rounded-xl border border-gray-100 shadow-2xs flex items-start gap-3">
-                            <MemberAvatar m={m} />
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-sm text-gray-900 break-words">{m.name}</p>
-                              {m.phone && <p className="text-xs text-gray-500 flex items-center gap-1"><Phone size={11} />{m.phone}</p>}
-                              {m.address && <p className="text-[11px] text-gray-400 break-words">{m.address}</p>}
-                            </div>
-                            {canEdit && (
-                              <button
-                                title="Keluarkan dari PKS"
-                                disabled={busyId === m.id}
-                                onClick={() => assign(m.id, '')}
-                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-40 flex-shrink-0"
-                              >
-                                <UserMinus size={15} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        {members.length === 0 && (
-                          <p className="text-xs text-gray-400 col-span-full py-4 text-center">
-                            Belum ada jemaat di PKS ini. Pilih PKS ini di Data Jemaat, atau klik Tambah Anggota.
+                      {/* Members Grid Header & Cards */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2.5 px-1">
+                          <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            Daftar Anggota PKS ({members.length})
                           </p>
-                        )}
+                          {canEdit && members.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openPicker(komsel)}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer"
+                            >
+                              <UserPlus size={12} />
+                              <span>Tambah Anggota</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                          {members.map((m: any) => (
+                            <div
+                              key={m.id}
+                              className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all flex items-start gap-3"
+                            >
+                              <MemberAvatar m={m} />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-sm text-slate-900 leading-tight break-words">{m.name}</p>
+                                {m.phone && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openWhatsApp(m.phone, `Shalom ${m.name}...`)}
+                                    className="text-xs text-slate-500 hover:text-emerald-600 flex items-center gap-1 mt-1 transition-colors text-left"
+                                    title="Hubungi WhatsApp"
+                                  >
+                                    <Phone size={11} className="text-emerald-600" />
+                                    <span>{m.phone}</span>
+                                  </button>
+                                )}
+                                {m.address && (
+                                  <p className="text-[11px] text-slate-400 flex items-start gap-1 mt-1 break-words line-clamp-2 leading-relaxed">
+                                    <MapPin size={11} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                    <span>{m.address}</span>
+                                  </p>
+                                )}
+                              </div>
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  title="Keluarkan dari PKS"
+                                  disabled={busyId === m.id}
+                                  onClick={() => assign(m.id, '')}
+                                  className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors disabled:opacity-40 flex-shrink-0 cursor-pointer"
+                                >
+                                  <UserMinus size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+
+                          {members.length === 0 && (
+                            <div className="col-span-full py-8 px-4 text-center bg-white rounded-2xl border border-dashed border-slate-200 space-y-2">
+                              <Users size={24} className="mx-auto text-slate-300" />
+                              <p className="text-xs font-semibold text-slate-600">
+                                Belum ada anggota jemaat yang terdaftar di PKS {pksName}
+                              </p>
+                              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                                Anda dapat menambahkan anggota dengan memilih PKS ini pada menu Data Jemaat atau mengklik tombol Tambah Anggota di bawah.
+                              </p>
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => openPicker(komsel)}
+                                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+                                >
+                                  <UserPlus size={13} />
+                                  <span>+ Tambah Anggota Sekarang</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
