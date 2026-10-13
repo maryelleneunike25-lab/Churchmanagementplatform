@@ -21,26 +21,13 @@ else
 fi
 
 echo ""
-
-# 2. Capacitor sync check
-if command -v npx &> /dev/null; then
-    echo "Syncing Capacitor to Android project..."
-    if ! npx cap sync android; then
-        echo "[ERROR] Capacitor sync failed! Aborting."
-        exit 1
-    fi
-else
-    echo "[INFO] npx tidak ditemukan di sistem lokal, melewati sync Android."
-fi
-
-echo ""
 # In non-interactive environments, default to COMMIT_MSG
 if [ -t 0 ]; then
     read -r -p "Enter commit message (default: Update website): " COMMIT_MSG
 fi
 
 if [ -z "$COMMIT_MSG" ]; then
-    COMMIT_MSG="Update website: PKS room plotting, fix PKS delete, admin 2 auth options, fix input styling"
+    COMMIT_MSG="Update website"
 fi
 
 echo ""
