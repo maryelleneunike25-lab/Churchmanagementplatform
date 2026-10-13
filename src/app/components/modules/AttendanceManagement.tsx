@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { EdgeKV as supabaseAdmin } from '../../../lib/edgeKvClient';
+import { trackActivity } from '../../../lib/auditLogger';
 import {
   Search, SortAsc, SortDesc, CheckCircle2, Circle, CheckSquare, Square,
   Save, Download, Calendar as CalendarIcon, Users, TrendingDown, TrendingUp,
@@ -43,6 +44,16 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const fmt = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const monthLabel = (y: number, m: number) =>
   new Date(y, m - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+function formatDateLabel(dateStr: string) {
+  if (!dateStr) return 'Pilih Tanggal';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
+  return `${dayName}, ${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 
 // Get all Sundays in a given year-month
 function sundaysInMonth(year: number, month: number): string[] {
@@ -127,7 +138,18 @@ function CalendarModal({
   const [viewYear, setViewYear] = useState(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(initialDate.getMonth() + 1);
 
+  useEffect(() => {
+    if (selectedDate && isOpen) {
+      const parts = selectedDate.split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        setViewYear(parts[0]);
+        setViewMonth(parts[1]);
+      }
+    }
+  }, [selectedDate, isOpen]);
+
   if (!isOpen) return null;
+
 
   const prevMonth = () => {
     if (viewMonth === 1) { setViewMonth(12); setViewYear(y => y - 1); }
@@ -307,6 +329,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
 }) {
   const today = fmt(new Date());
   const [date, setDate] = useState(today);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [present, setPresent] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -359,6 +382,13 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
       } else {
         await supabaseAdmin.from(KV).insert({ key, value: session });
       }
+
+      await trackActivity(
+        'SAVE_ATTENDANCE',
+        'Absensi',
+        `Menyimpan absensi ${SERVICE_TYPE} untuk tanggal ${date} (${present.size} jemaat hadir)`
+      );
+
       setSaved(true);
       onSessionSaved();
     } finally {
@@ -376,8 +406,15 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
         <div>
           <label className="text-xs text-gray-500 font-medium block mb-1">Tanggal Absensi</label>
           <div className="flex items-center gap-2">
-            <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="flex items-center gap-2.5 px-3.5 py-2 bg-white border border-gray-200 hover:border-blue-500 hover:bg-blue-50/20 rounded-xl text-sm font-semibold text-gray-800 transition-colors shadow-xs cursor-pointer group"
+              title="Buka Kalender Kehadiran & Sesi"
+            >
+              <CalendarIcon size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
+              <span>{formatDateLabel(date)}</span>
+            </button>
             <button
               type="button"
               onClick={() => setDate(today)}
@@ -387,6 +424,7 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
             </button>
           </div>
         </div>
+
         <button onClick={handleSave} disabled={saving || !canEdit}
           className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm ml-auto cursor-pointer ${saved ? 'bg-emerald-600 text-white' : 'bg-blue-700 text-white hover:bg-blue-800'} disabled:opacity-50`}>
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -493,9 +531,19 @@ function DailyInput({ members, sessions, onSessionSaved, canEdit }: {
           })
         )}
       </div>
+
+      {/* Calendar Picker Modal */}
+      <CalendarModal
+        isOpen={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        selectedDate={date}
+        onSelectDate={d => setDate(d)}
+        sessions={sessions}
+      />
     </div>
   );
 }
+
 
 // ─── Report Tab ──────────────────────────────────────────────────────────────
 function ReportSummary({ members, sessions }: { members: Member[]; sessions: Session[] }) {

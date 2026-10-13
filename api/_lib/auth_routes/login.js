@@ -34,8 +34,28 @@ export default async function handler(req, res) {
     }
 
     const token = issueSessionToken(res, user.id, user.role);
+
+    // Update presence & log activity
+    const userAgent = req.headers['user-agent'] || null;
+    await sql`
+      UPDATE users 
+      SET last_seen_at = now(), user_agent = ${userAgent ? String(userAgent).slice(0, 255) : null}
+      WHERE id = ${user.id}
+    `;
+
+    try {
+      const { logActivity } = await import('../audit.js');
+      await logActivity({
+        userId: user.id,
+        action: 'LOGIN',
+        target: 'Autentikasi',
+        detail: { message: `Pengguna ${user.name} (${user.email}) berhasil login`, userAgent },
+      });
+    } catch {}
+
     return sendJson(res, 200, { success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (err) {
     return sendError(res, 500, 'Server error');
   }
 }
+

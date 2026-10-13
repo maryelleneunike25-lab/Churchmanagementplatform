@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import sql from '../db.js';
 import { requireUser } from '../guard.js';
 import { sendJson, sendError, getBody } from '../http.js';
+import { logActivity } from '../audit.js';
 
 export default async function handler(req, res) {
   const admin = await requireUser(req, res, { role: 'super_admin' });
@@ -49,12 +50,21 @@ export default async function handler(req, res) {
         )
         RETURNING id, email, name, status, role
       `;
+
+      await logActivity({
+        userId: admin.id,
+        action: 'CREATE',
+        target: 'User Management',
+        detail: { message: `Menambah admin/pengguna baru: ${name} (${email}) dengan role ${role}`, email, role, status },
+      });
+
       return sendJson(res, 200, { success: true, user: inserted[0] });
     } catch (err) {
       console.error('create user error:', err);
       return sendError(res, 500, 'Gagal menambah pengguna');
     }
   }
+
 
   res.setHeader('Allow', 'GET, POST');
   return sendError(res, 405, 'Method not allowed');

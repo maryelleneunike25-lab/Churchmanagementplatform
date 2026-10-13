@@ -45,8 +45,19 @@ export default async function handler(req, res) {
       ON CONFLICT (key) DO UPDATE SET value = ${payload}::jsonb, updated_at = now()
     `;
 
+    try {
+      const { logActivity } = await import('../audit.js');
+      await logActivity({
+        userId: admin.id,
+        action: 'UPDATE',
+        target: 'Keamanan (PIN)',
+        detail: { message: `Super Admin ${admin.name} mengubah pengaturan Portal PIN`, enabled: payload.enabled },
+      });
+    } catch {}
+
     return sendJson(res, 200, { success: true, data: payload });
   }
+
 
   res.setHeader('Allow', 'GET, POST, PUT');
   return sendError(res, 405, 'Method not allowed');

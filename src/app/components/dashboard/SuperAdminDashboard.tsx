@@ -19,15 +19,18 @@ import TeamManagement from '../modules/TeamManagement';
 import RegistrationManagement from '../modules/RegistrationManagement';
 import KomisiManagement from '../modules/KomisiManagement';
 import ScheduleManagement from '../modules/ScheduleManagement';
+import ActivityLogManagement from '../modules/ActivityLogManagement';
 import ErrorBoundary from '../common/ErrorBoundary';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { sendHeartbeat } from '../../../lib/auditLogger';
 // @ts-ignore
 import gbiLogo from '../../../imports/pngegg__1_-1.png';
 import {
   LayoutDashboard, Users, ClipboardCheck, CalendarCheck, Group,
   Wallet, Package, HandHelping, Megaphone, ShieldCheck, Menu, X,
-  LogOut, ChevronRight, Cake, Gift, Images, UserRound
+  LogOut, ChevronRight, Cake, Gift, Images, UserRound, Activity
 } from 'lucide-react';
+
 
 // ── Birthday helpers ──────────────────────────────────────────────────────────
 function getDayOfYear(date: Date) {
@@ -55,6 +58,7 @@ const NAV_ICONS: Record<string, any> = {
   dashboard:       LayoutDashboard,
   userManagement:  ShieldCheck,
   pendingApprovals:ClipboardCheck,
+  activityLog:     Activity,
   jemaat:          Users,
   absensi:         CalendarCheck,
   komsel:          Group,
@@ -93,6 +97,7 @@ export default function SuperAdminDashboard() {
     { label: 'Dashboard',         key: 'dashboard',        visible: true },
     { label: 'User Management',   key: 'userManagement',   visible: isSuperAdmin },
     { label: 'Pending Approvals', key: 'pendingApprovals', visible: isSuperAdmin },
+    { label: 'Log Aktivitas',     key: 'activityLog',      visible: isSuperAdmin },
     { label: 'Data Jemaat',       key: 'jemaat',           visible: isSuperAdmin || permissions.viewJemaat },
     { label: 'Absensi',           key: 'absensi',          visible: isSuperAdmin || permissions.viewAbsensi },
     { label: 'Komsel',            key: 'komsel',           visible: isSuperAdmin || permissions.viewKomsel },
@@ -109,7 +114,17 @@ export default function SuperAdminDashboard() {
 
   const currentLabel = navItems.find(n => n.key === activeTab)?.label ?? 'Dashboard';
 
-  useEffect(() => { loadStats(); loadMembers(); }, []);
+  useEffect(() => {
+    loadStats();
+    loadMembers();
+    // Heartbeat ping immediately and every 30s
+    sendHeartbeat();
+    const interval = setInterval(() => {
+      sendHeartbeat();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
 
   // Auto-refresh stats + members every 30 seconds, and on tab focus
   useAutoRefresh(() => { loadStats(); loadMembers(); }, 30_000);
@@ -396,7 +411,9 @@ export default function SuperAdminDashboard() {
 
           {activeTab === 'userManagement'   && <div className="overflow-y-auto"><div className="p-4 md:p-6"><UserManagement /></div></div>}
           {activeTab === 'pendingApprovals' && <div className="overflow-y-auto"><div className="p-4 md:p-6"><PendingApprovals onApprovalChange={loadStats} /></div></div>}
+          {activeTab === 'activityLog'      && <div className="overflow-y-auto"><div className="p-4 md:p-6"><ActivityLogManagement /></div></div>}
           {activeTab === 'jemaat'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><CongregationManagement /></div></div>}
+
           {activeTab === 'absensi'          && <div className="overflow-y-auto"><div className="p-4 md:p-6"><AttendanceManagement /></div></div>}
           {activeTab === 'komsel'           && <div className="overflow-y-auto"><div className="p-4 md:p-6"><KomselManagement /></div></div>}
           {activeTab === 'keuangan'         && <div className="overflow-y-auto"><div className="p-4 md:p-6"><FinanceManagement /></div></div>}

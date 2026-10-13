@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import sql from '../../db.js';
 import { requireUser } from '../../guard.js';
 import { sendJson, sendError, getBody } from '../../http.js';
+import { logActivity } from '../../audit.js';
 
 const ROLES = ['admin', 'super_admin'];
 const STATUSES = ['pending', 'approved', 'rejected', 'suspended'];
@@ -52,8 +53,17 @@ export default async function handler(req, res) {
         WHERE id = ${id}
       `;
     }
+
+    await logActivity({
+      userId: admin.id,
+      action: action.toUpperCase(),
+      target: 'User Management',
+      detail: { message: `Mengubah status user ${target.email} menjadi ${newStatus}`, targetEmail: target.email, action },
+    });
+
     return sendJson(res, 200, { success: true });
   }
+
 
   // Modify name / email / role / status / permissions / password (each field optional)
   if (req.method === 'PUT') {
@@ -100,6 +110,13 @@ export default async function handler(req, res) {
       if (status === 'approved' && target.status !== 'approved') {
         await sql`UPDATE users SET approved_by = ${admin.id}, approved_at = NOW() WHERE id = ${id}`;
       }
+
+      await logActivity({
+        userId: admin.id,
+        action: 'UPDATE',
+        target: 'User Management',
+        detail: { message: `Memperbarui data user ${target.email}`, targetEmail: target.email, role, status },
+      });
     } catch (err) {
       console.error('update user error:', err);
       return sendError(res, 500, 'Gagal menyimpan perubahan');
@@ -114,9 +131,18 @@ export default async function handler(req, res) {
       return sendError(res, 400, 'Harus ada minimal satu Super Admin aktif');
     }
     await sql`DELETE FROM users WHERE id = ${id}`;
+
+    await logActivity({
+      userId: admin.id,
+      action: 'DELETE',
+      target: 'User Management',
+      detail: { message: `Menghapus user ${target.email}`, targetEmail: target.email },
+    });
+
     return sendJson(res, 200, { success: true });
   }
 
   res.setHeader('Allow', 'POST, PUT, DELETE');
   return sendError(res, 405, 'Method not allowed');
 }
+
