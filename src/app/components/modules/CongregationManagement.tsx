@@ -7,11 +7,11 @@ import { Plus, Edit, Trash2, Users, Search, SortAsc, SortDesc, Download, Chevron
 import { parseExcelFile, executeImport, ParsedMember, ImportPreview } from '../../../lib/congregationImport';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useKomsels } from '../../../lib/komsel';
-import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES, type AgeGroup } from '../../../lib/age';
+import { getAge, getAgeGroup, AGE_GROUPS, AGE_GROUP_LABELS, AGE_GROUP_STYLES, type AgeGroup, getAnniversaryYears, parseLocalDate } from '../../../lib/age';
 import { projectId } from '/utils/supabase/info';
 import { IBADAH_OPTIONS, IBADAH_LABEL } from '../../../lib/ibadahOptions';
 import ImagePicker from '../common/ImagePicker';
-import { MapPin, Phone, Mail, Cake, Heart, Baby, Calendar } from 'lucide-react';
+import { MapPin, Phone, Mail, Cake, Heart, Baby, Calendar, HeartHandshake } from 'lucide-react';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-561004a0`;
 const KV = 'kv_store_561004a0';
@@ -31,7 +31,10 @@ const DEFAULT_PKS_NAMES = ['Sisca', 'Sandy', 'Damli', 'Risan', 'Gina Jaya', 'Wil
 
 function formatDate(iso: string) {
   if (!iso) return '';
-  try { return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  try {
+    const d = parseLocalDate(iso);
+    return d ? d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : iso;
+  }
   catch { return iso; }
 }
 
@@ -82,6 +85,7 @@ interface Member {
   birthDate: string;
   gender: 'male' | 'female';
   maritalStatus: 'single' | 'married' | 'divorced' | 'widowed';
+  marriageDate?: string;
   baptismDate?: string;
   status: 'active' | 'inactive' | 'new' | 'visitor' | 'visitors';
   pelayan?: string[];
@@ -109,6 +113,7 @@ const BLANK_FORM = {
   birthPlace: '',
   gender: 'male' as 'male' | 'female',
   maritalStatus: 'single' as 'single' | 'married' | 'divorced' | 'widowed',
+  marriageDate: '',
   baptismDate: '',
   baptismStatus: 'belum' as 'sudah' | 'belum',
   status: 'new' as 'active' | 'inactive' | 'new' | 'visitor' | 'visitors',
@@ -244,6 +249,12 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
         {m.birthDate && <div className={row}><Cake size={13} className="mt-0.5 text-pink-400 flex-shrink-0" /><span>{m.birthPlace ? `${m.birthPlace}, ` : ''}{formatDate(m.birthDate)}</span></div>}
         {m.joinDate && <div className={row}><Calendar size={13} className="mt-0.5 text-blue-500 flex-shrink-0" /><span>Bergabung: {formatDate(m.joinDate)} {m.status === 'new' && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1 py-0.2 rounded">(Baru)</span>}</span></div>}
         {m.maritalStatus && m.maritalStatus !== 'single' && m.spouseName && <div className={row}><Heart size={13} className="mt-0.5 text-rose-400 flex-shrink-0" /><span className="break-words">{m.spouseName}</span></div>}
+        {m.maritalStatus && m.maritalStatus !== 'single' && m.marriageDate && (
+          <div className={row}>
+            <HeartHandshake size={13} className="mt-0.5 text-pink-500 flex-shrink-0" />
+            <span>Pernikahan: {formatDate(m.marriageDate)}{getAnniversaryYears(m.marriageDate) >= 0 ? ` (${getAnniversaryYears(m.marriageDate)} thn)` : ''}</span>
+          </div>
+        )}
         {m.maritalStatus && m.maritalStatus !== 'single' && m.children && m.children.length > 0 && <div className={row}><Baby size={13} className="mt-0.5 text-sky-400 flex-shrink-0" /><span className="break-words">{m.children.map(c => c.name).join(', ')}</span></div>}
       </div>
 
@@ -649,6 +660,7 @@ export default function CongregationManagement() {
         address: member.address || '', birthDate: member.birthDate || '',
         birthPlace: member.birthPlace || '',
         gender: member.gender || 'male', maritalStatus: member.maritalStatus || 'single',
+        marriageDate: member.marriageDate || '',
         baptismDate: member.baptismDate || '',
         baptismStatus: member.baptismStatus || 'belum',
         status: member.status || 'active',
@@ -694,6 +706,7 @@ export default function CongregationManagement() {
         birthDate: formData.birthDate,
         gender: formData.gender,
         maritalStatus: formData.maritalStatus,
+        marriageDate: formData.maritalStatus !== 'single' ? (formData.marriageDate?.trim() || undefined) : undefined,
         baptismDate: formData.baptismDate || undefined,
         status: formData.status,
         pelayan: formData.pelayan,
@@ -728,7 +741,12 @@ export default function CongregationManagement() {
             const spouse = byName.get(record.spouseName.toLowerCase().trim());
             if (spouse) {
               const spouseKey = spouse._storeKey || `congregation:member:${spouse.id}`;
-              const updatedSpouse = { ...spouse, spouseName: record.name, updatedAt: now };
+              const updatedSpouse = {
+                ...spouse,
+                spouseName: record.name,
+                marriageDate: record.marriageDate || spouse.marriageDate,
+                updatedAt: now,
+              };
               await supabaseAdmin.from(KV).update({ value: updatedSpouse }).eq('key', spouseKey);
               const primarySpouseKey = `congregation:member:${spouse.id}`;
               if (spouseKey !== primarySpouseKey) {
@@ -772,7 +790,14 @@ export default function CongregationManagement() {
             const spouse = byName.get(record.spouseName.toLowerCase().trim());
             if (spouse) {
               const spouseKey = spouse._storeKey || `congregation:member:${spouse.id}`;
-              await supabaseAdmin.from(KV).update({ value: { ...spouse, spouseName: record.name, updatedAt: now } }).eq('key', spouseKey);
+              await supabaseAdmin.from(KV).update({
+                value: {
+                  ...spouse,
+                  spouseName: record.name,
+                  marriageDate: record.marriageDate || spouse.marriageDate,
+                  updatedAt: now,
+                }
+              }).eq('key', spouseKey);
             }
           }
         }
@@ -957,6 +982,8 @@ export default function CongregationManagement() {
       'Kelompok Usia': getAgeGroup(m.birthDate),
       'Jenis Kelamin': m.gender === 'male' ? 'Laki-laki' : 'Perempuan',
       'Status Pernikahan': m.maritalStatus || '',
+      'Tanggal Pernikahan': m.marriageDate || '',
+      'Usia Pernikahan': (m.marriageDate && getAnniversaryYears(m.marriageDate) >= 0) ? `${getAnniversaryYears(m.marriageDate)} tahun` : '',
       'Alamat Domisili': m.address || '',
       'Status': STATUS_LABEL[m.status] || (m.status === 'active' ? 'Aktif' : m.status === 'new' ? 'Jemaat Baru' : 'Tidak Aktif'),
       'Pelayan': (m.pelayan || []).join(', '),
@@ -1333,6 +1360,24 @@ export default function CongregationManagement() {
                     <option value="widowed">Duda/Janda</option>
                   </select>
                 </div>
+                {/* Tanggal Pernikahan (hanya untuk yang sudah menikah/cerai/duda/janda) */}
+                {formData.maritalStatus !== 'single' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <HeartHandshake size={15} className="text-pink-500" />
+                        Tanggal Pernikahan
+                      </span>
+                      {formData.marriageDate && getAnniversaryYears(formData.marriageDate) >= 0 && (
+                        <span className="text-xs text-pink-600 font-semibold">
+                          ({getAnniversaryYears(formData.marriageDate)} thn)
+                        </span>
+                      )}
+                    </label>
+                    <input type="date" value={formData.marriageDate} onChange={e => setFormData(p => ({ ...p, marriageDate: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                  </div>
+                )}
                 {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Status Jemaat</label>
@@ -1405,12 +1450,30 @@ export default function CongregationManagement() {
                     <Users size={14} className="text-blue-500" />
                     Data Keluarga
                   </h4>
-                  {/* Pasangan */}
-                  <div className="mb-3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Pasangan</label>
-                    <input type="text" placeholder="Nama suami / istri" value={formData.spouseName || ''}
-                      onChange={e => setFormData(p => ({ ...p, spouseName: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                  {/* Pasangan & Tanggal Pernikahan */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Nama Pasangan</label>
+                      <input type="text" placeholder="Nama suami / istri" value={formData.spouseName || ''}
+                        onChange={e => setFormData(p => ({ ...p, spouseName: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <HeartHandshake size={13} className="text-pink-500" />
+                          Tanggal Pernikahan
+                        </span>
+                        {formData.marriageDate && getAnniversaryYears(formData.marriageDate) >= 0 && (
+                          <span className="text-[11px] text-pink-600 font-semibold">
+                            ({getAnniversaryYears(formData.marriageDate)} thn)
+                          </span>
+                        )}
+                      </label>
+                      <input type="date" value={formData.marriageDate}
+                        onChange={e => setFormData(p => ({ ...p, marriageDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+                    </div>
                   </div>
                   {/* Anak-anak */}
                   <div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { loadAllMembers } from '../../../lib/komsel';
-import { getAge } from '../../../lib/age';
+import { getAge, getAnniversaryYears, anniversaryInfo, parseLocalDate } from '../../../lib/age';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../../lib/api';
@@ -28,28 +28,95 @@ import gbiLogo from '../../../imports/pngegg__1_-1.png';
 import {
   LayoutDashboard, Users, ClipboardCheck, CalendarCheck, Group,
   Wallet, Package, HandHelping, Megaphone, ShieldCheck, Menu, X,
-  LogOut, ChevronRight, Cake, Gift, Images, UserRound, Activity
+  LogOut, ChevronRight, Cake, Gift, Images, UserRound, Activity,
+  HeartHandshake, Heart, Phone
 } from 'lucide-react';
 
 
-// ── Birthday helpers ──────────────────────────────────────────────────────────
+// ── Birthday & Anniversary helpers ───────────────────────────────────────────
 function getDayOfYear(date: Date) {
   const start = new Date(date.getFullYear(), 0, 0);
   return Math.floor((date.getTime() - start.getTime()) / 86400000);
 }
 
-/** Days until the next birthday and the age as of today (completed years; it goes up on the birthday itself). */
-function birthdayInfo(birthDate: string): { daysUntil: number; age: number } | null {
+/** Days until the next birthday and turning age (completed years on birthday) */
+function birthdayInfo(birthDate: string): { daysUntil: number; age: number; turningAge: number } | null {
   if (!birthDate) return null;
+  const birth = parseLocalDate(birthDate);
+  if (!birth) return null;
   const age = getAge(birthDate);
   if (age < 0) return null;
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const birth = new Date(birthDate);
+  const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-  if (next < today) next = new Date(today.getFullYear() + 1, birth.getMonth(), birth.getDate());
-  const daysUntil = Math.round((next.getTime() - today.getTime()) / 86400000);
-  return { daysUntil, age };
+  if (next < todayReset) next = new Date(today.getFullYear() + 1, birth.getMonth(), birth.getDate());
+  const daysUntil = Math.round((next.getTime() - todayReset.getTime()) / 86400000);
+  const turningAge = next.getFullYear() - birth.getFullYear();
+  return { daysUntil, age, turningAge };
+}
+
+interface AnniversaryEntry {
+  key: string;
+  names: string;
+  spouseName?: string;
+  member: any;
+  spouseMember?: any;
+  marriageDate: string;
+  daysUntil: number;
+  years: number;
+  isToday: boolean;
+  phones: string[];
+}
+
+function getWeddingAnniversaries(members: any[]): AnniversaryEntry[] {
+  const eligible = members.filter(m => m.marriageDate && m.maritalStatus !== 'single');
+  const processedKeys = new Set<string>();
+  const entries: AnniversaryEntry[] = [];
+
+  for (const m of eligible) {
+    if (processedKeys.has(m.id)) continue;
+    const info = anniversaryInfo(m.marriageDate);
+    if (!info || info.daysUntil > 30) continue;
+
+    // Deduplicate spouse if both are in congregation
+    let spouse: any = null;
+    if (m.spouseName) {
+      spouse = eligible.find(other =>
+        other.id !== m.id &&
+        (other.name.toLowerCase().trim() === m.spouseName.toLowerCase().trim() ||
+         (other.spouseName && other.spouseName.toLowerCase().trim() === m.name.toLowerCase().trim()))
+      );
+    }
+
+    if (spouse) {
+      processedKeys.add(spouse.id);
+    }
+    processedKeys.add(m.id);
+
+    const coupleName = spouse
+      ? `${m.name} & ${spouse.name}`
+      : (m.spouseName ? `${m.name} & ${m.spouseName}` : m.name);
+
+    const phones = [
+      ...(m.phones || (m.phone ? [m.phone] : [])),
+      ...(spouse ? (spouse.phones || (spouse.phone ? [spouse.phone] : [])) : [])
+    ].filter(Boolean);
+
+    entries.push({
+      key: spouse ? `${m.id}-${spouse.id}` : m.id,
+      names: coupleName,
+      spouseName: m.spouseName || (spouse ? spouse.name : undefined),
+      member: m,
+      spouseMember: spouse,
+      marriageDate: m.marriageDate,
+      daysUntil: info.daysUntil,
+      years: info.years,
+      isToday: info.isToday,
+      phones,
+    });
+  }
+
+  return entries.sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
@@ -348,22 +415,38 @@ export default function SuperAdminDashboard() {
 
                     {/* Today */}
                     {todayBdays.length > 0 && (
-                      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white">
+                      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-5 text-white shadow-sm">
                         <div className="flex items-center gap-2 mb-3">
                           <Gift size={18} />
                           <span className="font-bold text-sm">Ulang Tahun Hari Ini 🎉</span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2.5">
                           {todayBdays.map(m => {
                             const age = m.bday!.age;
                             const initials = m.name.split(' ').slice(0,2).map((w: string) => w[0]).join('').toUpperCase();
+                            const primaryPhone = (m.phones && m.phones[0]) || m.phone;
+                            const waLink = primaryPhone ? `https://wa.me/${primaryPhone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Selamat Ulang Tahun yang ke-${age} untuk ${m.name}! Kiranya Tuhan Yesus senantiasa memberkati, memberikan kesehatan, dan sukacita yang melimpah. 🎂🎉`)}` : null;
+
                             return (
-                              <div key={m.id} className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-xl px-3 py-2">
-                                <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">{initials}</div>
-                                <div>
-                                  <p className="text-sm font-semibold leading-tight">{m.name}</p>
-                                  <p className="text-xs text-white/80">Usia {age} tahun 🎂</p>
+                              <div key={m.id} className="flex items-center justify-between gap-3 bg-white/20 backdrop-blur-sm rounded-xl px-3.5 py-2.5 border border-white/20">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">{initials}</div>
+                                  <div>
+                                    <p className="text-sm font-semibold leading-tight">{m.name}</p>
+                                    <p className="text-xs text-white/90">Usia {age} tahun 🎂</p>
+                                  </div>
                                 </div>
+                                {waLink && (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Kirim Ucapan WA"
+                                    className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-all text-xs flex items-center gap-1 active:scale-95"
+                                  >
+                                    <Phone size={12} /> <span className="hidden sm:inline">Ucapan WA</span>
+                                  </a>
+                                )}
                               </div>
                             );
                           })}
@@ -381,13 +464,16 @@ export default function SuperAdminDashboard() {
                         </div>
                         <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
                           {upcomingBdays.map(m => {
-                            const birth = new Date(m.birthDate);
-                            const nextAge = m.bday!.age + 1;
+                            const birth = parseLocalDate(m.birthDate);
+                            const nextAge = m.bday!.turningAge;
                             const initials = m.name.split(' ').slice(0,2).map((w: string) => w[0]).join('').toUpperCase();
-                            const dateStr = `${birth.getDate()} ${MONTHS_ID[birth.getMonth()]}`;
+                            const dateStr = birth ? `${birth.getDate()} ${MONTHS_ID[birth.getMonth()]}` : m.birthDate;
                             const urgent = m.bday!.daysUntil <= 7;
+                            const primaryPhone = (m.phones && m.phones[0]) || m.phone;
+                            const waLink = primaryPhone ? `https://wa.me/${primaryPhone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Selamat mendahului Ulang Tahun untuk ${m.name}! Kiranya Tuhan senantiasa memberkati. 🎂🎉`)}` : null;
+
                             return (
-                              <div key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
+                              <div key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${urgent ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-600'}`}>
                                   {initials}
                                 </div>
@@ -397,8 +483,124 @@ export default function SuperAdminDashboard() {
                                 </div>
                                 <div className={`text-right flex-shrink-0 ${urgent ? 'text-pink-600' : 'text-gray-400'}`}>
                                   <p className="text-xs font-semibold">{m.bday!.daysUntil} hari lagi</p>
-                                  {urgent && <p className="text-xs">⚡ Segera</p>}
+                                  {urgent && <p className="text-xs font-bold text-pink-600">⚡ Segera</p>}
                                 </div>
+                                {waLink && (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Kirim pesan WA"
+                                    className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
+                                  >
+                                    <Phone size={14} />
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Wedding Anniversary section */}
+              {(() => {
+                const anniversaries = getWeddingAnniversaries(members);
+                const todayAnniversaries = anniversaries.filter(a => a.isToday);
+                const upcomingAnniversaries = anniversaries.filter(a => !a.isToday);
+
+                if (anniversaries.length === 0) return null;
+
+                return (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                      <HeartHandshake size={16} className="text-rose-500" /> Wedding Anniversary
+                    </h3>
+
+                    {/* Today Announcement */}
+                    {todayAnniversaries.length > 0 && (
+                      <div className="bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 rounded-2xl p-5 text-white shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                          <HeartHandshake size={20} className="animate-pulse" />
+                          <span className="font-bold text-sm">Wedding Anniversary Hari Ini 🎉</span>
+                        </div>
+                        <div className="grid gap-2.5 sm:grid-cols-2">
+                          {todayAnniversaries.map(a => {
+                            const primaryPhone = a.phones[0];
+                            const waLink = primaryPhone ? `https://wa.me/${primaryPhone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Selamat Ulang Tahun Pernikahan ke-${a.years} untuk ${a.names}! Kiranya Tuhan Yesus senantiasa memberkati, menjaga, dan memelihara cinta serta damai sejahtera dalam keluarga. 🎉💍`)}` : null;
+
+                            return (
+                              <div key={a.key} className="flex items-center justify-between gap-3 bg-white/20 backdrop-blur-sm rounded-xl p-3 border border-white/20">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-9 h-9 rounded-full bg-white/30 flex items-center justify-center flex-shrink-0 text-white">
+                                    <Heart size={16} className="fill-white" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold leading-tight truncate">{a.names}</p>
+                                    <p className="text-xs text-white/90">Anniversary ke-{a.years} Tahun 💍</p>
+                                  </div>
+                                </div>
+                                {waLink && (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Kirim Ucapan via WhatsApp"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold shadow-xs flex-shrink-0 transition-transform active:scale-95"
+                                  >
+                                    <Phone size={12} /> <span className="hidden sm:inline">Ucapan WA</span>
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upcoming 30 Days */}
+                    {upcomingAnniversaries.length > 0 && (
+                      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-5 py-3 border-b border-gray-50 flex items-center gap-2">
+                          <HeartHandshake size={15} className="text-rose-400" />
+                          <span className="text-sm font-semibold text-gray-700">30 Hari ke Depan</span>
+                          <span className="ml-auto bg-rose-100 text-rose-700 text-xs font-bold px-2 py-0.5 rounded-full">{upcomingAnniversaries.length} pasangan</span>
+                        </div>
+                        <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                          {upcomingAnniversaries.map(a => {
+                            const mDate = parseLocalDate(a.marriageDate);
+                            const dateStr = mDate ? `${mDate.getDate()} ${MONTHS_ID[mDate.getMonth()]}` : a.marriageDate;
+                            const urgent = a.daysUntil <= 7;
+                            const primaryPhone = a.phones[0];
+                            const waLink = primaryPhone ? `https://wa.me/${primaryPhone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Selamat mendahului untuk Ulang Tahun Pernikahan ke-${a.years} untuk ${a.names}! Kiranya kasih dan berkat Tuhan senantiasa menyertai. 🎉💍`)}` : null;
+
+                            return (
+                              <div key={a.key} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${urgent ? 'bg-rose-100 text-rose-700' : 'bg-pink-50 text-pink-600'}`}>
+                                  <HeartHandshake size={16} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{a.names}</p>
+                                  <p className="text-xs text-gray-400">{dateStr} · Menuju {a.years} tahun</p>
+                                </div>
+                                <div className={`text-right flex-shrink-0 ${urgent ? 'text-rose-600' : 'text-gray-400'}`}>
+                                  <p className="text-xs font-semibold">{a.daysUntil} hari lagi</p>
+                                  {urgent && <p className="text-xs font-bold text-rose-600">⚡ Segera</p>}
+                                </div>
+                                {waLink && (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Kirim pesan WA"
+                                    className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors flex-shrink-0"
+                                  >
+                                    <Phone size={14} />
+                                  </a>
+                                )}
                               </div>
                             );
                           })}
