@@ -261,25 +261,81 @@ function CalendarModal({
           </button>
         </div>
 
-        {/* Month Selector */}
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={prevMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+        {/* Modern Month & Year Slider Selector */}
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Year Slider / Quick Jump */}
+          <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl p-2 shadow-2xs">
+            <button 
+              type="button" 
+              onClick={() => setViewYear(y => y - 1)} 
+              className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+              title="Tahun Sebelumnya"
+            >
               <ChevronLeft size={16} />
             </button>
-            <span className="font-bold text-gray-800 text-sm">{monthLabel(viewYear, viewMonth)}</span>
-            <button onClick={nextMonth} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tahun:</span>
+              <select
+                value={viewYear}
+                onChange={e => setViewYear(Number(e.target.value))}
+                className="bg-white border border-slate-200 rounded-xl px-3 py-1 text-sm font-extrabold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer shadow-2xs"
+              >
+                {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - 10 + i).map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={() => setViewYear(y => y + 1)} 
+              className="p-1.5 rounded-xl hover:bg-white text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+              title="Tahun Selanjutnya"
+            >
               <ChevronRight size={16} />
             </button>
           </div>
 
+          {/* Month Slider & Navigator */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700">Pilih Bulan</span>
+              <span className="text-xs font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-lg">
+                {monthLabel(viewYear, viewMonth)}
+              </span>
+            </div>
+
+            {/* Quick 12-Month Pills Slider */}
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+              {['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'].map((mName, idx) => {
+                const mNum = idx + 1;
+                const isSelected = viewMonth === mNum;
+                return (
+                  <button
+                    key={mNum}
+                    type="button"
+                    onClick={() => setViewMonth(mNum)}
+                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white shadow-xs scale-102 ring-2 ring-indigo-400/30'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
+                    }`}
+                  >
+                    {mName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Day Names */}
-          <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-400 mb-2">
-            <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span className="text-rose-500 font-bold">Min</span>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 pt-2 border-t border-slate-100">
+            <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span className="text-rose-500 font-extrabold">Min</span>
           </div>
 
           {/* Day Cells */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: offset }).map((_, idx) => (
               <div key={`empty-${idx}`} className="h-14 rounded-xl opacity-0" />
             ))}

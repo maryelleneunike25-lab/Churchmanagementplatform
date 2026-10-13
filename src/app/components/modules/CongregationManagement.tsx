@@ -248,12 +248,12 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
       </div>
 
       {(m.pksName || (m.ibadah && m.ibadah.length > 0) || (m.pelayan && m.pelayan.length > 0)) && (
-        <div className="pt-2 border-t border-gray-100 flex flex-col gap-2.5 text-xs">
-          {/* Baris 1: Komsel / PKS */}
+        <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+          {/* Komsel / PKS */}
           {m.pksName && (
-            <div className="flex items-start gap-2">
-              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
-                Komsel
+            <div className="flex items-center justify-between gap-2 bg-purple-50/70 border border-purple-100/80 rounded-xl px-3 py-2">
+              <span className="text-[11px] font-bold text-purple-900 tracking-wide">
+                KOMSEL
               </span>
               <button
                 type="button"
@@ -262,20 +262,20 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
                   navigate(`/dashboard?tab=komsel&pks=${encodeURIComponent(m.pksName!)}`);
                 }}
                 title={`Klik untuk membuka Komsel PKS ${m.pksName}`}
-                className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-800 hover:bg-purple-200 active:scale-95 transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-purple-700 hover:bg-purple-100 border border-purple-200/60 active:scale-95 transition-all cursor-pointer shadow-2xs text-right truncate max-w-[200px]"
               >
-                <span>PKS {m.pksName}</span>
+                PKS {m.pksName}
               </button>
             </div>
           )}
 
-          {/* Baris 2: Komisi / Ibadah */}
+          {/* Komisi / Ibadah */}
           {m.ibadah && m.ibadah.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
-                Komisi
+            <div className="flex items-center justify-between gap-2 bg-indigo-50/60 border border-indigo-100/80 rounded-xl px-3 py-2 flex-wrap sm:flex-nowrap">
+              <span className="text-[11px] font-bold text-indigo-900 tracking-wide flex-shrink-0">
+                KOMISI
               </span>
-              <div className="flex flex-wrap gap-1.5 items-center">
+              <div className="flex flex-wrap gap-1.5 justify-end">
                 {m.ibadah.map(code => {
                   const komId = IBADAH_TO_KOMISI[code]?.[0];
                   return (
@@ -293,7 +293,7 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
                         }
                       }}
                       title={`Klik untuk membuka Komisi / Ibadah ${IBADAH_LABEL[code] || code}`}
-                      className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                      className="px-2 py-0.5 rounded-lg text-xs font-bold bg-white text-indigo-700 border border-indigo-200/60 hover:bg-indigo-50 active:scale-95 transition-all cursor-pointer shadow-2xs"
                     >
                       {IBADAH_LABEL[code] || code}
                     </button>
@@ -303,13 +303,13 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
             </div>
           )}
 
-          {/* Baris 3: Bidang Pelayanan */}
+          {/* Bidang Pelayanan */}
           {m.pelayan && m.pelayan.length > 0 && (
-            <div className="flex items-start gap-2">
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex-shrink-0 uppercase tracking-wider">
-                Pelayan
+            <div className="flex items-center justify-between gap-2 bg-emerald-50/60 border border-emerald-100/80 rounded-xl px-3 py-2 flex-wrap sm:flex-nowrap">
+              <span className="text-[11px] font-bold text-emerald-900 tracking-wide flex-shrink-0">
+                PELAYAN
               </span>
-              <div className="flex flex-wrap gap-1.5 items-center">
+              <div className="flex flex-wrap gap-1.5 justify-end">
                 {m.pelayan.map((p, i) => {
                   const div = SCHEDULE_DIVISIONS.find(d => d.key === p);
                   return (
@@ -321,10 +321,10 @@ function MemberCard({ m, onEdit, onDelete }: { m: Member; onEdit?: (m: Member) =
                         navigate(`/dashboard?tab=pelayan&bidang=${encodeURIComponent(p)}`);
                       }}
                       title={`Klik untuk membuka Pelayan bidang ${p}`}
-                      className={`px-2 py-0.5 text-xs font-bold rounded-lg border active:scale-95 transition-all cursor-pointer shadow-2xs ${
+                      className={`px-2 py-0.5 text-xs font-bold rounded-lg border active:scale-95 transition-all cursor-pointer shadow-2xs bg-white ${
                         div
-                          ? `${div.light} hover:opacity-85`
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                          ? `${div.light} hover:opacity-90`
+                          : 'text-emerald-800 border-emerald-200 hover:bg-emerald-50'
                       }`}
                     >
                       {div ? div.label : p}

@@ -688,35 +688,49 @@ export default function KomselManagement() {
               const leaders = getLeadersForPks(pksName, allMembers, (komsel as any).leaders);
 
               return (
-                <div key={komsel.id} className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden transition-all hover:border-gray-200">
+                <div key={komsel.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden transition-all hover:border-indigo-200 hover:shadow-sm">
                   <div
                     onClick={() => setExpandedPks(prev => { const n = new Set(prev); n.has(komsel.id) ? n.delete(komsel.id) : n.add(komsel.id); return n; })}
-                    className="flex items-center gap-3 p-3.5 cursor-pointer hover:bg-gray-50/80 transition-colors"
+                    className="flex items-center gap-3.5 p-4 cursor-pointer hover:bg-slate-50/70 transition-colors"
                   >
-                    <div className="p-1.5 rounded-lg bg-gray-100 text-gray-500">
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex-shrink-0">
                       {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900 break-words">
+                        <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight break-words">
                           PKS {pksName}
                         </h3>
-                        {komsel.status !== 'active' && (
-                          <span className="text-[11px] bg-red-100 text-red-700 font-semibold px-2 py-0.5 rounded-full">Nonaktif</span>
+                        {komsel.status !== 'active' ? (
+                          <span className="text-[10px] bg-rose-50 text-rose-700 border border-rose-200 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Nonaktif
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Aktif
+                          </span>
+                        )}
+                        {komsel.name && komsel.name !== pksName && (
+                          <span className="text-[11px] text-slate-400 font-medium">({komsel.name})</span>
                         )}
                       </div>
                       {/* Leader chips preview */}
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {leaders.map((ldr, idx) => (
-                          <span key={idx} className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-50 border border-gray-200/60 px-2 py-0.5 rounded-md">
-                            <span className="font-medium text-gray-800">{ldr.name}</span>
-                            {ldr.phone && <span className="text-gray-400">({ldr.phone})</span>}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {leaders.length === 0 ? (
+                          <span className="text-[11px] text-slate-400 italic">Belum ada ketua</span>
+                        ) : leaders.map((ldr, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-50 border border-slate-200/80 px-2.5 py-0.5 rounded-lg">
+                            <span className="font-semibold text-slate-800">{ldr.name}</span>
+                            {ldr.phone && <span className="text-slate-400">({ldr.phone})</span>}
                           </span>
                         ))}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-bold text-blue-700">{members.length} Orang</p>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold shadow-2xs">
+                        <Users size={13} className="text-indigo-500" />
+                        <span>{members.length} Orang</span>
+                      </span>
                     </div>
                   </div>
 
@@ -1638,67 +1652,95 @@ export default function KomselManagement() {
       {/* ============================================================= */}
       {/* MODAL 3: KELOLA RUANGAN (SUPER ADMIN ONLY FOR EDIT/DELETE)    */}
       {/* ============================================================= */}
-      <Dialog open={openRoomsDialog} onClose={() => setOpenRoomsDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle className="flex items-center justify-between font-bold text-gray-900 border-b pb-3">
-          <div className="flex items-center gap-2">
-            <Settings size={20} className="text-indigo-600" />
-            <span>Kelola Daftar Ruangan</span>
+      <Dialog 
+        open={openRoomsDialog} 
+        onClose={() => setOpenRoomsDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '20px',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+              <Settings size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">Kelola Daftar Ruangan</h3>
+              <p className="text-xs text-indigo-200/80">Atur ruangan yang tersedia untuk plotting komsel</p>
+            </div>
           </div>
-          {isSuperAdmin ? (
-            <span className="text-[11px] font-bold bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full border border-purple-200">
-              Super Admin
-            </span>
-          ) : (
-            <span className="text-[11px] font-semibold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
-              <Lock size={12} /> Terkunci (Hanya Super Admin)
-            </span>
-          )}
-        </DialogTitle>
-        <DialogContent className="space-y-4 pt-4">
+          <div className="flex items-center gap-2">
+            {isSuperAdmin ? (
+              <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-2.5 py-1 rounded-full border border-indigo-400/30">
+                Super Admin
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold bg-amber-500/20 text-amber-200 px-2.5 py-1 rounded-full border border-amber-400/30 flex items-center gap-1">
+                <Lock size={10} /> Terkunci
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setOpenRoomsDialog(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        <DialogContent className="p-6 space-y-4 bg-slate-50/50">
           {!isSuperAdmin && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 flex items-center gap-2.5 shadow-2xs">
               <Lock size={16} className="text-amber-600 flex-shrink-0" />
-              <span>Daftar ruangan terkunci. Anda dapat melihat dan memilih ruangan, namun hanya <strong>Super Admin</strong> yang memiliki akses untuk menambah, mengubah, atau menghapus ruangan.</span>
+              <span>Daftar ruangan terkunci. Anda dapat melihat dan memilih ruangan, namun hanya <strong>Super Admin</strong> yang memiliki izin menambah, mengubah, atau menghapus ruangan.</span>
             </div>
           )}
 
           {/* Add Room input (Super admin only) */}
           {isSuperAdmin && (
-            <div className="flex items-center gap-2">
-              <TextField
-                placeholder="Nama ruangan baru (contoh: Ruang Rapat 2)"
-                value={newRoomName}
-                onChange={e => setNewRoomName(e.target.value)}
-                size="small"
-                fullWidth
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddRoom();
-                  }
-                }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleAddRoom}
-                disabled={savingRooms || !newRoomName.trim()}
-                sx={{ whiteSpace: 'nowrap', bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
-              >
-                + Tambah
-              </Button>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">Tambah Ruangan Baru</label>
+              <div className="flex items-center gap-2">
+                <input
+                  placeholder="Ketik nama ruangan baru (contoh: Ruang Rapat 2)..."
+                  value={newRoomName}
+                  onChange={e => setNewRoomName(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRoom();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddRoom}
+                  disabled={savingRooms || !newRoomName.trim()}
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer flex-shrink-0"
+                >
+                  {savingRooms ? 'Menyimpan...' : '+ Tambah'}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Rooms list */}
-          <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden bg-white">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden divide-y divide-slate-100">
             {roomsList.map((r, idx) => (
-              <div key={idx} className="p-3 flex items-center justify-between gap-2 hover:bg-gray-50/60 transition-colors">
+              <div key={idx} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
                 {editingRoomIndex === idx ? (
                   <div className="flex items-center gap-2 flex-1">
                     <input
                       value={editingRoomVal}
                       onChange={e => setEditingRoomVal(e.target.value)}
-                      className="flex-1 text-xs px-2.5 py-1.5 border border-indigo-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="flex-1 text-xs px-3 py-2 border border-indigo-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
                       autoFocus
                       onKeyDown={e => {
                         if (e.key === 'Enter') handleUpdateRoom(idx);
@@ -1706,51 +1748,55 @@ export default function KomselManagement() {
                       }}
                     />
                     <button
+                      type="button"
                       onClick={() => handleUpdateRoom(idx)}
                       disabled={savingRooms || !editingRoomVal.trim()}
-                      className="text-xs bg-emerald-600 text-white px-2.5 py-1 rounded-lg font-medium hover:bg-emerald-700"
+                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors shadow-2xs"
                     >
                       Simpan
                     </button>
                     <button
+                      type="button"
                       onClick={() => setEditingRoomIndex(null)}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+                      className="text-xs text-slate-500 hover:bg-slate-100 px-2.5 py-2 rounded-xl cursor-pointer"
                     >
                       Batal
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                      <span className="text-sm font-medium text-gray-800">{r}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-indigo-600 shadow-2xs" />
+                      <span className="text-sm font-semibold text-slate-800">{r}</span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       {isSuperAdmin ? (
                         <>
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingRoomIndex(idx);
                               setEditingRoomVal(r);
                             }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
                             title="Ubah Nama Ruangan"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={14} />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDeleteRoom(idx)}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="Hapus Ruangan"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={14} />
                           </button>
                         </>
                       ) : (
-                        <span className="text-gray-400 p-1.5 flex items-center gap-1 text-[11px]" title="Terkunci (Hanya Super Admin)">
-                          <Lock size={13} />
-                          <span className="text-[10px] text-gray-400">Terkunci</span>
+                        <span className="text-slate-400 px-2 py-1 flex items-center gap-1 text-[11px] bg-slate-100 rounded-lg" title="Terkunci (Hanya Super Admin)">
+                          <Lock size={11} className="text-amber-500" />
+                          <span className="text-[10px] text-slate-500 font-semibold">Terkunci</span>
                         </span>
                       )}
                     </div>
@@ -1759,12 +1805,19 @@ export default function KomselManagement() {
               </div>
             ))}
             {roomsList.length === 0 && (
-              <p className="text-xs text-gray-400 py-6 text-center">Belum ada ruangan yang terdaftar.</p>
+              <p className="text-xs text-slate-400 py-8 text-center italic">Belum ada ruangan yang terdaftar.</p>
             )}
           </div>
         </DialogContent>
-        <div className="p-4 flex justify-end border-t">
-          <Button onClick={() => setOpenRoomsDialog(false)}>Tutup</Button>
+
+        <div className="px-6 py-4 bg-white flex justify-end border-t border-slate-200">
+          <button
+            type="button"
+            onClick={() => setOpenRoomsDialog(false)}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            Tutup
+          </button>
         </div>
       </Dialog>
 

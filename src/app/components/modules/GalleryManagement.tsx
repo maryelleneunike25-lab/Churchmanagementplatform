@@ -5,7 +5,7 @@ import { uploadImage } from '../../../lib/upload';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   Plus, Trash2, Edit2, X, FolderOpen, Image, Upload,
-  ChevronLeft, Check, AlertTriangle, ImageOff,
+  ChevronLeft, Check, AlertTriangle, ImageOff, Camera,
 } from 'lucide-react';
 
 const BUCKET = 'make-561004a0-gallery';
@@ -376,37 +376,133 @@ export default function GalleryManagement() {
 
       {/* Album Modal */}
       {showAlbumModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">{editingAlbum ? 'Edit Album' : 'Buat Album Baru'}</h2>
-              <button onClick={() => setShowAlbumModal(false)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                  <FolderOpen size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">
+                    {editingAlbum ? 'Edit Informasi Album' : 'Buat Album Galeri Baru'}
+                  </h3>
+                  <p className="text-xs text-indigo-200/80">Dokumentasi kegiatan dan ibadah GBI Jelambar Timur</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowAlbumModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Foto Sampul Album</label>
-                {coverPreview && <img src={coverPreview} alt="Pratinjau sampul album" className="w-full h-36 object-cover rounded-xl mb-2" />}
-                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 cursor-pointer hover:bg-gray-50">Pilih foto sampul<input type="file" accept="image/*" capture="environment" className="sr-only" onChange={e => { const file = e.target.files?.[0]; if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); } }} /></label>
-                <p className="text-xs text-gray-400 mt-1">Sampul ini bisa berbeda dari foto-foto di dalam album.</p>
+
+            <div className="overflow-y-auto flex-1 p-6 space-y-4 bg-slate-50/50">
+              {/* Card 1: Foto Sampul */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">Foto Sampul Album</label>
+                {coverPreview ? (
+                  <div className="relative group rounded-xl overflow-hidden border border-slate-200">
+                    <img src={coverPreview} alt="Pratinjau sampul album" className="w-full h-44 object-cover" />
+                    <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold gap-2 cursor-pointer transition-opacity backdrop-blur-xs">
+                      <Camera size={16} /> Ganti Foto Sampul
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="sr-only" 
+                        onChange={e => { 
+                          const file = e.target.files?.[0]; 
+                          if (file) { 
+                            setCoverFile(file); 
+                            setCoverPreview(URL.createObjectURL(file)); 
+                          } 
+                        }} 
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="w-full h-36 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors group">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-indigo-100 text-slate-500 group-hover:text-indigo-600 flex items-center justify-center transition-colors">
+                      <Upload size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">Pilih Foto Sampul</span>
+                    <span className="text-[11px] text-slate-400">PNG, JPG, WebP hingga 10MB</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="sr-only" 
+                      onChange={e => { 
+                        const file = e.target.files?.[0]; 
+                        if (file) { 
+                          setCoverFile(file); 
+                          setCoverPreview(URL.createObjectURL(file)); 
+                        } 
+                      }} 
+                    />
+                  </label>
+                )}
+                <p className="text-[11px] text-slate-400 mt-1">Sampul ini akan tampil di halaman depan galeri jemaat.</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Album *</label>
-                <input type="text" value={albumForm.name} onChange={e => setAlbumForm({ ...albumForm, name: e.target.value })}
-                  placeholder="contoh: Ibadah Minggu Mei 2026"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Deskripsi</label>
-                <textarea value={albumForm.description} onChange={e => setAlbumForm({ ...albumForm, description: e.target.value })}
-                  placeholder="Deskripsi singkat album (opsional)" rows={3}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+
+              {/* Card 2: Nama & Deskripsi */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nama Album <span className="text-rose-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={albumForm.name} 
+                    onChange={e => setAlbumForm({ ...albumForm, name: e.target.value })}
+                    placeholder="contoh: Ibadah Minggu 11 Oktober 2026"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Deskripsi Album (Opsional)
+                  </label>
+                  <textarea 
+                    value={albumForm.description} 
+                    onChange={e => setAlbumForm({ ...albumForm, description: e.target.value })}
+                    placeholder="Tulis ringkasan singkat kegiatan atau tema ibadah..." 
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none" 
+                  />
+                </div>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowAlbumModal(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50">Batal</button>
-              <button onClick={handleSaveAlbum} disabled={!albumForm.name.trim() || savingAlbum}
-                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                {savingAlbum ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Menyimpan...</> : <><Check size={15} />Simpan</>}
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 bg-white flex items-center justify-end gap-2.5 border-t border-slate-200">
+              <button 
+                type="button"
+                onClick={() => setShowAlbumModal(false)} 
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button 
+                type="button"
+                onClick={handleSaveAlbum} 
+                disabled={!albumForm.name.trim() || savingAlbum}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
+              >
+                {savingAlbum ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} />
+                    <span>{editingAlbum ? 'Simpan Perubahan' : 'Buat Album'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
