@@ -98,21 +98,28 @@ export default function SuperAdminDashboard() {
     { label: 'User Management',   key: 'userManagement',   visible: isSuperAdmin },
     { label: 'Pending Approvals', key: 'pendingApprovals', visible: isSuperAdmin },
     { label: 'Log Aktivitas',     key: 'activityLog',      visible: isSuperAdmin },
-    { label: 'Data Jemaat',       key: 'jemaat',           visible: isSuperAdmin || permissions.viewJemaat || permissions.editJemaat },
-    { label: 'Absensi',           key: 'absensi',          visible: isSuperAdmin || permissions.viewAbsensi || permissions.viewAbsen || permissions.editAbsensi || permissions.editAbsen || permissions.manageAbsensi },
-    { label: 'Komsel',            key: 'komsel',           visible: isSuperAdmin || permissions.viewKomsel || permissions.editKomsel },
-    { label: 'Keuangan',          key: 'keuangan',         visible: isSuperAdmin || permissions.viewKeuangan || permissions.editKeuangan },
-    { label: 'Inventaris',        key: 'inventaris',       visible: isSuperAdmin || permissions.viewInventaris || permissions.editInventaris },
-    { label: 'Pelayan',           key: 'pelayan',          visible: isSuperAdmin || permissions.viewPelayan || permissions.editPelayan },
-    { label: 'Pengumuman',        key: 'pengumuman',       visible: isSuperAdmin || permissions.viewPengumuman || permissions.editPengumuman },
-    { label: 'Galeri Foto',       key: 'galeri',           visible: isSuperAdmin || permissions.viewGaleri || permissions.editGaleri },
-    { label: 'Komisi',            key: 'komisi',           visible: isSuperAdmin || permissions.viewKomisi || permissions.editKomisi || permissions.viewJemaat },
-    { label: 'Jadwal Pelayanan',  key: 'jadwal',           visible: isSuperAdmin || permissions.viewJadwal || permissions.editJadwal || permissions.viewPelayan || permissions.editPelayan },
-    { label: 'Tim Pelayanan',     key: 'tim',              visible: isSuperAdmin || permissions.viewTim || permissions.viewTeam || permissions.editTim || permissions.editTeam },
-    { label: 'Pendaftaran',       key: 'registrasi',       visible: isSuperAdmin || permissions.viewPendaftaran || permissions.editPendaftaran || permissions.viewRegistrasi || permissions.editRegistrasi },
+    { label: 'Data Jemaat',       key: 'jemaat',           visible: isSuperAdmin || Boolean(permissions.viewJemaat || permissions.editJemaat) },
+    { label: 'Absensi',           key: 'absensi',          visible: isSuperAdmin || Boolean(permissions.viewAbsensi || permissions.viewAbsen || permissions.editAbsensi || permissions.editAbsen || permissions.manageAbsensi) },
+    { label: 'Komsel',            key: 'komsel',           visible: isSuperAdmin || Boolean(permissions.viewKomsel || permissions.editKomsel) },
+    { label: 'Keuangan',          key: 'keuangan',         visible: isSuperAdmin || Boolean(permissions.viewKeuangan || permissions.editKeuangan) },
+    { label: 'Inventaris',        key: 'inventaris',       visible: isSuperAdmin || Boolean(permissions.viewInventaris || permissions.editInventaris) },
+    { label: 'Pelayan',           key: 'pelayan',          visible: isSuperAdmin || Boolean(permissions.viewPelayan || permissions.editPelayan) },
+    { label: 'Pengumuman',        key: 'pengumuman',       visible: isSuperAdmin || Boolean(permissions.viewPengumuman || permissions.editPengumuman) },
+    { label: 'Galeri Foto',       key: 'galeri',           visible: isSuperAdmin || Boolean(permissions.viewGaleri || permissions.editGaleri) },
+    { label: 'Komisi',            key: 'komisi',           visible: isSuperAdmin || Boolean(permissions.viewKomisi || permissions.editKomisi || (permissions.komisiLeaderOf && permissions.komisiLeaderOf.length > 0)) },
+    { label: 'Jadwal Pelayanan',  key: 'jadwal',           visible: isSuperAdmin || Boolean(permissions.viewJadwal || permissions.editJadwal) },
+    { label: 'Tim Pelayanan',     key: 'tim',              visible: isSuperAdmin || Boolean(permissions.viewTim || permissions.viewTeam || permissions.editTim || permissions.editTeam) },
+    { label: 'Pendaftaran',       key: 'registrasi',       visible: isSuperAdmin || Boolean(permissions.viewPendaftaran || permissions.editPendaftaran || permissions.viewRegistrasi || permissions.editRegistrasi) },
   ].filter(t => t.visible);
 
   const currentLabel = navItems.find(n => n.key === activeTab)?.label ?? 'Dashboard';
+
+  // Guard: if user lands on an unpermitted tab, redirect to dashboard
+  useEffect(() => {
+    if (navItems.length > 0 && !navItems.some(n => n.key === activeTab)) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, navItems]);
 
   useEffect(() => {
     loadStats();

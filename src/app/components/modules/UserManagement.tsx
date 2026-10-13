@@ -218,10 +218,12 @@ export default function UserManagement() {
       editTim: !!(p.editTim || p.editTeam),
       viewPendaftaran: !!(p.viewPendaftaran || p.viewRegistrasi),
       editPendaftaran: !!(p.editPendaftaran || p.editRegistrasi),
-      viewJadwal: !!(p.viewJadwal || p.viewPelayan),
-      editJadwal: !!(p.editJadwal || p.editPelayan),
+      viewJadwal: !!p.viewJadwal,
+      editJadwal: !!p.editJadwal,
       viewKomisi: !!p.viewKomisi,
       editKomisi: !!p.editKomisi,
+      viewPelayan: !!p.viewPelayan,
+      editPelayan: !!p.editPelayan,
     });
   };
 
@@ -233,8 +235,13 @@ export default function UserManagement() {
         ...prev,
         [permKey]: nextVal
       };
+      // If turning on edit, automatically ensure view is also turned on
       if (type === 'edit' && nextVal) {
         updated[`view${modKey}`] = true;
+      }
+      // If turning off view, automatically ensure edit is also turned off
+      if (type === 'view' && !nextVal) {
+        updated[`edit${modKey}`] = false;
       }
       return updated;
     });
@@ -246,11 +253,15 @@ export default function UserManagement() {
     try {
       const p = { ...tempPermissions };
 
-      // Ensure that if edit is granted, view is also granted
+      // Ensure that if edit is granted, view is also granted. If neither, both are false.
       MODULES.forEach(m => {
-        if (p[`edit${m.key}`]) {
-          p[`view${m.key}`] = true;
+        const vKey = `view${m.key}`;
+        const eKey = `edit${m.key}`;
+        if (p[eKey]) {
+          p[vKey] = true;
         }
+        p[vKey] = !!p[vKey];
+        p[eKey] = !!p[eKey];
       });
 
       // Synchronize alias keys for backward compatibility and multi-component checks
