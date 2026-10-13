@@ -19,7 +19,13 @@ import {
   getLeadersForPks, PksLeaderContact
 } from '../../../lib/komsel';
 
-const BLANK_FORM = { pksName: '', name: '', status: 'active' as 'active' | 'inactive' };
+const BLANK_FORM = {
+  pksName: '',
+  name: '',
+  leader1Name: '',
+  leader2Name: '',
+  status: 'active' as 'active' | 'inactive',
+};
 
 function MemberAvatar({ m }: { m: any }) {
   const initials = (m.name || '?').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
@@ -246,9 +252,22 @@ export default function KomselManagement() {
   const collapseAll = () => setExpandedPks(new Set());
 
   const handleOpenDialog = (komsel?: Komsel) => {
+    if (allMembers.length === 0) {
+      loadAllMembers().then(setAllMembers).catch(console.error);
+    }
     if (komsel) {
       setEditingKomsel(komsel);
-      setFormData({ pksName: komsel.pksName || komsel.name, name: komsel.name, status: (komsel.status as any) || 'active' });
+      const existingLeaders = komsel.leaders && komsel.leaders.length > 0
+        ? komsel.leaders
+        : getLeadersForPks(komsel.pksName || komsel.name, allMembers, komsel.leaders);
+
+      setFormData({
+        pksName: komsel.pksName || komsel.name,
+        name: komsel.name,
+        leader1Name: existingLeaders[0]?.name || komsel.pksName || komsel.name,
+        leader2Name: existingLeaders[1]?.name || '',
+        status: (komsel.status as any) || 'active',
+      });
     } else {
       setEditingKomsel(null);
       setFormData({ ...BLANK_FORM });
@@ -257,12 +276,43 @@ export default function KomselManagement() {
   };
 
   const handleSubmit = async () => {
-    const pks = formData.pksName.trim();
+    const ldr1 = formData.leader1Name.trim();
+    const ldr2 = formData.leader2Name.trim();
+    const fallbackPks = ldr1 ? (ldr2 ? `${ldr1} & ${ldr2}` : ldr1) : '';
+    const pks = (formData.pksName.trim() || fallbackPks).trim();
     if (!pks) return;
+
     setSaving(true);
     try {
+      const chosenLeaders: PksLeaderContact[] = [];
+      if (ldr1) {
+        const m1 = allMembers.find(m => m.name.toLowerCase() === ldr1.toLowerCase());
+        chosenLeaders.push({
+          name: m1?.name || ldr1,
+          phone: m1?.phone || (Array.isArray(m1?.phones) ? m1.phones[0] : '') || '',
+          role: 'Ketua PKS',
+        });
+      }
+      if (ldr2) {
+        const m2 = allMembers.find(m => m.name.toLowerCase() === ldr2.toLowerCase());
+        chosenLeaders.push({
+          name: m2?.name || ldr2,
+          phone: m2?.phone || (Array.isArray(m2?.phones) ? m2.phones[0] : '') || '',
+          role: 'Wakil / Co-Leader',
+        });
+      }
+
       const oldPks = editingKomsel?.pksName || editingKomsel?.name || '';
-      await saveKomsel({ ...formData, pksName: pks, name: formData.name.trim() || pks }, editingKomsel, user?.email || '');
+      await saveKomsel(
+        {
+          ...formData,
+          pksName: pks,
+          name: formData.name.trim() || pks,
+          leaders: chosenLeaders.length > 0 ? chosenLeaders : undefined,
+        },
+        editingKomsel,
+        user?.email || ''
+      );
       if (editingKomsel && oldPks && normalizePksName(oldPks) !== normalizePksName(pks)) {
         for (const m of editingKomsel.memberDetails || []) await setMemberPks(m.id, pks);
       }
@@ -635,7 +685,7 @@ export default function KomselManagement() {
               const members = (komsel.memberDetails || []).slice().sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'id'));
               const expanded = expandedPks.has(komsel.id) || (!!search.trim() && members.some((m: any) => (m.name || '').toLowerCase().includes(search.trim().toLowerCase())));
               const pksName = komsel.pksName || komsel.name;
-              const leaders = getLeadersForPks(pksName, allMembers);
+              const leaders = getLeadersForPks(pksName, allMembers, (komsel as any).leaders);
 
               return (
                 <div key={komsel.id} className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden transition-all hover:border-gray-200">
@@ -1098,26 +1148,73 @@ export default function KomselManagement() {
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingKomsel ? 'Edit Komsel' : 'Tambah Komsel Baru'}</DialogTitle>
         <DialogContent className="space-y-4 pt-2">
+          {/* Ketua PKS 1 */}
           <div>
             <TextField
-              label="Nama PKS (pemimpin)"
-              value={formData.pksName}
-              onChange={e => setFormData({ ...formData, pksName: e.target.value })}
+              label="Ketua PKS 1 (dari Data Jemaat)"
+              value={formData.leader1Name}
+              onChange={e => {
+                const val = e.target.value;
+                const nextPks = val + (formData.leader2Name ? ` & ${formData.leader2Name}` : '');
+                setFormData({
+                  ...formData,
+                  leader1Name: val,
+                  pksName: nextPks,
+                });
+              }}
               fullWidth
               size="small"
               required
               sx={{ mt: 1 }}
               inputProps={{ list: 'congregation-member-list' }}
-              helperText="Ketik nama atau pilih dari jemaat yang terdaftar di Data Jemaat"
+              placeholder="Pilih nama jemaat..."
+              helperText="Ketua PKS utama (ketik untuk mencari dari Data Jemaat)"
             />
-            <datalist id="congregation-member-list">
-              {allMembers.map(m => (
-                <option key={m.id} value={m.name}>
-                  {m.name} {m.phone ? `(${m.phone})` : ''}
-                </option>
-              ))}
-            </datalist>
           </div>
+
+          {/* Ketua PKS 2 / Co-Leader (Opsional) */}
+          <div>
+            <TextField
+              label="Ketua PKS 2 / Co-Leader (Opsional)"
+              value={formData.leader2Name}
+              onChange={e => {
+                const val = e.target.value;
+                const nextPks = (formData.leader1Name || '') + (val ? ` & ${val}` : '');
+                setFormData({
+                  ...formData,
+                  leader2Name: val,
+                  pksName: nextPks,
+                });
+              }}
+              fullWidth
+              size="small"
+              sx={{ mt: 1 }}
+              inputProps={{ list: 'congregation-member-list' }}
+              placeholder="Kosongkan jika hanya 1 ketua..."
+              helperText="Isi jika ada ketua kedua / co-leader. Hanya nama yang dipilih yang akan ditampilkan."
+            />
+          </div>
+
+          <datalist id="congregation-member-list">
+            {allMembers.map(m => (
+              <option key={m.id} value={m.name}>
+                {m.name} {m.phone ? `(${m.phone})` : ''}
+              </option>
+            ))}
+          </datalist>
+
+          {/* Nama PKS / Tampilan Label */}
+          <TextField
+            label="Nama PKS (Label Grup)"
+            value={formData.pksName}
+            onChange={e => setFormData({ ...formData, pksName: e.target.value })}
+            fullWidth
+            size="small"
+            required
+            sx={{ mt: 2 }}
+            helperText="Nama yang tampil sebagai label PKS (otomatis terisi dari ketua yang dipilih)"
+          />
+
           <TextField
             label="Nama Komsel (opsional)"
             value={formData.name}
@@ -1125,7 +1222,9 @@ export default function KomselManagement() {
             fullWidth
             size="small"
             sx={{ mt: 2 }}
+            placeholder="contoh: Komsel Betlehem"
           />
+
           <FormControl fullWidth size="small" sx={{ mt: 2 }}>
             <InputLabel>Status</InputLabel>
             <Select
@@ -1140,7 +1239,11 @@ export default function KomselManagement() {
         </DialogContent>
         <div className="p-4 flex justify-end gap-2 border-t">
           <Button onClick={() => setOpenDialog(false)} disabled={saving}>Batal</Button>
-          <Button variant="contained" onClick={handleSubmit} disabled={saving || !formData.pksName.trim()}>
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={saving || (!formData.pksName.trim() && !formData.leader1Name.trim())}
+          >
             {saving ? 'Menyimpan...' : 'Simpan'}
           </Button>
         </div>

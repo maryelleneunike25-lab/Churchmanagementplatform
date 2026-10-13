@@ -86,8 +86,16 @@ export async function saveRooms(rooms: string[]): Promise<void> {
 
 export const KNOWN_PKS_LEADERS: Record<string, PksLeaderContact[]> = {
   'NAOMI': [
-    { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' },
-    { name: 'Naomi Natalia', phone: '081807480352', role: 'Wakil Ketua' }
+    { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' }
+  ],
+  'NAOMI IKARANI S.': [
+    { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' }
+  ],
+  'NAOMI IKARANI': [
+    { name: 'Naomi Ikarani S.', phone: '089517472022', role: 'Ketua PKS' }
+  ],
+  'NAOMI NATALIA': [
+    { name: 'Naomi Natalia', phone: '081807480352', role: 'Ketua PKS' }
   ],
   'PINK': [
     { name: 'Elizabeth Damaira (Pink)', phone: '081807754691', role: 'Ketua PKS' },
@@ -106,8 +114,7 @@ export const KNOWN_PKS_LEADERS: Record<string, PksLeaderContact[]> = {
     { name: 'Halim Sinco Sudi', phone: '08161114994', role: 'Ketua PKS' }
   ],
   'SISCA': [
-    { name: 'Sisca', phone: '081315867494', role: 'Ketua PKS' },
-    { name: 'Febiyana Fransisca', phone: '082114071715', role: 'Wakil Ketua' }
+    { name: 'Sisca', phone: '081315867494', role: 'Ketua PKS' }
   ],
   'WILIS WIHARTATI': [
     { name: 'Wilis Wihartarti The', phone: '081519113144', role: 'Ketua PKS' }
@@ -165,35 +172,89 @@ export function normalizePksName(input: string): string {
     .trim();
 }
 
-/** Resolves known or detected leaders for a PKS */
-export function getLeadersForPks(pksName: string, allMembers?: any[]): PksLeaderContact[] {
-  const norm = normalizePksName(pksName);
-  // Check exact or partial match in KNOWN_PKS_LEADERS
-  if (KNOWN_PKS_LEADERS[norm]) return [...KNOWN_PKS_LEADERS[norm]];
-  for (const [key, leaders] of Object.entries(KNOWN_PKS_LEADERS)) {
-    if (norm.includes(key) || key.includes(norm)) {
-      return [...leaders];
-    }
+/** Resolves known or detected leaders for a PKS. Strict matching prevents unwanted similar names from leaking. */
+export function getLeadersForPks(
+  pksName: string,
+  allMembers?: any[],
+  explicitLeaders?: PksLeaderContact[]
+): PksLeaderContact[] {
+  // If explicitly chosen leaders are provided and valid, return them directly
+  if (explicitLeaders && explicitLeaders.length > 0) {
+    const valid = explicitLeaders.filter(l => l && l.name && l.name.trim());
+    if (valid.length > 0) return valid;
   }
 
-  // Try matching with members data
-  if (allMembers && allMembers.length > 0) {
-    const matched = allMembers.filter(m => {
-      const mPks = normalizePksName(m.pksName || '');
-      const mName = (m.name || '').toUpperCase();
-      return (mPks && mPks === norm) || norm.includes(mName);
+  const rawPks = (pksName || '').trim();
+  const cleanPks = rawPks.replace(/^PKS\s*/i, '').trim();
+  if (!cleanPks) return [];
+
+  // Split multi-leader names if any: e.g. "Budi & Merry", "Budi / Merry", "Budi, Merry", "Budi dan Merry"
+  const nameParts = cleanPks
+    .split(/\s*(?:&|\/|,|\bdan\b)\s*/i)
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  const resolved: PksLeaderContact[] = [];
+
+  for (const part of nameParts) {
+    const normPart = normalizePksName(part);
+
+    // 1. Check exact match in KNOWN_PKS_LEADERS first
+    if (KNOWN_PKS_LEADERS[normPart]) {
+      resolved.push(...KNOWN_PKS_LEADERS[normPart]);
+      continue;
+    }
+
+    // 2. Strict matching against allMembers
+    let memberMatch: any = null;
+    if (allMembers && allMembers.length > 0) {
+      // Priority A: Exact full name match (case-insensitive)
+      memberMatch = allMembers.find(m => (m.name || '').trim().toLowerCase() === part.toLowerCase());
+
+      // Priority B: Exact normalized match
+      if (!memberMatch) {
+        memberMatch = allMembers.find(m => normalizePksName(m.name || '') === normPart);
+      }
+
+      // Priority C: If name has multiple words (e.g. "Naomi Ikarani"), member name must contain ALL constituent words
+      if (!memberMatch && part.includes(' ')) {
+        const words = part.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+        memberMatch = allMembers.find(m => {
+          const mLower = (m.name || '').toLowerCase();
+          return words.every(w => mLower.includes(w));
+        });
+      }
+    }
+
+    if (memberMatch) {
+      resolved.push({
+        name: memberMatch.name,
+        phone: memberMatch.phone || (Array.isArray(memberMatch.phones) ? memberMatch.phones[0] : '') || '',
+        role: resolved.length === 0 ? 'Ketua PKS' : 'Wakil / Co-Leader',
+      });
+      continue;
+    }
+
+    // 3. Fallback: use the provided name directly
+    resolved.push({
+      name: part,
+      phone: '',
+      role: resolved.length === 0 ? 'Ketua PKS' : 'Wakil / Co-Leader',
     });
+  }
 
-    if (matched.length > 0) {
-      return matched.slice(0, 2).map((m: any, idx: number) => ({
-        name: m.name || 'Ketua PKS',
-        phone: m.phone || m.whatsapp || '',
-        role: idx === 0 ? 'Ketua PKS' : 'Wakil / Pengurus'
-      }));
+  // Deduplicate leaders by name
+  const seen = new Set<string>();
+  const finalLeaders: PksLeaderContact[] = [];
+  for (const l of resolved) {
+    const key = l.name.toLowerCase().trim();
+    if (!seen.has(key)) {
+      seen.add(key);
+      finalLeaders.push(l);
     }
   }
 
-  return [{ name: pksName, phone: '', role: 'Ketua PKS' }];
+  return finalLeaders.length > 0 ? finalLeaders : [{ name: cleanPks, phone: '', role: 'Ketua PKS' }];
 }
 
 /** Loads congregation members from both key formats, deduplicated by id. */
@@ -294,7 +355,7 @@ export function useKomsels() {
 }
 
 export async function saveKomsel(
-  form: { pksName: string; name: string; status: string },
+  form: { pksName: string; name: string; status: string; leaders?: PksLeaderContact[] },
   existing: Komsel | null,
   createdBy = ''
 ): Promise<void> {
@@ -306,6 +367,7 @@ export async function saveKomsel(
     name: form.name.trim(),
     pksName: form.pksName.trim(),
     status: form.status,
+    leaders: form.leaders || existing?.leaders || [],
     createdAt: isNew ? now : existing!.createdAt,
     updatedAt: now,
     createdBy: isNew ? createdBy : existing!.createdBy,
