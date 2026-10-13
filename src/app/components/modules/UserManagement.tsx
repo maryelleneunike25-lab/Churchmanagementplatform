@@ -209,25 +209,69 @@ export default function UserManagement() {
 
   const openAccessModal = (user: AppUser) => {
     setEditingUser(user);
-    setTempPermissions(user.permissions || {});
+    const p = user.permissions || {};
+    setTempPermissions({
+      ...p,
+      viewAbsensi: !!(p.viewAbsensi || p.viewAbsen),
+      editAbsensi: !!(p.editAbsensi || p.editAbsen || p.manageAbsensi),
+      viewTim: !!(p.viewTim || p.viewTeam),
+      editTim: !!(p.editTim || p.editTeam),
+      viewPendaftaran: !!(p.viewPendaftaran || p.viewRegistrasi),
+      editPendaftaran: !!(p.editPendaftaran || p.editRegistrasi),
+      viewJadwal: !!(p.viewJadwal || p.viewPelayan),
+      editJadwal: !!(p.editJadwal || p.editPelayan),
+      viewKomisi: !!p.viewKomisi,
+      editKomisi: !!p.editKomisi,
+    });
   };
 
   const handleTogglePermission = (modKey: string, type: 'view' | 'edit') => {
     const permKey = `${type}${modKey}`;
-    setTempPermissions((prev: any) => ({
-      ...prev,
-      [permKey]: !prev[permKey]
-    }));
+    setTempPermissions((prev: any) => {
+      const nextVal = !prev[permKey];
+      const updated = {
+        ...prev,
+        [permKey]: nextVal
+      };
+      if (type === 'edit' && nextVal) {
+        updated[`view${modKey}`] = true;
+      }
+      return updated;
+    });
   };
 
   const savePermissions = async () => {
     if (!editingUser) return;
     setSavingPermissions(true);
     try {
-      await api.put(`/api/admin/users/${editingUser.id}`, { permissions: tempPermissions });
+      const p = { ...tempPermissions };
+
+      // Ensure that if edit is granted, view is also granted
+      MODULES.forEach(m => {
+        if (p[`edit${m.key}`]) {
+          p[`view${m.key}`] = true;
+        }
+      });
+
+      // Synchronize alias keys for backward compatibility and multi-component checks
+      p.viewAbsen = !!p.viewAbsensi;
+      p.editAbsen = !!p.editAbsensi;
+      p.manageAbsensi = !!p.editAbsensi;
+
+      p.viewTeam = !!p.viewTim;
+      p.editTeam = !!p.editTim;
+
+      p.viewRegistrasi = !!p.viewPendaftaran;
+      p.editRegistrasi = !!p.editPendaftaran;
+
+      p.deleteJemaat = !!p.editJemaat;
+
+      await api.put(`/api/admin/users/${editingUser.id}`, { permissions: p });
       setEditingUser(null);
-      fetchData();
-    } catch (err) {} finally {
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal menyimpan permissions');
+    } finally {
       setSavingPermissions(false);
     }
   };
@@ -599,13 +643,7 @@ export default function UserManagement() {
                           <input 
                             type="checkbox"
                             checked={canEdit}
-                            onChange={() => {
-                              handleTogglePermission(mod.key, 'edit');
-                              // Auto-check View if Edit is checked
-                              if (!canEdit && !canView) {
-                                handleTogglePermission(mod.key, 'view');
-                              }
-                            }}
+                            onChange={() => handleTogglePermission(mod.key, 'edit')}
                             className="rounded text-blue-600 focus:ring-blue-500"
                           />
                           <span className="text-sm text-gray-700 flex items-center gap-1">

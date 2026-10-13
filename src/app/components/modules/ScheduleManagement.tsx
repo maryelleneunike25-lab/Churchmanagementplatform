@@ -245,7 +245,7 @@ function doGet() {
 export default function ScheduleManagement() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
-  const canEdit = isSuperAdmin || user?.permissions?.editPelayan || false;
+  const canEdit = isSuperAdmin || user?.permissions?.editJadwal || user?.permissions?.editPelayan || false;
 
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth());

@@ -212,7 +212,7 @@ function TierSection({ tier, members, canEdit, onAdd, onEdit, onDelete }: {
 export default function TeamManagement() {
   const { user, accessToken } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
-  const canEdit = isSuperAdmin || user?.permissions?.editTeam || false;
+  const canEdit = isSuperAdmin || user?.permissions?.editTim || user?.permissions?.editTeam || false;
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);

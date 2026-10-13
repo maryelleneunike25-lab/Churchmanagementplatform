@@ -444,7 +444,7 @@ export default function CongregationManagement() {
 
   const isSuperAdmin = user?.role === 'super_admin';
   const canEdit = isSuperAdmin || user?.permissions?.editJemaat || false;
-  const canDelete = isSuperAdmin || user?.permissions?.deleteJemaat || false;
+  const canDelete = isSuperAdmin || user?.permissions?.deleteJemaat || user?.permissions?.editJemaat || false;
 
   // ── Load members from both key formats, union by id ──────────────────────
   const loadMembers = async () => {

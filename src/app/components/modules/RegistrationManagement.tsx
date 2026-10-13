@@ -40,7 +40,7 @@ export default function RegistrationManagement() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
-  const canEdit = isSuperAdmin || user?.permissions?.editPendaftaran || false;
+  const canEdit = isSuperAdmin || user?.permissions?.editPendaftaran || user?.permissions?.editRegistrasi || false;
 
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');

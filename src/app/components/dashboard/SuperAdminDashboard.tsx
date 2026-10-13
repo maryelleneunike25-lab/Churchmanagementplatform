@@ -73,7 +73,7 @@ const NAV_ICONS: Record<string, any> = {
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshSession } = useAuth();
   // Tab lives in the URL so the phone's Back button steps through tabs instead of leaving the app.
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'dashboard';
@@ -98,18 +98,18 @@ export default function SuperAdminDashboard() {
     { label: 'User Management',   key: 'userManagement',   visible: isSuperAdmin },
     { label: 'Pending Approvals', key: 'pendingApprovals', visible: isSuperAdmin },
     { label: 'Log Aktivitas',     key: 'activityLog',      visible: isSuperAdmin },
-    { label: 'Data Jemaat',       key: 'jemaat',           visible: isSuperAdmin || permissions.viewJemaat },
-    { label: 'Absensi',           key: 'absensi',          visible: isSuperAdmin || permissions.viewAbsensi },
-    { label: 'Komsel',            key: 'komsel',           visible: isSuperAdmin || permissions.viewKomsel },
-    { label: 'Keuangan',          key: 'keuangan',         visible: isSuperAdmin || permissions.viewKeuangan },
-    { label: 'Inventaris',        key: 'inventaris',       visible: isSuperAdmin || permissions.viewInventaris },
-    { label: 'Pelayan',           key: 'pelayan',          visible: isSuperAdmin || permissions.viewPelayan },
-    { label: 'Pengumuman',        key: 'pengumuman',       visible: isSuperAdmin || permissions.viewPengumuman },
-    { label: 'Galeri Foto',       key: 'galeri',           visible: isSuperAdmin || permissions.viewGaleri },
-    { label: 'Komisi',            key: 'komisi',           visible: isSuperAdmin || permissions.viewJemaat },
-    { label: 'Jadwal Pelayanan',  key: 'jadwal',           visible: isSuperAdmin || permissions.viewPelayan },
-    { label: 'Tim Pelayanan',     key: 'tim',              visible: isSuperAdmin },
-    { label: 'Pendaftaran',       key: 'registrasi',       visible: isSuperAdmin || permissions.viewPendaftaran },
+    { label: 'Data Jemaat',       key: 'jemaat',           visible: isSuperAdmin || permissions.viewJemaat || permissions.editJemaat },
+    { label: 'Absensi',           key: 'absensi',          visible: isSuperAdmin || permissions.viewAbsensi || permissions.viewAbsen || permissions.editAbsensi || permissions.editAbsen || permissions.manageAbsensi },
+    { label: 'Komsel',            key: 'komsel',           visible: isSuperAdmin || permissions.viewKomsel || permissions.editKomsel },
+    { label: 'Keuangan',          key: 'keuangan',         visible: isSuperAdmin || permissions.viewKeuangan || permissions.editKeuangan },
+    { label: 'Inventaris',        key: 'inventaris',       visible: isSuperAdmin || permissions.viewInventaris || permissions.editInventaris },
+    { label: 'Pelayan',           key: 'pelayan',          visible: isSuperAdmin || permissions.viewPelayan || permissions.editPelayan },
+    { label: 'Pengumuman',        key: 'pengumuman',       visible: isSuperAdmin || permissions.viewPengumuman || permissions.editPengumuman },
+    { label: 'Galeri Foto',       key: 'galeri',           visible: isSuperAdmin || permissions.viewGaleri || permissions.editGaleri },
+    { label: 'Komisi',            key: 'komisi',           visible: isSuperAdmin || permissions.viewKomisi || permissions.editKomisi || permissions.viewJemaat },
+    { label: 'Jadwal Pelayanan',  key: 'jadwal',           visible: isSuperAdmin || permissions.viewJadwal || permissions.editJadwal || permissions.viewPelayan || permissions.editPelayan },
+    { label: 'Tim Pelayanan',     key: 'tim',              visible: isSuperAdmin || permissions.viewTim || permissions.viewTeam || permissions.editTim || permissions.editTeam },
+    { label: 'Pendaftaran',       key: 'registrasi',       visible: isSuperAdmin || permissions.viewPendaftaran || permissions.editPendaftaran || permissions.viewRegistrasi || permissions.editRegistrasi },
   ].filter(t => t.visible);
 
   const currentLabel = navItems.find(n => n.key === activeTab)?.label ?? 'Dashboard';
@@ -117,6 +117,7 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     loadStats();
     loadMembers();
+    refreshSession?.();
     // Heartbeat ping immediately and every 30s
     sendHeartbeat();
     const interval = setInterval(() => {
@@ -127,7 +128,7 @@ export default function SuperAdminDashboard() {
 
 
   // Auto-refresh stats + members every 30 seconds, and on tab focus
-  useAutoRefresh(() => { loadStats(); loadMembers(); }, 30_000);
+  useAutoRefresh(() => { loadStats(); loadMembers(); refreshSession?.(); }, 30_000);
 
   const loadMembers = async () => {
     try {

@@ -1105,7 +1105,7 @@ export default function AttendanceManagement() {
   const [error, setError] = useState('');
 
   const isSuperAdmin = user?.role === 'super_admin';
-  const canEdit = isSuperAdmin || user?.permissions?.editAbsen || false;
+  const canEdit = isSuperAdmin || user?.permissions?.editAbsensi || user?.permissions?.editAbsen || user?.permissions?.manageAbsensi || false;
 
   const loadData = async () => {
     try {
