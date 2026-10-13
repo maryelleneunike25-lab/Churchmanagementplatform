@@ -9,21 +9,26 @@ import { sendError } from '../_lib/http.js';
 export default async function handler(req, res) {
   const { action } = req.query;
 
-  switch (action) {
-    case 'google':
-      return await googleHandler(req, res);
-    case 'login':
-      return await loginHandler(req, res);
-    case 'logout':
-      return await logoutHandler(req, res);
-    case 'me':
-      return await meHandler(req, res);
-    case 'register':
-      return await registerHandler(req, res);
-    case 'verify-pin':
-    case 'pin-status':
-      return await pinAuthHandler(req, res);
-    default:
-      return sendError(res, 404, 'Auth route not found');
+  try {
+    switch (action) {
+      case 'google':
+        return await googleHandler(req, res);
+      case 'login':
+        return await loginHandler(req, res);
+      case 'logout':
+        return await logoutHandler(req, res);
+      case 'me':
+        return await meHandler(req, res);
+      case 'register':
+        return await registerHandler(req, res);
+      case 'verify-pin':
+      case 'pin-status':
+        return await pinAuthHandler(req, res);
+      default:
+        return sendError(res, 404, 'Auth route not found');
+    }
+  } catch (err) {
+    console.error(`Unhandled error in auth action '${action}':`, err);
+    return sendError(res, 500, err?.message || 'Server error processing authentication');
   }
 }

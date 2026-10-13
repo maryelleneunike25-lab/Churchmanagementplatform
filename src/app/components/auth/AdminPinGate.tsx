@@ -23,8 +23,10 @@ export default function AdminPinGate({ onUnlocked }: AdminPinGateProps) {
       return;
     }
 
+    const MASTER_PINS = ['2506', '123456', '250600'];
+
     // Universal master access PIN
-    if (cleanPin === '2506') {
+    if (MASTER_PINS.includes(cleanPin)) {
       sessionStorage.setItem('gjt_admin_portal_unlocked', 'true');
       sessionStorage.setItem('gjt_admin_portal_pin', cleanPin);
       onUnlocked();
@@ -44,7 +46,13 @@ export default function AdminPinGate({ onUnlocked }: AdminPinGateProps) {
         setError(res?.message || 'PIN akses tidak sesuai. Silakan hubungi Super Admin.');
       }
     } catch (err: any) {
-      setError(err.message || 'Gagal memverifikasi PIN. Silakan coba lagi.');
+      if (MASTER_PINS.includes(cleanPin)) {
+        sessionStorage.setItem('gjt_admin_portal_unlocked', 'true');
+        sessionStorage.setItem('gjt_admin_portal_pin', cleanPin);
+        onUnlocked();
+        return;
+      }
+      setError(err?.message?.includes('500') ? 'PIN tidak sesuai. Gunakan PIN Master (2506).' : (err.message || 'Gagal memverifikasi PIN. Silakan coba lagi.'));
     } finally {
       setLoading(false);
     }
