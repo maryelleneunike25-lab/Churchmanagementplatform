@@ -17,6 +17,7 @@ import ServicePage from "./pages/ServicePage";
 import AkunPage from "./pages/AkunPage";
 import NativeBackHandler from "./components/common/NativeBackHandler";
 import AdminPinGate from "./components/auth/AdminPinGate";
+import ScrollNavigation from "./components/common/ScrollNavigation";
 
 // Protected Route — redirects to /login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <NativeBackHandler />
+      <ScrollNavigation />
       <AuthProvider>
         <Routes>
           {/* Login */}

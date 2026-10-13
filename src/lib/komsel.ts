@@ -498,7 +498,7 @@ export function detectPlotConflicts(plots: PksPlot[]): PlotConflict[] {
         plotB: b,
         room: a.room,
         date: a.date,
-        message: `Konflik Ruangan ${a.room}: Digunakan oleh PKS ${a.pksName} (${a.date} ${a.startTime}-${a.endTime}) dan PKS ${b.pksName} (${b.date} ${b.startTime}-${b.endTime})`,
+        message: `Konflik Ruangan ${a.room}: Digunakan oleh PKS ${a.pksName} dan PKS ${b.pksName}`,
       });
     }
   }

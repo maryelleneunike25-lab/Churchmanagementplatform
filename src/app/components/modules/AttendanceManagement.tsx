@@ -80,26 +80,59 @@ function sundaysInMonth(year: number, month: number): string[] {
   return dates;
 }
 
-// Inactive rule: only inactive if absent in 3 consecutive general service sessions
-// Must have at least 3 sessions recorded in history; excludes members currently marked present.
+// Inactive rule: only inactive if absent in 3 consecutive distinct weeks of general service sessions
+// Must have at least 3 distinct weeks recorded in history; excludes visitors and members joined within 3 weeks.
 function getInactiveMembers(members: Member[], sessions: Session[], currentPresent?: Set<string>): string[] {
   const generalSessions = sessions
     .filter(s => s.serviceType === SERVICE_TYPE)
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  // If there are less than 3 sessions recorded in history, no one can be declared "jarang aktif"
-  if (generalSessions.length < 3) return [];
+  // Group sessions by distinct Sunday/week key
+  const distinctWeeksMap = new Map<string, Session[]>();
+  for (const s of generalSessions) {
+    const wInfo = getWeekInfo(s.date);
+    const weekKey = wInfo.sundayDate;
+    if (!distinctWeeksMap.has(weekKey)) {
+      distinctWeeksMap.set(weekKey, []);
+    }
+    distinctWeeksMap.get(weekKey)!.push(s);
+  }
 
-  const last3Sessions = generalSessions.slice(0, 3);
+  const distinctWeekKeys = Array.from(distinctWeeksMap.keys()).sort().reverse();
+
+  // If there are less than 3 distinct weeks recorded in history, no one can be declared "jarang aktif"
+  if (distinctWeekKeys.length < 3) return [];
+
+  const last3WeekKeys = distinctWeekKeys.slice(0, 3);
+  const oldestOf3Weeks = last3WeekKeys[last3WeekKeys.length - 1]; // earliest Sunday date among the 3
 
   return members
     .filter(m => {
+      // Exclude visitors
+      const statusLower = (m.status || '').toLowerCase();
+      if (statusLower === 'visitor' || statusLower === 'visitors' || statusLower === 'tamu') return false;
+
+      // Exclude members who joined recently (less than 3 weeks ago)
+      const joinStr = (m.joinDate || m.createdAt || '').slice(0, 10);
+      if (joinStr && joinStr > oldestOf3Weeks) {
+        return false;
+      }
+
       // If currently checked as present in this session, exclude from inactive list
       if (currentPresent?.has(m.id)) return false;
 
-      // Inactive if not present in any of the last 3 consecutive sessions
-      const attendedAny = last3Sessions.some(s => s.presentIds && s.presentIds.includes(m.id));
-      return !attendedAny;
+      // Inactive if NOT present in any session across the last 3 distinct weeks
+      let attendedInLast3Weeks = false;
+      for (const wKey of last3WeekKeys) {
+        const weekSessions = distinctWeeksMap.get(wKey) || [];
+        const attendedThisWeek = weekSessions.some(s => s.presentIds && s.presentIds.includes(m.id));
+        if (attendedThisWeek) {
+          attendedInLast3Weeks = true;
+          break;
+        }
+      }
+
+      return !attendedInLast3Weeks;
     })
     .map(m => m.id);
 }

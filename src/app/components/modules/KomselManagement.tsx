@@ -856,14 +856,14 @@ export default function KomselManagement() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h4 className="font-bold text-red-900 text-sm">
-                      PERINGATAN: Terdeteksi {conflicts.length} Jadwal Ruangan Bertabrakan!
+                      PERINGATAN: Terdeteksi Ruangan Bertabrakan!
                     </h4>
                     <span className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
                       Konflik Ruangan
                     </span>
                   </div>
                   <p className="text-xs text-red-700 mt-1">
-                    Ada beberapa PKS yang di-plot pada ruangan yang sama di jam yang bertabrakan. Hubungi Ketua PKS terkait untuk koordinasi pergeseran ruangan atau jam:
+                    Ruangan berikut digunakan oleh lebih dari satu PKS. Hubungi Ketua PKS terkait untuk koordinasi pergeseran ruangan:
                   </p>
 
                   <div className="mt-3 space-y-2.5">
@@ -874,11 +874,9 @@ export default function KomselManagement() {
                       return (
                         <div key={idx} className="bg-white/90 p-3 rounded-xl border border-red-200 text-xs text-gray-800 flex items-center justify-between flex-wrap gap-2">
                           <div>
-                            <span className="font-bold text-red-700">{conf.room}</span> &bull; <span className="font-semibold">{conf.date}</span>
-                            <div className="mt-0.5 text-gray-600">
-                              <span className="font-semibold text-gray-900">PKS {conf.plotA.pksName}</span> ({conf.plotA.startTime}-{conf.plotA.endTime})
-                              <span className="text-red-600 font-bold mx-1.5">&times;</span>
-                              <span className="font-semibold text-gray-900">PKS {conf.plotB.pksName}</span> ({conf.plotB.startTime}-{conf.plotB.endTime})
+                            <span className="font-bold text-red-700 text-sm">Ruangan {conf.room}</span>
+                            <div className="mt-0.5 text-gray-700 font-medium">
+                              Digunakan bersamaan oleh <span className="font-bold text-gray-900">PKS {conf.plotA.pksName}</span> dan <span className="font-bold text-gray-900">PKS {conf.plotB.pksName}</span>
                             </div>
                           </div>
 
@@ -1252,214 +1250,322 @@ export default function KomselManagement() {
       {/* ============================================================= */}
       {/* MODAL 2: ADD/EDIT PLOTTING RUANGAN                            */}
       {/* ============================================================= */}
-      <Dialog open={openPlotDialog} onClose={() => setOpenPlotDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle className="flex items-center gap-2 font-bold text-gray-900">
-          <Calendar size={20} className="text-indigo-600" />
-          {editingPlot ? 'Edit Plotting Ruangan PKS' : 'Tambah Plotting Ruangan Baru'}
-        </DialogTitle>
-        <DialogContent className="space-y-4 pt-2">
-          {/* Live Conflict Banner Inside Modal */}
+      <Dialog 
+        open={openPlotDialog} 
+        onClose={() => setOpenPlotDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '20px',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">
+                {editingPlot ? 'Edit Plotting Ruangan PKS' : 'Plot Ruangan & Jadwal PKS'}
+              </h3>
+              <p className="text-xs text-indigo-200/80">Atur ruangan komsel dan koordinasi jadwal secara rapi</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpenPlotDialog(false)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <DialogContent className="p-6 space-y-5 bg-slate-50/50">
+          {/* Live Conflict Banner Inside Modal (Room Collision Only) */}
           {dialogConflict && (
-            <div className="bg-red-50 border border-red-300 rounded-xl p-3 text-xs text-red-800 flex items-start gap-2.5">
-              <AlertTriangle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-red-900">Perhatian: Ruangan Bertabrakan!</p>
-                <p className="mt-0.5">
-                  Ruang <strong>{dialogConflict.room}</strong> sudah di-plot oleh <strong>PKS {dialogConflict.pksName}</strong> pada jam {dialogConflict.startTime} - {dialogConflict.endTime}.
+            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 text-xs text-red-800 flex items-start gap-3 shadow-xs">
+              <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-bold text-red-900 text-sm">Peringatan: Ruangan Bertabrakan!</p>
+                <p className="mt-1 text-red-800">
+                  Ruangan <strong>&quot;{dialogConflict.room}&quot;</strong> sudah digunakan oleh <strong>PKS {dialogConflict.pksName}</strong>.
                 </p>
                 <p className="text-[11px] text-red-600 mt-1">
-                  Anda tetap bisa menyimpan jika memang disengaja, atau ganti ruangan/jam untuk mencegah bentrok.
+                  Pilih ruangan lain untuk menghindari bentrok ruangan antar kelompok sel.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Select PKS */}
-          <FormControl fullWidth size="small" sx={{ mt: 1 }} required>
-            <InputLabel>Pilih PKS</InputLabel>
-            <Select
-              value={plotForm.pksName}
-              onChange={e => handlePksSelectInPlot(e.target.value)}
-              label="Pilih PKS"
-            >
-              {komsels.map(k => {
-                const name = k.pksName || k.name;
-                return (
-                  <MenuItem key={k.id} value={name}>
-                    PKS {name} ({k.memberCount || 0} orang)
-                  </MenuItem>
-                );
-              })}
-            </Select>
-          </FormControl>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Field: Pilih PKS */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>Pilih PKS <span className="text-rose-500">*</span></span>
+                <span className="text-[10px] text-slate-400 font-normal">{komsels.length} PKS Terdaftar</span>
+              </label>
+              <select
+                value={plotForm.pksName}
+                onChange={e => handlePksSelectInPlot(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+              >
+                <option value="">-- Pilih Kelompok PKS --</option>
+                {komsels.map(k => {
+                  const name = k.pksName || k.name;
+                  return (
+                    <option key={k.id} value={name}>
+                      PKS {name} ({k.memberCount || 0} orang)
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
 
-          {/* Select Ruangan */}
-          <FormControl fullWidth size="small" sx={{ mt: 2 }} required>
-            <InputLabel>Ruangan / Lokasi</InputLabel>
-            <Select
-              value={plotForm.room}
-              onChange={e => setPlotForm({ ...plotForm, room: e.target.value })}
-              label="Ruangan / Lokasi"
-            >
-              {roomsList.map(r => (
-                <MenuItem key={r} value={r}>{r}</MenuItem>
-              ))}
-              <MenuItem value="Lainnya">Ruangan Lainnya (Kustom)...</MenuItem>
-            </Select>
-          </FormControl>
+            {/* Field: Ruangan / Lokasi */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <DoorOpen size={14} className="text-indigo-600" />
+                  <span>Ruangan / Lokasi <span className="text-rose-500">*</span></span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setOpenRoomsDialog(true)}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 cursor-pointer"
+                  title="Kelola Ruangan (Super Admin)"
+                >
+                  <Settings size={12} />
+                  <span>Daftar Ruangan</span>
+                  {!isSuperAdmin && <Lock size={10} className="text-amber-500" />}
+                </button>
+              </div>
 
-          {plotForm.room === 'Lainnya' && (
-            <TextField
-              label="Nama Ruangan Kustom"
-              value={plotForm.customRoom}
-              onChange={e => setPlotForm({ ...plotForm, customRoom: e.target.value })}
-              fullWidth
-              size="small"
-              required
-              sx={{ mt: 2 }}
-              placeholder="contoh: Lantai 2 R. Kasih"
-            />
-          )}
+              <select
+                value={plotForm.room}
+                onChange={e => setPlotForm({ ...plotForm, room: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+              >
+                {roomsList.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+                <option value="Lainnya">+ Ruangan Lainnya (Kustom)...</option>
+              </select>
 
-          {/* Date Picker */}
-          <TextField
-            label="Tanggal"
-            type="date"
-            value={plotForm.date}
-            onChange={e => setPlotForm({ ...plotForm, date: e.target.value })}
-            fullWidth
-            size="small"
-            required
-            sx={{ mt: 2 }}
-            InputLabelProps={{ shrink: true }}
-          />
-
-          {/* Time Pickers */}
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <TextField
-              label="Jam Mulai"
-              type="time"
-              value={plotForm.startTime}
-              onChange={e => setPlotForm({ ...plotForm, startTime: e.target.value })}
-              fullWidth
-              size="small"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Jam Selesai"
-              type="time"
-              value={plotForm.endTime}
-              onChange={e => setPlotForm({ ...plotForm, endTime: e.target.value })}
-              fullWidth
-              size="small"
-              required
-              InputLabelProps={{ shrink: true }}
-            />
+              {plotForm.room === 'Lainnya' && (
+                <input
+                  type="text"
+                  placeholder="Ketik nama ruangan kustom..."
+                  value={plotForm.customRoom}
+                  onChange={e => setPlotForm({ ...plotForm, customRoom: e.target.value })}
+                  className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+              )}
+            </div>
           </div>
 
-          {/* Status */}
-          <FormControl fullWidth size="small" sx={{ mt: 2 }}>
-            <InputLabel>Status Jadwal</InputLabel>
-            <Select
-              value={plotForm.status}
-              onChange={e => setPlotForm({ ...plotForm, status: e.target.value as any })}
-              label="Status Jadwal"
-            >
-              <MenuItem value="active">🟢 Terjadwal Aktif</MenuItem>
-              <MenuItem value="berhalangan">🟡 Berhalangan (Ruang Bebas)</MenuItem>
-              <MenuItem value="completed">⚪ Selesai</MenuItem>
-            </Select>
-          </FormControl>
+          {/* Date & Time Row */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Tanggal */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Tanggal <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={plotForm.date}
+                  onChange={e => setPlotForm({ ...plotForm, date: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
 
-          {/* Leaders section (Auto populated & editable) */}
-          <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 space-y-2 mt-2">
+              {/* Jam Mulai */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Jam Mulai <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={plotForm.startTime}
+                  onChange={e => setPlotForm({ ...plotForm, startTime: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Jam Selesai */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Jam Selesai <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={plotForm.endTime}
+                  onChange={e => setPlotForm({ ...plotForm, endTime: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status Jadwal (Pill Selector) */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+            <label className="text-xs font-bold text-slate-700 block">Status Jadwal</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setPlotForm({ ...plotForm, status: 'active' })}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 cursor-pointer ${
+                  plotForm.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-400/30'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Terjadwal Aktif</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlotForm({ ...plotForm, status: 'berhalangan' })}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 cursor-pointer ${
+                  plotForm.status === 'berhalangan'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-400/30'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>Berhalangan (Bebas)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlotForm({ ...plotForm, status: 'completed' })}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-1.5 cursor-pointer ${
+                  plotForm.status === 'completed'
+                    ? 'bg-slate-200 text-slate-800 border-slate-400 ring-2 ring-slate-400/30'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>Selesai</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Leaders Section */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-gray-700">Kontak Ketua / Pemimpin PKS:</label>
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Users size={14} className="text-indigo-600" />
+                <span>Kontak Ketua / Pemimpin PKS (Sync Data Jemaat):</span>
+              </label>
               <button
                 type="button"
                 onClick={() => setPlotForm(prev => ({
                   ...prev,
                   leaders: [...prev.leaders, { name: '', phone: '', role: 'Co-Leader' }]
                 }))}
-                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer bg-indigo-50 px-2.5 py-1 rounded-lg"
               >
-                <Plus size={12} /> Tambah Ketua/Kontak
+                <Plus size={12} /> Tambah Kontak
               </button>
             </div>
 
-            {plotForm.leaders.map((ldr, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-lg border border-gray-200">
-                <div className="col-span-6">
-                  <input
-                    value={ldr.name}
-                    list="congregation-member-list"
-                    onChange={e => {
-                      const val = e.target.value;
-                      const updated = [...plotForm.leaders];
-                      updated[idx].name = val;
-                      // Auto-fill phone if matches congregation member
-                      const found = allMembers.find(m => m.name.toLowerCase() === val.trim().toLowerCase());
-                      if (found && (found.phone || (found.phones && found.phones[0])) && !updated[idx].phone) {
-                        updated[idx].phone = found.phone || found.phones[0];
-                      }
-                      setPlotForm({ ...plotForm, leaders: updated });
-                    }}
-                    placeholder="Nama Ketua PKS (dari Data Jemaat)"
-                    className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                  />
-                </div>
-                <div className="col-span-5">
-                  <input
-                    value={ldr.phone}
-                    onChange={e => {
-                      const updated = [...plotForm.leaders];
-                      updated[idx].phone = e.target.value;
-                      setPlotForm({ ...plotForm, leaders: updated });
-                    }}
-                    placeholder="No. Telp / WhatsApp (08...)"
-                    className="w-full text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                  />
-                </div>
-                <div className="col-span-1 text-right">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = plotForm.leaders.filter((_, i) => i !== idx);
-                      setPlotForm({ ...plotForm, leaders: updated });
-                    }}
-                    className="text-gray-400 hover:text-red-500 p-1"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
+            {plotForm.leaders.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2 text-center">
+                Belum ada kontak ketua. Pilih PKS di atas atau klik Tambah Kontak.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {plotForm.leaders.map((ldr, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70">
+                    <div className="col-span-6">
+                      <input
+                        value={ldr.name}
+                        list="congregation-member-list"
+                        onChange={e => {
+                          const val = e.target.value;
+                          const updated = [...plotForm.leaders];
+                          updated[idx].name = val;
+                          const found = allMembers.find(m => m.name.toLowerCase() === val.trim().toLowerCase());
+                          if (found && (found.phone || (found.phones && found.phones[0])) && !updated[idx].phone) {
+                            updated[idx].phone = found.phone || found.phones[0];
+                          }
+                          setPlotForm({ ...plotForm, leaders: updated });
+                        }}
+                        placeholder="Nama Ketua PKS (dari Data Jemaat)"
+                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+                    <div className="col-span-5">
+                      <input
+                        value={ldr.phone}
+                        onChange={e => {
+                          const updated = [...plotForm.leaders];
+                          updated[idx].phone = e.target.value;
+                          setPlotForm({ ...plotForm, leaders: updated });
+                        }}
+                        placeholder="No. Telp / WhatsApp (08...)"
+                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+                    <div className="col-span-1 text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = plotForm.leaders.filter((_, i) => i !== idx);
+                          setPlotForm({ ...plotForm, leaders: updated });
+                        }}
+                        className="text-slate-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-colors"
+                        title="Hapus kontak"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
           {/* Notes */}
-          <TextField
-            label="Catatan Tambahan (opsional)"
-            value={plotForm.notes}
-            onChange={e => setPlotForm({ ...plotForm, notes: e.target.value })}
-            fullWidth
-            size="small"
-            multiline
-            rows={2}
-            sx={{ mt: 2 }}
-            placeholder="contoh: Membutuhkan projector dan sound system"
-          />
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">Catatan Tambahan (opsional)</label>
+            <textarea
+              value={plotForm.notes}
+              onChange={e => setPlotForm({ ...plotForm, notes: e.target.value })}
+              rows={2}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              placeholder="contoh: Membutuhkan proyektor dan kabel HDMI tambahan"
+            />
+          </div>
         </DialogContent>
-        <div className="p-4 flex justify-end gap-2 border-t">
-          <Button onClick={() => setOpenPlotDialog(false)} disabled={plotSaving}>Batal</Button>
-          <Button
-            variant="contained"
+
+        <div className="px-6 py-4 bg-white flex items-center justify-end gap-2.5 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={() => setOpenPlotDialog(false)}
+            disabled={plotSaving}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
             onClick={handleSavePlot}
             disabled={plotSaving || !plotForm.pksName || !plotForm.date}
-            sx={{ bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
           >
-            {plotSaving ? 'Menyimpan...' : 'Simpan Plotting'}
-          </Button>
+            {plotSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Menyimpan...</span>
+              </>
+            ) : (
+              <span>Simpan Plotting</span>
+            )}
+          </button>
         </div>
       </Dialog>
 
