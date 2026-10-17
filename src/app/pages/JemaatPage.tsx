@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'mot
 import {
   Clock, MapPin, Users, Heart, BookOpen, Star,
   ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound,
-  Music, Disc3, Play
+  Music, Disc3, Play, Church, Sparkles, Baby, Flame
 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { getMinistry, formatSchedules, ALL_MINISTRIES } from '../../lib/ministries';
@@ -95,13 +95,45 @@ function FadeInSection({ children, delay = 0 }: { children: React.ReactNode; del
   );
 }
 
-// Highlighted ministries on the home page; times come from the shared ministries data.
+// Highlighted schedules on the home page as requested
 const HOME_SCHEDULES = [
-  { id: 'umum', icon: BookOpen, color: 'from-blue-500 to-indigo-600' },
-  { id: 'doa', icon: Heart, color: 'from-rose-500 to-orange-500' },
-  { id: 'vessel', icon: Star, color: 'from-purple-500 to-pink-600' },
-  { id: 'sekolah-minggu', icon: Users, color: 'from-emerald-500 to-teal-600' },
-].flatMap(h => { const m = getMinistry(h.id); return m ? [{ ...h, title: m.name, time: formatSchedules(m.schedules) + ' WIB', location: m.location }] : []; });
+  {
+    id: 'umum',
+    title: 'Ibadah Umum',
+    time: 'Minggu 08.00 WIB',
+    location: 'Gedung Utama Lantai 3',
+    icon: Church,
+    color: 'from-blue-500 to-indigo-600',
+    tag: 'Ibadah Raya',
+  },
+  {
+    id: 'teens',
+    title: 'Teens',
+    time: 'Minggu 12:30 WIB',
+    location: 'Ruang Teens Lantai 2',
+    icon: Sparkles,
+    color: 'from-violet-500 to-purple-600',
+    tag: 'Remaja',
+  },
+  {
+    id: 'sekolah-minggu',
+    title: 'Sekolah Minggu',
+    time: 'Minggu 10.00 WIB',
+    location: 'Ruang Anak Lantai 2',
+    icon: Baby,
+    color: 'from-amber-400 to-orange-500',
+    tag: 'Anak-anak',
+  },
+  {
+    id: 'vessel',
+    title: 'Vessel',
+    time: 'Sabtu 18.30 · Setiap minggu pertama',
+    location: 'Ruang Vessel Lantai 2',
+    icon: Flame,
+    color: 'from-rose-500 to-pink-600',
+    tag: 'Pemuda',
+  },
+];
 
 export default function JemaatPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -341,6 +373,49 @@ export default function JemaatPage() {
         </section>
       )}
 
+      {/* ── Jadwal ── */}
+      <section id="jadwal" className="py-20 sm:py-24 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <FadeInSection>
+            <div className="text-center mb-12 sm:mb-14">
+              <span className="inline-block text-blue-600 text-xs sm:text-sm font-semibold uppercase tracking-widest mb-3">Jadwal</span>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Ibadah & Kegiatan</h2>
+              <p className="text-gray-500 max-w-xl mx-auto text-xs sm:text-base">Bergabunglah bersama kami dalam berbagai kegiatan ibadah yang tersedia setiap minggu.</p>
+            </div>
+          </FadeInSection>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+            {HOME_SCHEDULES.map((s, i) => (
+              <FadeInSection key={s.id} delay={i * 0.1}>
+                <div className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col justify-between">
+                  <div>
+                    <div className={`h-2 bg-gradient-to-r ${s.color}`} />
+                    <div className="p-6 sm:p-7 flex items-start gap-4 sm:gap-5">
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                        <s.icon size={24} className="text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <h3 className="text-lg sm:text-xl font-bold text-gray-900">{s.title}</h3>
+                          <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">{s.tag}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-700 text-sm font-medium mb-1.5">
+                          <Clock size={15} className="text-blue-600 flex-shrink-0" />
+                          <span>{s.time}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500 text-xs sm:text-sm">
+                          <MapPin size={15} className="text-gray-400 flex-shrink-0" />
+                          <span>{s.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </FadeInSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Lighthouse Music / Album Promo ── */}
       <section className="py-16 sm:py-24 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-white relative overflow-hidden">
         {/* Ambient atmospheric glows */}
@@ -422,38 +497,6 @@ export default function JemaatPage() {
               </div>
             </div>
           </FadeInSection>
-        </div>
-      </section>
-
-      {/* ── Jadwal ── */}
-      <section id="jadwal" className="py-24 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-6">
-          <FadeInSection>
-            <div className="text-center mb-14">
-              <span className="inline-block text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3">Jadwal</span>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Ibadah & Kegiatan</h2>
-              <p className="text-gray-500 max-w-xl mx-auto">Bergabunglah bersama kami dalam berbagai kegiatan ibadah yang tersedia setiap minggu.</p>
-            </div>
-          </FadeInSection>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {HOME_SCHEDULES.map((s, i) => (
-              <FadeInSection key={s.id} delay={i * 0.1}>
-                <div className="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100">
-                  <div className={`h-2 bg-gradient-to-r ${s.color}`} />
-                  <div className="p-7 flex items-start gap-5">
-                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300`}>
-                      <s.icon size={22} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">{s.title}</h3>
-                      <div className="flex items-center gap-2 text-gray-600 text-sm mb-1"><Clock size={14} /><span>{s.time}</span></div>
-                      <div className="flex items-center gap-2 text-gray-500 text-sm"><MapPin size={14} /><span>{s.location}</span></div>
-                    </div>
-                  </div>
-                </div>
-              </FadeInSection>
-            ))}
-          </div>
         </div>
       </section>
 
