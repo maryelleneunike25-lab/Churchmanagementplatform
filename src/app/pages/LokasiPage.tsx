@@ -47,7 +47,7 @@ export default function LokasiPage() {
       >
         <iframe
           title="Lokasi GBI Jelambar Timur"
-          src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.1/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
+          src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.8/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
           width="100%"
           height="100%"
           style={{ border: 0, display: 'block' }}

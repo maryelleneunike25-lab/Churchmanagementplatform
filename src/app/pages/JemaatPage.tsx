@@ -120,9 +120,6 @@ export default function JemaatPage() {
   const heroOpacity = useTransform(scrollY, [0, 450], [1, 0]);
   const heroScale = useTransform(scrollY, [0, 700], [1, 0.94]);
   const heroGlowY = useTransform(scrollY, [0, 800], [0, 160]);
-  const floatingBadge1Y = useTransform(scrollY, [0, 600], [0, -70]);
-  const floatingBadge2Y = useTransform(scrollY, [0, 600], [0, -45]);
-  const floatingBadge3Y = useTransform(scrollY, [0, 600], [0, -90]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
@@ -164,43 +161,6 @@ export default function JemaatPage() {
           <div className="absolute top-1/4 left-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-blue-500/20 blur-3xl animate-pulse duration-1000" />
           <div className="absolute bottom-1/4 right-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-indigo-500/20 blur-3xl" />
           <div className="absolute top-1/3 right-1/4 w-60 h-60 rounded-full bg-purple-500/15 blur-2xl" />
-        </motion.div>
-
-        {/* Floating Parallax Accents (Geometric & Glass Icons) */}
-        <motion.div
-          style={{ y: floatingBadge1Y }}
-          className="absolute top-36 left-6 md:left-16 hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-4 py-2.5 rounded-2xl shadow-2xl pointer-events-none z-10"
-        >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
-            <Star size={16} className="text-white" />
-          </div>
-          <div className="text-left leading-tight">
-            <p className="text-xs font-bold text-white">Komunitas Kasih</p>
-            <p className="text-[10px] text-blue-200">Ibadah & Komsel</p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          style={{ y: floatingBadge2Y }}
-          className="absolute top-44 right-6 md:right-16 hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-4 py-2.5 rounded-2xl shadow-2xl pointer-events-none z-10"
-        >
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-md">
-            <Heart size={16} className="text-white" />
-          </div>
-          <div className="text-left leading-tight">
-            <p className="text-xs font-bold text-white">Melayani Bersama</p>
-            <p className="text-[10px] text-emerald-200">Bertumbuh dalam Iman</p>
-          </div>
-        </motion.div>
-
-        <motion.div
-          style={{ y: floatingBadge3Y }}
-          className="absolute bottom-28 left-10 md:left-24 hidden lg:flex items-center gap-2.5 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-3.5 py-2 rounded-2xl shadow-2xl pointer-events-none z-10"
-        >
-          <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center text-white">
-            <MapPin size={14} />
-          </div>
-          <span className="text-xs text-blue-100 font-medium">Jakarta Utara & Barat</span>
         </motion.div>
 
         {/* Subtle dot pattern */}
@@ -471,7 +431,7 @@ export default function JemaatPage() {
               <div className="h-72 sm:h-96 w-full relative">
                 <iframe
                   title="Lokasi GBI Jelambar Timur Home"
-                  src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.1/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
+                  src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.8/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
                   width="100%"
                   height="100%"
                   style={{ border: 0, display: 'block' }}
