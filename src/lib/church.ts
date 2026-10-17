@@ -2,11 +2,11 @@
 export const CHURCH = {
   name: 'GBI Jelambar Timur',
   city: 'Jakarta Barat',
-  address: 'Jl. Jelambar Timur, Jelambar, Grogol Petamburan, Jakarta Barat 11460',
+  address: 'Jl. I No.52, RT.1/RW.6, Pejagalan, Kecamatan Penjaringan, Jkt Utara, Daerah Khusus Ibukota Jakarta 14450',
   instagramUrl: 'https://www.instagram.com/gbi_jeltim/',
   instagramHandle: '@gbi_jeltim',
   youtubeUrl: 'https://www.youtube.com/@gbijelambartimur',
-  mapsUrl: 'https://www.google.com/maps/place/Gereja+Bethel+Indonesia+Jelambar+Timur/@-6.1420644,106.7821437,17z',
+  mapsUrl: 'https://www.google.com/maps?client=safari&rls=en&oe=UTF-8&um=1&ie=UTF-8&fb=1&gl=id&sa=X&geocode=Kbu0GYEm9mkuMewZ_4tnAGHN&daddr=Jl.+I+No.52,+RT.1/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara,+Daerah+Khusus+Ibukota+Jakarta+14450',
   // Digits only with country code for WhatsApp link
   whatsappDisplay: '085775094388',
   whatsappNumber: '6285775094388',

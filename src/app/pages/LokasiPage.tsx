@@ -33,7 +33,7 @@ export default function LokasiPage() {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="text-gray-500 text-base"
         >
-          Jl. Jelambar Timur, Jakarta Barat
+          {CHURCH.address}
         </motion.p>
       </section>
 
@@ -42,12 +42,12 @@ export default function LokasiPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.7, delay: 0.2 }}
-        className="w-full relative"
+        className="w-full relative group"
         style={{ height: '60vh', minHeight: 340, maxHeight: 560 }}
       >
         <iframe
           title="Lokasi GBI Jelambar Timur"
-          src="https://maps.google.com/maps?q=-6.1420697,106.7847186&z=17&output=embed"
+          src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.1/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
           width="100%"
           height="100%"
           style={{ border: 0, display: 'block' }}
@@ -55,15 +55,21 @@ export default function LokasiPage() {
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
-        {/* Floating open-in-maps button */}
+
+        {/* Floating open-in-maps CTA button */}
         <a
           href={CHURCH.mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg border border-gray-100 hover:shadow-xl transition-all hover:scale-105"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 bg-white/95 hover:bg-white text-gray-900 font-bold text-sm sm:text-base px-6 py-3.5 rounded-full shadow-2xl border border-gray-200/80 hover:shadow-blue-500/25 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 active:scale-95 group/btn cursor-pointer backdrop-blur-md"
         >
-          <Navigation size={15} className="text-blue-600" />
-          Buka di Google Maps
+          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover/btn:bg-blue-600 group-hover/btn:text-white transition-colors duration-300">
+            <Navigation size={17} />
+          </div>
+          <span className="bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent group-hover/btn:from-blue-600 group-hover/btn:to-indigo-600 transition-all">
+            Buka di Google Maps
+          </span>
+          <ArrowRight size={16} className="text-gray-400 group-hover/btn:text-blue-600 group-hover/btn:translate-x-1 transition-all" />
         </a>
       </motion.section>
 

@@ -115,17 +115,22 @@ export default function JemaatPage() {
   }, []);
 
   const { scrollY } = useScroll();
-  const heroY = useTransform(scrollY, [0, 600], [0, 120]);
-  const heroOpacity = useTransform(scrollY, [0, 420], [1, 0]);
-  const heroContentY = useTransform(scrollY, [0, 600], [0, -60]);
+  const heroY = useTransform(scrollY, [0, 800], [0, 220]);
+  const heroContentY = useTransform(scrollY, [0, 800], [0, -100]);
+  const heroOpacity = useTransform(scrollY, [0, 450], [1, 0]);
+  const heroScale = useTransform(scrollY, [0, 700], [1, 0.94]);
+  const heroGlowY = useTransform(scrollY, [0, 800], [0, 160]);
+  const floatingBadge1Y = useTransform(scrollY, [0, 600], [0, -70]);
+  const floatingBadge2Y = useTransform(scrollY, [0, 600], [0, -45]);
+  const floatingBadge3Y = useTransform(scrollY, [0, 600], [0, -90]);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
       {/* ── Hero ── */}
       <section
-        className="relative min-h-[85vh] sm:min-h-[90vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 sm:py-24"
+        className="relative min-h-[90vh] sm:min-h-[92vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 sm:py-24"
         style={{
-          background: 'radial-gradient(ellipse 90% 70% at 50% 15%, #1e3a8a 0%, #0f172a 55%, #050814 100%)'
+          background: 'radial-gradient(ellipse 95% 75% at 50% 12%, #1e3a8a 0%, #0f172a 55%, #050814 100%)'
         }}
       >
         {/* Navbar floats on top */}
@@ -133,30 +138,69 @@ export default function JemaatPage() {
           <PublicNavbar />
         </div>
 
-        {/* Background video (if exists) */}
+        {/* Background video (if exists) with parallax */}
         {!videoFailed && (
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            controls={false}
-            disablePictureInPicture
-            onError={() => setVideoFailed(true)}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-40 mix-blend-screen"
-          >
-            <source src="/hero.mp4" type="video/mp4" onError={() => setVideoFailed(true)} />
-          </video>
+          <motion.div style={{ y: heroY }} className="absolute inset-0 pointer-events-none">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              controls={false}
+              disablePictureInPicture
+              onError={() => setVideoFailed(true)}
+              className="w-full h-full object-cover opacity-40 mix-blend-screen scale-110"
+            >
+              <source src="/hero.mp4" type="video/mp4" onError={() => setVideoFailed(true)} />
+            </video>
+          </motion.div>
         )}
         <div className="absolute inset-0 hero-aurora pointer-events-none opacity-60" />
 
-        {/* Ambient celestial lighting layers */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] max-w-full h-[320px] bg-gradient-to-b from-amber-300/10 via-sky-400/10 to-transparent blur-3xl pointer-events-none" />
-        <motion.div style={{ y: heroY }} className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-blue-500/15 blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-indigo-500/15 blur-3xl" />
-          <div className="absolute top-1/3 right-1/4 w-60 h-60 rounded-full bg-purple-500/10 blur-2xl" />
+        {/* Ambient celestial lighting layers with Parallax */}
+        <motion.div style={{ y: heroGlowY }} className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[760px] max-w-full h-[360px] bg-gradient-to-b from-amber-300/15 via-sky-400/15 to-transparent blur-3xl" />
+          <div className="absolute top-1/4 left-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-blue-500/20 blur-3xl animate-pulse duration-1000" />
+          <div className="absolute bottom-1/4 right-1/10 w-72 sm:w-96 h-72 sm:h-96 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="absolute top-1/3 right-1/4 w-60 h-60 rounded-full bg-purple-500/15 blur-2xl" />
+        </motion.div>
+
+        {/* Floating Parallax Accents (Geometric & Glass Icons) */}
+        <motion.div
+          style={{ y: floatingBadge1Y }}
+          className="absolute top-36 left-6 md:left-16 hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-4 py-2.5 rounded-2xl shadow-2xl pointer-events-none z-10"
+        >
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+            <Star size={16} className="text-white" />
+          </div>
+          <div className="text-left leading-tight">
+            <p className="text-xs font-bold text-white">Komunitas Kasih</p>
+            <p className="text-[10px] text-blue-200">Ibadah & Komsel</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          style={{ y: floatingBadge2Y }}
+          className="absolute top-44 right-6 md:right-16 hidden md:flex items-center gap-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-4 py-2.5 rounded-2xl shadow-2xl pointer-events-none z-10"
+        >
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-md">
+            <Heart size={16} className="text-white" />
+          </div>
+          <div className="text-left leading-tight">
+            <p className="text-xs font-bold text-white">Melayani Bersama</p>
+            <p className="text-[10px] text-emerald-200">Bertumbuh dalam Iman</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          style={{ y: floatingBadge3Y }}
+          className="absolute bottom-28 left-10 md:left-24 hidden lg:flex items-center gap-2.5 bg-white/10 backdrop-blur-xl border border-white/20 text-white px-3.5 py-2 rounded-2xl shadow-2xl pointer-events-none z-10"
+        >
+          <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center text-white">
+            <MapPin size={14} />
+          </div>
+          <span className="text-xs text-blue-100 font-medium">Jakarta Utara & Barat</span>
         </motion.div>
 
         {/* Subtle dot pattern */}
@@ -165,9 +209,9 @@ export default function JemaatPage() {
           style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }}
         />
 
-        {/* Hero Content */}
+        {/* Hero Content with Parallax Scale & Offset */}
         <motion.div
-          style={{ y: heroContentY, opacity: heroOpacity }}
+          style={{ y: heroContentY, opacity: heroOpacity, scale: heroScale }}
           className="relative z-10 text-center px-4 sm:px-6 max-w-4xl mx-auto flex flex-col items-center"
         >
           {/* Main Title */}
@@ -177,7 +221,7 @@ export default function JemaatPage() {
             transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="mb-4 sm:mb-6 mt-1 sm:mt-2"
           >
-            <span className="inline-block text-xs sm:text-sm font-bold tracking-widest uppercase text-sky-300/90 mb-2 sm:mb-3">
+            <span className="inline-block text-xs sm:text-sm font-bold tracking-widest uppercase text-sky-300/90 mb-2 sm:mb-3 px-3.5 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md">
               Gereja Bethel Indonesia
             </span>
             <h1 className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.14]">
@@ -193,7 +237,7 @@ export default function JemaatPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.38 }}
-            className="text-xs sm:text-base md:text-lg text-blue-100/85 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed font-normal px-2"
+            className="text-xs sm:text-base md:text-lg text-blue-100/90 max-w-2xl mx-auto mb-6 sm:mb-8 leading-relaxed font-normal px-2 drop-shadow-sm"
           >
             Komunitas iman yang hangat dan melayani dengan kasih. Kami menyambut Anda dan keluarga untuk bersekutu, beribadah, dan bertumbuh bersama dalam hadirat Tuhan.
           </motion.p>
@@ -211,6 +255,15 @@ export default function JemaatPage() {
             >
               <span>Lihat Jadwal Ibadah</span>
               <ArrowRight size={16} />
+            </a>
+            <a
+              href={CHURCH.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 backdrop-blur-md border border-emerald-400/40 text-emerald-200 hover:text-white font-medium text-xs sm:text-sm px-5 py-3 sm:px-7 sm:py-3.5 rounded-full hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 cursor-pointer shadow-lg shadow-emerald-950/20"
+            >
+              <MapPin size={16} className="text-emerald-300" />
+              <span>Petunjuk Arah Maps</span>
             </a>
             <Link
               to="/galeri"
@@ -393,6 +446,54 @@ export default function JemaatPage() {
               <Link to="/lokasi" className="inline-flex items-center gap-2 bg-white text-blue-900 font-bold px-8 py-4 rounded-full hover:shadow-2xl hover:scale-105 transition-all duration-200">
                 Daftar Komsel Sekarang <ArrowRight size={18} />
               </Link>
+            </div>
+          </FadeInSection>
+        </div>
+      </section>
+
+      {/* ── Lokasi Kami (Interactive Google Maps Section) ── */}
+      <section className="py-20 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-6">
+          <FadeInSection>
+            <div className="text-center mb-12">
+              <span className="inline-block text-blue-600 text-sm font-semibold uppercase tracking-widest mb-3 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-100">
+                Temukan Lokasi
+              </span>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Kunjungi Kami di GBI Jelambar Timur</h2>
+              <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-base">
+                {CHURCH.address}
+              </p>
+            </div>
+          </FadeInSection>
+
+          <FadeInSection delay={0.1}>
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-100 group">
+              <div className="h-72 sm:h-96 w-full relative">
+                <iframe
+                  title="Lokasi GBI Jelambar Timur Home"
+                  src="https://maps.google.com/maps?q=Jl.+I+No.52,+RT.1/RW.6,+Pejagalan,+Kecamatan+Penjaringan,+Jkt+Utara&z=17&output=embed"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0, display: 'block' }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+
+                {/* Direct Google Maps link overlay button */}
+                <a
+                  href={CHURCH.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 bg-white/95 hover:bg-white text-gray-900 font-bold text-xs sm:text-sm px-6 py-3 rounded-full shadow-2xl border border-gray-200 hover:shadow-blue-500/25 hover:border-blue-500 transition-all duration-300 hover:scale-105 active:scale-95 group/mapbtn backdrop-blur-md cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 group-hover/mapbtn:bg-blue-600 group-hover/mapbtn:text-white transition-colors duration-300">
+                    <MapPin size={15} />
+                  </div>
+                  <span>Buka Petunjuk Arah di Google Maps</span>
+                  <ArrowRight size={14} className="text-gray-400 group-hover/mapbtn:text-blue-600 group-hover/mapbtn:translate-x-1 transition-all" />
+                </a>
+              </div>
             </div>
           </FadeInSection>
         </div>
