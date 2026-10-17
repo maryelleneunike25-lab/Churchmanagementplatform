@@ -123,6 +123,9 @@ export default function JemaatPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+      {/* ── Public Navbar (Fixed / Sticky on Top) ── */}
+      <PublicNavbar />
+
       {/* ── Hero ── */}
       <section
         className="relative min-h-[90vh] sm:min-h-[92vh] md:min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-16 sm:py-24"
@@ -130,10 +133,6 @@ export default function JemaatPage() {
           background: 'radial-gradient(ellipse 95% 75% at 50% 12%, #1e3a8a 0%, #0f172a 55%, #050814 100%)'
         }}
       >
-        {/* Navbar floats on top */}
-        <div className="absolute top-0 left-0 right-0 z-50">
-          <PublicNavbar />
-        </div>
 
         {/* Background video (if exists) with parallax */}
         {!videoFailed && (

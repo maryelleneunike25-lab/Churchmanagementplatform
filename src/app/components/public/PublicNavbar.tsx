@@ -85,7 +85,11 @@ export default function PublicNavbar() {
 
   return (
     <motion.header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${solid ? 'bg-white shadow-md' : 'bg-transparent'}`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        solid
+          ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100/80 py-0'
+          : 'bg-transparent py-1'
+      }`}
       initial={{ y: -80 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
