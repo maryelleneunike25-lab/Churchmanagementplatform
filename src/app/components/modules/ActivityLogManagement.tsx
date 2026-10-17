@@ -11,7 +11,7 @@ import {
   Activity, Users, ShieldAlert, Clock, Search, Filter, RefreshCw,
   CheckCircle, AlertTriangle, Trash2, Edit3, PlusCircle, LogIn, LogOut,
   Monitor, Smartphone, Globe, ArrowUpDown, ChevronLeft, ChevronRight,
-  ExternalLink, ShieldCheck, UserCheck, Calendar, Info
+  ExternalLink, ShieldCheck, UserCheck, Calendar, Info, ArrowRight, ChevronDown
 } from 'lucide-react';
 
 // Format date to local Indonesian time
@@ -599,9 +599,41 @@ export default function ActivityLogManagement() {
                             </span>
                           </td>
 
-                          {/* Detail Description */}
-                          <td className="px-4 py-3 text-gray-700 max-w-md">
-                            <p className="break-words font-medium">{detailText}</p>
+                          {/* Detail Description & Field Diffs */}
+                          <td className="px-4 py-3 text-gray-700 max-w-lg">
+                            <p className="break-words font-medium text-gray-900 leading-snug">{detailText}</p>
+                            
+                            {/* Detailed changes list if available */}
+                            {Array.isArray(log.detail?.changes) && log.detail.changes.length > 0 && (
+                              <div className="mt-2 space-y-1.5 pt-1.5 border-t border-gray-100">
+                                {log.detail.changes.map((c: any, ci: number) => (
+                                  <div
+                                    key={ci}
+                                    className="text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg px-2.5 py-1.5 flex items-center gap-2 flex-wrap"
+                                  >
+                                    <span className="font-bold text-slate-700 capitalize bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[10px]">
+                                      {c.field}
+                                    </span>
+                                    <span className="text-rose-600 line-through bg-rose-50 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                      {c.oldText || 'kosong'}
+                                    </span>
+                                    <ArrowRight size={11} className="text-slate-400 flex-shrink-0" />
+                                    <span className="text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                      {c.newText || 'kosong'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Additional info badge if entityName is provided */}
+                            {log.detail?.entityName && !log.detail?.changes?.length && (
+                              <div className="mt-1">
+                                <span className="inline-block text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200/60 font-mono">
+                                  ID/Nama: {log.detail.entityName}
+                                </span>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

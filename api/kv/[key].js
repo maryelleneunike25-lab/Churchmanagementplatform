@@ -16,6 +16,43 @@ function getTargetFromKey(key) {
   return `KV (${key.split(':')[0] || 'Umum'})`;
 }
 
+function formatValueForLog(v) {
+  if (v === null || v === undefined || v === '') return 'kosong';
+  if (typeof v === 'boolean') return v ? 'Ya' : 'Tidak';
+  if (Array.isArray(v)) {
+    if (v.length === 0) return 'kosong';
+    if (v.length <= 4 && typeof v[0] === 'string') return v.join(', ');
+    return `${v.length} item`;
+  }
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+function computeDiff(oldVal, newVal) {
+  const diffs = [];
+  const allKeys = Array.from(new Set([...Object.keys(oldVal || {}), ...Object.keys(newVal || {})]));
+  // Ignore internal metadata keys from diff
+  const ignoredKeys = new Set(['updatedAt', 'updated_at', 'createdAt', 'created_at', '_storeKey', 'id']);
+
+  for (const k of allKeys) {
+    if (ignoredKeys.has(k)) continue;
+    const o = oldVal ? oldVal[k] : undefined;
+    const n = newVal ? newVal[k] : undefined;
+    const oJson = JSON.stringify(o);
+    const nJson = JSON.stringify(n);
+    if (oJson !== nJson) {
+      diffs.push({
+        field: k,
+        old: o !== undefined ? o : null,
+        new: n !== undefined ? n : null,
+        oldText: formatValueForLog(o),
+        newText: formatValueForLog(n),
+      });
+    }
+  }
+  return diffs;
+}
+
 export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
@@ -31,31 +68,88 @@ export default async function handler(req, res) {
   if (req.method === 'POST' || req.method === 'PUT') {
     const value = getBody(req);
     const valueJson = typeof value === 'string' ? value : JSON.stringify(value);
+
+    // Fetch existing record to compute accurate diff and entity label
+    const existingRows = await sql`SELECT value FROM app_kv WHERE key = ${key}`;
+    const existing = existingRows.length > 0 ? existingRows[0].value : null;
+
     await sql`
       INSERT INTO app_kv (key, value) VALUES (${key}, ${valueJson}::jsonb)
       ON CONFLICT (key) DO UPDATE SET value = ${valueJson}::jsonb, updated_at = now()
     `;
 
     const target = getTargetFromKey(key);
+    const isNew = !existing;
+    const action = isNew ? 'CREATE' : 'UPDATE';
+
+    const newValObj = typeof value === 'object' && value !== null ? value : {};
+    const oldValObj = typeof existing === 'object' && existing !== null ? existing : {};
+
+    const entityName =
+      newValObj.name ||
+      oldValObj.name ||
+      newValObj.title ||
+      oldValObj.title ||
+      key.split(':').slice(1).join(':');
+
+    let summary = '';
+    let changes = [];
+
+    if (isNew) {
+      summary = `Menambahkan data baru "${entityName}" pada ${target}`;
+    } else {
+      changes = computeDiff(oldValObj, newValObj);
+      if (changes.length > 0) {
+        const changeHighlights = changes
+          .slice(0, 3)
+          .map(c => `mengubah ${c.field}: "${c.oldText}" → "${c.newText}"`)
+          .join(', ');
+        const extraCount = changes.length > 3 ? ` (+${changes.length - 3} perubahan lainnya)` : '';
+        summary = `Mengubah data "${entityName}" (${changeHighlights}${extraCount})`;
+      } else {
+        summary = `Memperbarui data "${entityName}" pada ${target}`;
+      }
+    }
+
     await logActivity({
       userId: user.id,
-      action: 'UPDATE',
+      action,
       target,
-      detail: { key, summary: `Menyimpan data pada ${target} (${key})` },
+      detail: {
+        key,
+        entityName,
+        summary,
+        changes,
+        isNew,
+      },
     });
 
     return sendJson(res, 200, { success: true });
   }
   
   if (req.method === 'DELETE') {
+    const existingRows = await sql`SELECT value FROM app_kv WHERE key = ${key}`;
+    const existing = existingRows.length > 0 ? existingRows[0].value : null;
+
     await sql`DELETE FROM app_kv WHERE key = ${key}`;
 
     const target = getTargetFromKey(key);
+    const entityName =
+      (existing && typeof existing === 'object' && (existing.name || existing.title)) ||
+      key.split(':').slice(1).join(':');
+
+    const summary = `Menghapus data "${entityName}" dari ${target}`;
+
     await logActivity({
       userId: user.id,
       action: 'DELETE',
       target,
-      detail: { key, summary: `Menghapus data pada ${target} (${key})` },
+      detail: {
+        key,
+        entityName,
+        summary,
+        deletedData: existing,
+      },
     });
 
     return sendJson(res, 200, { success: true });
