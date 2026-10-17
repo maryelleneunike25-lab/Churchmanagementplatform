@@ -140,37 +140,66 @@ function NameCell({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={`relative ${open ? 'z-50' : 'z-10'}`}>
       {/* Cell display */}
       <div
         onClick={() => { if (!disabled) setOpen(o => !o); }}
         title={isConflict ? `Tabrakan dengan: ${conflictDivisions.join(', ')}` : undefined}
-        className={`min-h-[32px] px-2 py-1 rounded-lg text-xs flex items-center gap-1 group transition-all select-none ${
+        className={`min-h-[32px] px-2 py-1 rounded-lg text-xs flex items-center gap-1.5 group transition-all select-none ${
           disabled ? 'cursor-default' : 'cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-200'
-        } ${isConflict ? 'bg-red-50 border border-red-200' : open ? 'bg-blue-50 border border-blue-300' : 'border border-transparent'}`}
+        } ${isConflict ? 'bg-red-50 border border-red-200' : open ? 'bg-blue-50 border border-blue-300 ring-2 ring-blue-100' : 'border border-transparent'}`}
       >
         {value ? (
           <>
             <span className={`font-medium flex-1 leading-tight ${isConflict ? 'text-red-700' : 'text-gray-900'}`}>{value}</span>
-            {isConflict && <AlertTriangle size={10} className="text-red-500 flex-shrink-0" />}
+            {isConflict && <AlertTriangle size={11} className="text-red-500 flex-shrink-0" />}
             {!disabled && (
               <button
-                onClick={e => { e.stopPropagation(); onClear(); setOpen(false); }}
-                className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-opacity flex-shrink-0">
-                <X size={10} />
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  onClear();
+                  setOpen(false);
+                }}
+                title="Hapus / Kosongkan pelayan ini"
+                className="p-0.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+              >
+                <X size={12} />
               </button>
             )}
           </>
         ) : (
-          !disabled && <span className="text-blue-300 text-xs">+ pilih</span>
+          !disabled && <span className="text-blue-400 text-xs font-medium hover:text-blue-600">+ pilih</span>
         )}
       </div>
 
-      {/* Dropdown — shows immediately, no search */}
+      {/* Dropdown — shows immediately, elevated z-index */}
       {open && !disabled && (
         <div
-          className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-y-auto"
-          style={{ minWidth: 190, maxHeight: 220, zIndex: 9999 }}>
+          className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-y-auto z-[9999]"
+          style={{ minWidth: 210, maxHeight: 240 }}
+        >
+          {/* Opsi Kosongkan / Cancel jika sudah ada nama */}
+          {value && (
+            <button
+              type="button"
+              onMouseDown={e => {
+                e.preventDefault();
+                onClear();
+                setOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 bg-red-50/60 hover:bg-red-100/80 text-red-600 border-b border-red-100 flex items-center gap-2 transition-colors font-medium text-xs"
+            >
+              <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                <Trash2 size={12} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="leading-tight text-xs font-semibold">Kosongkan Kolom Ini</p>
+                <p className="text-[10px] text-red-400 leading-tight">Hapus "{value}"</p>
+              </div>
+            </button>
+          )}
+
           {suggestions.length === 0 ? (
             <div className="px-4 py-4 text-xs text-gray-400 text-center">
               Belum ada data pelayan
@@ -179,10 +208,16 @@ function NameCell({
             suggestions.map(m => (
               <button
                 key={m.id}
-                onMouseDown={e => { e.preventDefault(); onSave(m.name); setOpen(false); }}
+                type="button"
+                onMouseDown={e => {
+                  e.preventDefault();
+                  onSave(m.name);
+                  setOpen(false);
+                }}
                 className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2.5 ${
-                  m.name === value ? 'bg-blue-50' : ''
-                }`}>
+                  m.name === value ? 'bg-blue-50/80 font-semibold' : ''
+                }`}
+              >
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 text-white font-bold flex items-center justify-center text-[10px] flex-shrink-0">
                   {m.name.charAt(0).toUpperCase()}
                 </div>
@@ -190,7 +225,7 @@ function NameCell({
                   <p className="text-xs font-semibold text-gray-900 leading-tight truncate">{m.name}</p>
                   {m.nickname && <p className="text-[10px] text-gray-400 leading-tight truncate">{m.nickname}</p>}
                 </div>
-                {m.name === value && <Check size={11} className="text-blue-500 flex-shrink-0" />}
+                {m.name === value && <Check size={12} className="text-blue-600 flex-shrink-0" />}
               </button>
             ))
           )}
