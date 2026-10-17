@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useAuth } from '../../contexts/AuthContext';
@@ -116,8 +117,98 @@ type WeekSchedule = {
 interface JemaatMember { id: string; name: string; nickname?: string; pelayan?: string[]; }
 
 // ── Name cell editor ──────────────────────────────────────────────────────────
+// ── Text cell editor (for manual input like Tema & Pembicara) ────────────────
+function ManualTextCell({
+  value, onSave, onClear, disabled, placeholder = 'Ketik isi...',
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  onClear: () => void;
+  disabled: boolean;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed !== value) {
+      if (trimmed) onSave(trimmed);
+      else onClear();
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="min-h-[42px] flex items-center">
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          onBlur={commit}
+          className="w-full h-9 px-2.5 py-1 text-xs bg-white border-2 border-blue-500 rounded-xl outline-hidden font-medium text-gray-900 shadow-sm"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => { if (!disabled) setEditing(true); }}
+      className={`min-h-[42px] px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 group transition-all select-none border ${
+        disabled ? 'cursor-default border-transparent' : 'cursor-pointer hover:bg-blue-50/70 hover:border-blue-200 border-transparent'
+      }`}
+    >
+      {value ? (
+        <>
+          <span className="font-medium flex-1 text-gray-900 leading-tight break-words">{value}</span>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onClear();
+              }}
+              title="Hapus isi"
+              className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </>
+      ) : (
+        !disabled && <span className="text-gray-400 italic text-xs font-normal hover:text-blue-600">+ ketik {placeholder}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Name cell editor (using createPortal for guaranteed on-top dropdown) ──────
 function NameCell({
-  value, suggestions, onSave, onClear, isConflict, conflictDivisions, disabled, openUp = false,
+  value, suggestions, onSave, onClear, isConflict, conflictDivisions, disabled,
 }: {
   value: string;
   suggestions: JemaatMember[];
@@ -129,26 +220,68 @@ function NameCell({
   openUp?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; placeAbove: boolean } | null>(null);
+  const cellRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!cellRef.current) return;
+    const rect = cellRef.current.getBoundingClientRect();
+    const dropdownHeight = 240;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placeAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+
+    setCoords({
+      top: placeAbove ? rect.top - 8 : rect.bottom + 6,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 240)),
+      width: Math.max(rect.width, 220),
+      placeAbove,
+    });
+  }, []);
+
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!open) {
+      updatePosition();
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const onScrollOrResize = () => updatePosition();
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        cellRef.current && !cellRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    document.addEventListener('mousedown', onMouseDown);
+
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [open, updatePosition]);
 
   return (
-    <div ref={ref} className={`relative ${open ? 'z-50' : 'z-10'}`}>
-      {/* Cell display */}
+    <>
       <div
-        onClick={() => { if (!disabled) setOpen(o => !o); }}
+        ref={cellRef}
+        onClick={handleToggle}
         title={isConflict ? `Tabrakan dengan: ${conflictDivisions.join(', ')}` : undefined}
-        className={`min-h-[42px] px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 group transition-all select-none ${
-          disabled ? 'cursor-default' : 'cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-200'
-        } ${isConflict ? 'bg-red-50 border border-red-200' : open ? 'bg-blue-50 border border-blue-300 ring-2 ring-blue-100' : 'border border-transparent'}`}
+        className={`min-h-[42px] px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 group transition-all select-none border ${
+          disabled ? 'cursor-default border-transparent' : 'cursor-pointer hover:bg-blue-50 hover:border-blue-200'
+        } ${isConflict ? 'bg-red-50 border-red-200' : open ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-100' : 'border-transparent'}`}
       >
         {value ? (
           <>
@@ -174,15 +307,22 @@ function NameCell({
         )}
       </div>
 
-      {/* Dropdown — shows immediately, elevated z-index, drops up or down */}
-      {open && !disabled && (
+      {/* Dropdown in React Portal to completely break free from all table overflows */}
+      {open && !disabled && coords && createPortal(
         <div
-          className={`absolute left-0 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-y-auto z-[9999] ${
-            openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          }`}
-          style={{ minWidth: 220, maxHeight: 220 }}
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: coords.placeAbove ? 'auto' : `${coords.top}px`,
+            bottom: coords.placeAbove ? `${window.innerHeight - coords.top}px` : 'auto',
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 999999,
+            maxHeight: 250,
+          }}
+          className="bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
         >
-          {/* Opsi Kosongkan / Cancel jika sudah ada nama */}
+          {/* Opsi Kosongkan / Hapus jika sudah terisi */}
           {value && (
             <button
               type="button"
@@ -217,8 +357,8 @@ function NameCell({
                   onSave(m.name);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2.5 ${
-                  m.name === value ? 'bg-blue-50/80 font-semibold' : ''
+                className={`w-full text-left px-3.5 py-2 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2.5 ${
+                  m.name === value ? 'bg-blue-50/80 font-semibold text-blue-900' : ''
                 }`}
               >
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 text-white font-bold flex items-center justify-center text-[10px] flex-shrink-0">
@@ -228,13 +368,14 @@ function NameCell({
                   <p className="text-xs font-semibold text-gray-900 leading-tight truncate">{m.name}</p>
                   {m.nickname && <p className="text-[10px] text-gray-400 leading-tight truncate">{m.nickname}</p>}
                 </div>
-                {m.name === value && <Check size={12} className="text-blue-600 flex-shrink-0" />}
+                {m.name === value && <Check size={13} className="text-blue-600 flex-shrink-0" />}
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -841,6 +982,22 @@ export default function ScheduleManagement() {
                     </td>
                     {divInfo.roles.map(role => {
                       const val = weekDiv[role] || '';
+                      const isManualText = role.toLowerCase() === 'tema' || role.toLowerCase() === 'pembicara';
+
+                      if (isManualText) {
+                        return (
+                          <td key={role} className="px-2.5 py-2.5">
+                            <ManualTextCell
+                              value={val}
+                              placeholder={role}
+                              onSave={text => setName(iso, activeDivision, role, text)}
+                              onClear={() => clearName(iso, activeDivision, role)}
+                              disabled={!canEdit}
+                            />
+                          </td>
+                        );
+                      }
+
                       const nameKey = val.toLowerCase().trim();
                       const isConflict = !!(val && conflicts[nameKey] && conflicts[nameKey].length > 1);
                       const conflictDivisions = isConflict
@@ -857,7 +1014,6 @@ export default function ScheduleManagement() {
                             isConflict={isConflict}
                             conflictDivisions={conflictDivisions}
                             disabled={!canEdit}
-                            openUp={isBottomRows}
                           />
                         </td>
                       );
