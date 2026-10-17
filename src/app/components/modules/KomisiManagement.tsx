@@ -353,8 +353,20 @@ export default function KomisiManagement() {
 
   const openEditMember = (m: KomisiMember) => {
     setEditMember(m);
-    setMemberForm({ name: m.name, phone: m.phone, address: m.address || '', birthDate: m.birthDate || '', role: m.role || 'anggota' });
-    setSelectedJemaatId(m.jemaatId || ''); setLinkSearch('');
+    const linked = m.jemaatId ? jemaatMap[m.jemaatId] : null;
+    const resolvedBirthDate = m.birthDate || linked?.birthDate || '';
+    const resolvedPhone = m.phone || linked?.phone || '';
+    const resolvedAddress = m.address || linked?.address || '';
+
+    setMemberForm({
+      name: m.name,
+      phone: resolvedPhone,
+      address: resolvedAddress,
+      birthDate: resolvedBirthDate,
+      role: m.role || 'anggota',
+    });
+    setSelectedJemaatId(m.jemaatId || '');
+    setLinkSearch('');
     setShowMemberForm(true);
   };
 
@@ -364,12 +376,13 @@ export default function KomisiManagement() {
     try {
       const id = editMember?.id || crypto.randomUUID();
       const member: KomisiMember = {
-        id, komisiId: activeKomisi,
+        id,
+        komisiId: activeKomisi,
         name: memberForm.name.trim(),
         phone: memberForm.phone.trim(),
-          address: memberForm.address.trim(),
-          birthDate: memberForm.birthDate,
-          role: memberForm.role,
+        address: memberForm.address.trim(),
+        birthDate: memberForm.birthDate,
+        role: memberForm.role,
         joinedAt: editMember?.joinedAt || new Date().toISOString(),
         ...(selectedJemaatId ? { jemaatId: selectedJemaatId } : {}),
       };
@@ -379,9 +392,36 @@ export default function KomisiManagement() {
       } else {
         await supabaseAdmin.from(KV).insert({ key, value: member });
       }
+
+      // If linked to Data Jemaat, sync updated birthDate, name, phone, address back to Data Jemaat
+      if (selectedJemaatId) {
+        const primaryJemaatKey = `congregation:member:${selectedJemaatId}`;
+        const legacyJemaatKey = `member:${selectedJemaatId}`;
+        const { data: jRow } = await supabaseAdmin.from(KV).select('key, value').eq('key', primaryJemaatKey).maybeSingle()
+          || await supabaseAdmin.from(KV).select('key, value').eq('key', legacyJemaatKey).maybeSingle();
+
+        if (jRow && jRow.value) {
+          const updatedJemaat = {
+            ...jRow.value,
+            name: memberForm.name.trim(),
+            birthDate: memberForm.birthDate,
+            phone: memberForm.phone.trim() || jRow.value.phone,
+            address: memberForm.address.trim() || jRow.value.address,
+            updatedAt: new Date().toISOString(),
+          };
+          const targetKey = jRow.key || primaryJemaatKey;
+          await supabaseAdmin.from(KV).update({ value: updatedJemaat }).eq('key', targetKey);
+          if (targetKey !== primaryJemaatKey) {
+            await supabaseAdmin.from(KV).insert({ key: primaryJemaatKey, value: updatedJemaat });
+          }
+        }
+      }
+
       setShowMemberForm(false);
-      loadMembers();
-    } catch (e: any) { setError(e.message); }
+      await Promise.all([loadMembers(), loadJemaat()]);
+    } catch (e: any) {
+      setError(e.message);
+    }
     setSavingMember(false);
   };
 
