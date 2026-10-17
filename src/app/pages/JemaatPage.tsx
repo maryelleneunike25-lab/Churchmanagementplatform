@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'motion/react';
 import {
   Clock, MapPin, Users, Heart, BookOpen, Star,
-  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound
+  ChevronDown, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Images, CalendarHeart, UserRound,
+  Music, Disc3, Play
 } from 'lucide-react';
 import PublicNavbar from '../components/public/PublicNavbar';
 import { getMinistry, formatSchedules, ALL_MINISTRIES } from '../../lib/ministries';
@@ -334,6 +335,90 @@ export default function JemaatPage() {
           </div>
         </section>
       )}
+
+      {/* ── Lighthouse Music / Album Promo ── */}
+      <section className="py-16 sm:py-24 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-white relative overflow-hidden">
+        {/* Ambient atmospheric glows */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full bg-blue-600/15 blur-3xl pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <FadeInSection>
+            <div className="text-center mb-10 sm:mb-14">
+              <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-400/20 px-3.5 py-1.5 rounded-full mb-3 backdrop-blur-md">
+                <Music size={14} className="text-emerald-400" />
+                <span>Lighthouse Music</span>
+              </span>
+              <h2 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+                Album Pujian & Penyembahan
+              </h2>
+              <p className="text-slate-300 max-w-2xl mx-auto text-xs sm:text-base mt-3 leading-relaxed">
+                Dengarkan karya pujian dan penyembahan orisinal dari pelayan Tuhan di GBI Jelambar Timur melalui Spotify. Mari masuk dalam hadirat-Nya bersama-sama.
+              </p>
+            </div>
+          </FadeInSection>
+
+          {/* Responsive Layout: Desktop 2-column spotlight, Mobile native widget format */}
+          <FadeInSection delay={0.15}>
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/80 rounded-3xl p-4 sm:p-8 lg:p-10 shadow-2xl shadow-black/40">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+                
+                {/* Left side: Album presentation & CTAs (on desktop takes 5 cols) */}
+                <div className="lg:col-span-5 space-y-4 sm:space-y-6 text-center lg:text-left">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold">
+                    <Disc3 size={14} className="text-emerald-400 animate-spin duration-3000" />
+                    <span>Official Release</span>
+                  </div>
+
+                  <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
+                    Lighthouse Music
+                  </h3>
+
+                  <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                    Koleksi lagu pujian dan penyembahan yang dipersembahkan untuk memberkati setiap jemaat dan keluarga. Tersedia streaming gratis di Spotify.
+                  </p>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+                    <a
+                      href="https://open.spotify.com/album/46Ujgis1XjXB2tbnLQZAmM?si=ZypdheALS0i_lGcZcq1zxQ&utm_source=copy-link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-xs sm:text-sm px-6 py-3.5 rounded-full shadow-lg shadow-[#1DB954]/25 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 flex-shrink-0">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.495 17.31a.75.75 0 0 1-1.032.247c-2.827-1.728-6.388-2.119-10.58-1.161a.75.75 0 1 1-.334-1.462c4.588-1.047 8.529-.607 11.7 1.332a.75.75 0 0 1 .246 1.044zm1.467-3.266a.937.937 0 0 1-1.29.309c-3.236-1.99-8.17-2.567-11.998-1.405a.937.937 0 1 1-.546-1.792c4.375-1.328 9.805-.688 13.525 1.6a.938.938 0 0 1 .309 1.288zm.125-3.415C15.21 8.334 8.822 8.125 5.132 9.245a1.125 1.125 0 1 1-.652-2.154c4.238-1.287 11.298-1.04 15.656 1.547a1.125 1.125 0 0 1-1.049 1.991z"/>
+                      </svg>
+                      <span>Buka di Spotify App</span>
+                    </a>
+
+                    <span className="text-[11px] text-slate-400">
+                      Putar langsung di web atau simpan ke library Anda
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right side: Interactive Spotify Embed (on desktop takes 7 cols, full width on mobile) */}
+                <div className="lg:col-span-7">
+                  <div className="w-full rounded-2xl overflow-hidden shadow-2xl bg-[#121212] border border-slate-700/60 transition-transform duration-300">
+                    <iframe
+                      title="Lighthouse Music Spotify Player"
+                      style={{ borderRadius: '16px' }}
+                      src="https://open.spotify.com/embed/album/46Ujgis1XjXB2tbnLQZAmM?utm_source=generator&theme=0"
+                      width="100%"
+                      height="380"
+                      frameBorder="0"
+                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                      loading="lazy"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </FadeInSection>
+        </div>
+      </section>
 
       {/* ── Jadwal ── */}
       <section id="jadwal" className="py-24 bg-gray-50">
