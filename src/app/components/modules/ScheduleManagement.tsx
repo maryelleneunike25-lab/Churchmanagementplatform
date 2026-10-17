@@ -117,7 +117,7 @@ interface JemaatMember { id: string; name: string; nickname?: string; pelayan?: 
 
 // ── Name cell editor ──────────────────────────────────────────────────────────
 function NameCell({
-  value, suggestions, onSave, onClear, isConflict, conflictDivisions, disabled,
+  value, suggestions, onSave, onClear, isConflict, conflictDivisions, disabled, openUp = false,
 }: {
   value: string;
   suggestions: JemaatMember[];
@@ -126,6 +126,7 @@ function NameCell({
   isConflict: boolean;
   conflictDivisions: string[];
   disabled: boolean;
+  openUp?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -145,13 +146,13 @@ function NameCell({
       <div
         onClick={() => { if (!disabled) setOpen(o => !o); }}
         title={isConflict ? `Tabrakan dengan: ${conflictDivisions.join(', ')}` : undefined}
-        className={`min-h-[32px] px-2 py-1 rounded-lg text-xs flex items-center gap-1.5 group transition-all select-none ${
+        className={`min-h-[42px] px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 group transition-all select-none ${
           disabled ? 'cursor-default' : 'cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-200'
         } ${isConflict ? 'bg-red-50 border border-red-200' : open ? 'bg-blue-50 border border-blue-300 ring-2 ring-blue-100' : 'border border-transparent'}`}
       >
         {value ? (
           <>
-            <span className={`font-medium flex-1 leading-tight ${isConflict ? 'text-red-700' : 'text-gray-900'}`}>{value}</span>
+            <span className={`font-medium flex-1 leading-tight ${isConflict ? 'text-red-700 font-semibold' : 'text-gray-900'}`}>{value}</span>
             {isConflict && <AlertTriangle size={11} className="text-red-500 flex-shrink-0" />}
             {!disabled && (
               <button
@@ -162,7 +163,7 @@ function NameCell({
                   setOpen(false);
                 }}
                 title="Hapus / Kosongkan pelayan ini"
-                className="p-0.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+                className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
               >
                 <X size={12} />
               </button>
@@ -173,11 +174,13 @@ function NameCell({
         )}
       </div>
 
-      {/* Dropdown — shows immediately, elevated z-index */}
+      {/* Dropdown — shows immediately, elevated z-index, drops up or down */}
       {open && !disabled && (
         <div
-          className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-y-auto z-[9999]"
-          style={{ minWidth: 210, maxHeight: 240 }}
+          className={`absolute left-0 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-y-auto z-[9999] ${
+            openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          }`}
+          style={{ minWidth: 220, maxHeight: 220 }}
         >
           {/* Opsi Kosongkan / Cancel jika sudah ada nama */}
           {value && (
@@ -188,14 +191,14 @@ function NameCell({
                 onClear();
                 setOpen(false);
               }}
-              className="w-full text-left px-3 py-2 bg-red-50/60 hover:bg-red-100/80 text-red-600 border-b border-red-100 flex items-center gap-2 transition-colors font-medium text-xs"
+              className="w-full text-left px-3.5 py-2.5 bg-red-50/70 hover:bg-red-100 text-red-600 border-b border-red-100 flex items-center gap-2.5 transition-colors font-medium text-xs"
             >
               <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
                 <Trash2 size={12} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="leading-tight text-xs font-semibold">Kosongkan Kolom Ini</p>
-                <p className="text-[10px] text-red-400 leading-tight">Hapus "{value}"</p>
+                <p className="text-[10px] text-red-400 leading-tight truncate">Hapus "{value}"</p>
               </div>
             </button>
           )}
@@ -810,15 +813,15 @@ export default function ScheduleManagement() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-28 min-h-[380px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80">
-                <th className="px-5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap w-32">
+                <th className="px-5 py-3.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap w-32">
                   Tanggal
                 </th>
                 {divInfo.roles.map(role => (
-                  <th key={role} className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                  <th key={role} className="px-3.5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
                     {role}
                   </th>
                 ))}
@@ -829,10 +832,11 @@ export default function ScheduleManagement() {
                 const iso = isoDate(s);
                 const weekDiv = scheduleData[iso]?.divisions[activeDivision] || {};
                 const conflicts = conflictsForDate(iso);
+                const isBottomRows = si >= Math.max(1, sundays.length - 2);
 
                 return (
                   <tr key={iso} className={`border-b border-slate-100 hover:bg-slate-50/60 transition-colors ${si % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                    <td className="px-5 py-2.5 whitespace-nowrap">
+                    <td className="px-5 py-3.5 whitespace-nowrap">
                       <span className="text-xs font-bold text-slate-900">{displayDate(iso)}</span>
                     </td>
                     {divInfo.roles.map(role => {
@@ -844,7 +848,7 @@ export default function ScheduleManagement() {
                         : [];
 
                       return (
-                        <td key={role} className="px-2 py-2">
+                        <td key={role} className="px-2.5 py-2.5">
                           <NameCell
                             value={val}
                             suggestions={suggestions}
@@ -853,6 +857,7 @@ export default function ScheduleManagement() {
                             isConflict={isConflict}
                             conflictDivisions={conflictDivisions}
                             disabled={!canEdit}
+                            openUp={isBottomRows}
                           />
                         </td>
                       );
